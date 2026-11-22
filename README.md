@@ -87,7 +87,7 @@ AggPanSearch 是一个**网盘资源聚合搜索平台**：后端移植开源项
    ```json
    "DBConnectionString": "server=localhost;database=aggpansearch;user=root;password=123456;port=3306;pooling=true;charset=utf8mb4;"
    ```
-
+ 
    - 线上环境可编辑 `appsettings.Production.json` 仅覆盖连接串（该文件已被 `.gitignore` 忽略，不提交敏感信息）
 
 3. 启动两个 Web 项目：
