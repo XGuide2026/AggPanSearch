@@ -1,0 +1,176 @@
+@{
+    Layout = "~/Views/Shared/_Index.cshtml";
+}
+<div class="container-div">
+    <div class="row">
+        <div id="searchDiv" class="col-sm-12 search-collapse">
+            <div class="select-list">
+                <ul>
+                    <li>
+                        <label>关键词：</label>
+                        <input id="keyword" col="keyword" type="text" />
+                    </li>
+                    <li>
+                        <label>IP：</label>
+                        <input id="ip" col="ip" type="text" />
+                    </li>
+                    <li>
+                        <label>是否命中缓存：</label>
+                        <div id="is_cache" col="is_cache" class="select-wrap"></div>
+                    </li>
+                    <li class="select-time">
+                        <label>搜索时间：</label>
+                        <input id="startTime" col="startTime" type="text" class="time-input" placeholder="开始时间" />
+                        <span>-</span>
+                        <input id="endTime" col="endTime" type="text" class="time-input" placeholder="结束时间" />
+                    </li>
+                    <li>
+                        <a id="btnSearch" class="btn btn-primary btn-sm" onclick="searchGrid()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="btn-group-sm hidden-xs" id="toolbar">
+            <a id="btnAdd" class="btn btn-success" onclick="showSaveForm(true)"><i class="fa fa-plus"></i> 新增</a>
+            <a id="btnEdit" class="btn btn-primary disabled" onclick="showSaveForm(false)"><i class="fa fa-edit"></i> 修改</a>
+            <a id="btnDelete" class="btn btn-danger disabled" onclick="deleteForm()"><i class="fa fa-remove"></i> 删除</a>
+            <a id="btnClear" class="btn btn-warning" onclick="clearForm()"><i class="fa fa-trash"></i> 清空日志</a>
+        </div>
+        <div class="col-sm-12 select-table table-striped">
+            <table id="gridTable" data-mobile-responsive="true"></table>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(function () {
+        initGrid();
+        // 是否命中缓存：1=是，0=否（不选即"全部"，值为 -1）
+        $("#is_cache").ysComboBox({
+            data: [{ Key: "1", Value: "是" }, { Key: "0", Value: "否" }],
+            search: false
+        });
+        laydate.render({ elem: '#startTime', format: 'yyyy-MM-dd' });
+        laydate.render({ elem: '#endTime', format: 'yyyy-MM-dd' });
+    });
+
+    function initGrid() {
+        var queryUrl = '@Url.Content("~/PanManage/PanSearchLog/GetPageListJson")';
+        $('#gridTable').ysTable({
+            url: queryUrl,
+            columns: [
+                { checkbox: true, visible: true },
+                { field: 'Id', title: 'Id', visible: false },
+                { field: 'Keyword', title: '搜索关键词' },
+                { field: 'Ip', title: '来源IP' },
+                {
+                    field: 'IsCache', title: '是否命中缓存', align: 'center',
+                    formatter: function (value, row, index) {
+                        if (ys.isNullOrEmpty(value)) {
+                            return '';
+                        }
+                        return String(value) == '1'
+                            ? '<span class="badge badge-warning">是</span>'
+                            : '<span class="badge badge-primary">否</span>';
+                    }
+                },
+                {
+                    field: 'ResultTotal', title: '搜索结果总数', align: 'center',
+                    formatter: function (value, row, index) {
+                        return ys.isNullOrEmpty(value) ? '' : value;
+                    }
+                },
+                {
+                    field: 'PanTypeResults', title: '分类网盘搜索结果',
+                    formatter: function (value, row, index) {
+                        return ys.isNullOrEmpty(value) ? '' : value;
+                    }
+                },
+                {
+                    field: 'CostMs', title: '搜索耗时', align: 'center',
+                    formatter: function (value, row, index) {
+                        return ys.isNullOrEmpty(value) ? '' : value + ' ms';
+                    }
+                },
+                {
+                    field: 'CreateTime', title: '搜索时间', formatter: function (value, row, index) {
+                        return ys.formatDate(value, "yyyy-MM-dd HH:mm:ss");
+                    }
+                }
+            ],
+            queryParams: function (params) {
+                var pagination = $('#gridTable').ysTable('getPagination', params);
+                var queryString = $('#searchDiv').getWebControls(pagination);
+                return queryString;
+            }
+        });
+    }
+
+    function searchGrid() {
+        $('#gridTable').ysTable('search');
+        resetToolbarStatus();
+    }
+
+    function showSaveForm(bAdd) {
+        var id = 0;
+        if (!bAdd) {
+            var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+            if (!ys.checkRowEdit(selectedRow)) {
+                return;
+            }
+            else {
+                id = selectedRow[0].Id;
+            }
+        }
+        ys.openDialog({
+            title: id > 0 ? '编辑' : '添加',
+            content: '@Url.Content("~/PanManage/PanSearchLog/PanSearchLogForm")' + '?id=' + id,
+            width: '768px',
+            height: '680px',
+            callback: function (index, layero) {
+                var iframeWin = window[layero.find('iframe')[0]['name']];
+                iframeWin.saveForm(index);
+            }
+        });
+    }
+
+    function deleteForm() {
+        var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+        if (ys.checkRowDelete(selectedRow)) {
+            ys.confirm('确认要删除选中的' + selectedRow.length + '条数据吗？', function () {
+                var ids = ys.getIds(selectedRow);
+                ys.ajax({
+                    url: '@Url.Content("~/PanManage/PanSearchLog/DeleteFormJson")' + '?ids=' + ids,
+                    type: 'post',
+                    success: function (obj) {
+                        if (obj.Tag == 1) {
+                            ys.msgSuccess(obj.Message);
+                            searchGrid();
+                        }
+                        else {
+                            ys.msgError(obj.Message);
+                        }
+                    }
+                });
+            });
+        }
+    }
+
+    function clearForm() {
+        ys.confirm('清空日志不可恢复，确认清空全部搜索日志吗？', function () {
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanSearchLog/ClearFormJson")',
+                type: 'post',
+                success: function (obj) {
+                    if (obj.Tag == 1) {
+                        ys.msgSuccess('清空成功');
+                        searchGrid();
+                    }
+                    else {
+                        ys.msgError(obj.Message);
+                    }
+                }
+            });
+        });
+    }
+</script>

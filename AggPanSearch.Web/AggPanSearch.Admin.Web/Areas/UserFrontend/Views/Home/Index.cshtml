@@ -1,0 +1,471 @@
+@using AggPanSearch.Admin.Web.Areas.UserFrontend.Models
+@using Newtonsoft.Json
+@using System.Collections.Generic
+@using System.Linq
+@using AggPanSearch.Models
+
+@model IndexPageModel
+@{
+    var Config = (SiteConfig)(ViewData["Config"] ?? new SiteConfig());
+    ViewData["SeoTitle"] = Config.AppName;
+    ViewData["SeoDescription"] = Config.AppSubname;
+
+    // 网盘类型映射（渲染网盘切换标签）
+    var panTypeDict = new Dictionary<string, string>();
+    try { panTypeDict = JsonConvert.DeserializeObject<Dictionary<string, string>>(Config.PanTypeJson) ?? new Dictionary<string, string>(); } catch { }
+
+    // is_type -> 图标名：直接使用 AggPanSearch 的网盘类型常量 CloudTypes，
+    // 图标文件命名为 /userfrontend/images/pan/{CloudTypes 值}.png|svg（与 UserFrontendApiController.AggPanSearchTypeFromIsType 一一对应）
+    Func<string, string> panIconName = isType => isType switch
+    {
+        "0" => CloudTypes.Quark,
+        "1" => CloudTypes.Aliyun,
+        "2" => CloudTypes.Baidu,
+        "3" => CloudTypes.Uc,
+        "4" => CloudTypes.Xunlei,
+        "5" => CloudTypes.Pan123,
+        "6" => CloudTypes.Pan115,
+        "7" => CloudTypes.Tianyi,
+        "8" => CloudTypes.Mobile,
+        "9" => CloudTypes.Magnet,
+        "10" => CloudTypes.Guangya,
+        "11" => CloudTypes.Pikpak,
+        "12" => CloudTypes.Ed2k,
+        "13" => CloudTypes.Others,
+        _ => "",
+    };
+
+    // 资源分类导航（_CategoryNav 局部视图）：首页用横向标签样式
+    ViewData["CategoryLinkClass"] = "cat-chip";
+    // 分类标签右侧显示各自资源数量（CategoryItem.Count 由 GetCategories 统计，与"资源分类"页同源）
+    ViewData["CategoryShowCount"] = true;
+
+    // 右侧「联系方式」悬浮方块：两组各自由独立开关控制；图片补前导斜杠，避免深层路由下 404
+    Func<string, string> fixContactImg = p =>
+    {
+        if (p.Length == 0)
+        {
+            return "";
+        }
+        if (p.StartsWith("/") || p.StartsWith("http", StringComparison.OrdinalIgnoreCase) || p.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return p;
+        }
+        return "/" + p;
+    };
+    var contactGroups = new (int Enable, string Title, string Image, string Desc)[]
+    {
+        (Config.ContactQrcode1Enable, (Config.ContactQrcode1Title ?? "").Trim(), fixContactImg((Config.ContactQrcode1Image ?? "").Trim()), (Config.ContactQrcode1Desc ?? "").Trim()),
+        (Config.ContactQrcode2Enable, (Config.ContactQrcode2Title ?? "").Trim(), fixContactImg((Config.ContactQrcode2Image ?? "").Trim()), (Config.ContactQrcode2Desc ?? "").Trim()),
+    }.Where(g => g.Enable == 1 && (g.Title.Length > 0 || g.Image.Length > 0 || g.Desc.Length > 0)).ToList();
+    // 悬浮方块底部的「联系链接」（pan_conf：contact_linkN_enable/url/icon，可配置任意多个，按 N 升序）
+    // icon 为多行文本粘贴的 SVG 源码时按 HTML 原样输出，否则按图片地址渲染
+    var contactLinks = (Config.ContactLinks ?? new List<ContactLinkItem>())
+        .Where(l => l != null && (l.Url ?? "").Trim().Length > 0 && (l.Icon ?? "").Trim().Length > 0)
+        .Select(l => (Url: l.Url.Trim(), Raw: l.Icon.Trim(), IsSvg: l.IsSvg, Src: l.IsSvg ? "" : fixContactImg(l.Icon.Trim())))
+        .ToList();
+}
+@section Head {
+    <link rel="stylesheet" href="/userfrontend/css/home-index.css?v=20261122b" />
+    <!-- 资源卡片列表样式：与"资源分类"页完全一致 -->
+    <link rel="stylesheet" href="/userfrontend/css/category.css?v=20261118b" />
+    <style>
+        /* 右侧「联系方式」悬浮方块 */
+        .uf-contact-float-wrap {
+            position: fixed;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 900;
+        }
+        .uf-contact-float {
+            position: relative;
+            width: 240px;
+            max-height: 78vh;
+            overflow: auto;
+            padding: 14px 12px;
+            box-sizing: border-box;
+            background: var(--theme-surface, #fff);
+            border-radius: 12px 0 0 12px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, .12);
+            text-align: center;
+            transition: box-shadow .2s ease;
+        }
+        /* 收放把手：贴悬浮块左边缘垂直居中，收起后仍完整可见 */
+        .uf-contact-float-toggle {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translate(-100%, -50%);
+            width: 22px;
+            height: 46px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--theme-surface, #fff);
+            border: 1px solid var(--theme-border, #f0f0f0);
+            border-right: none;
+            border-radius: 8px 0 0 8px;
+            box-shadow: -2px 2px 8px rgba(0, 0, 0, .10);
+            color: var(--theme-text-secondary, #888);
+            cursor: pointer;
+            z-index: 2;
+        }
+        .uf-contact-float-toggle:hover { color: var(--theme-text, #222); }
+        .uf-contact-float-toggle svg { transition: transform .3s ease; }
+        .uf-contact-float-wrap.is-collapsed .uf-contact-float-toggle svg { transform: rotate(180deg); }
+        .uf-contact-float:hover { box-shadow: 0 10px 34px rgba(0, 0, 0, .18); }
+        /* 两组内容之间的虚线分隔 */
+        .uf-contact-float-item + .uf-contact-float-item {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--theme-border, #e6e6e6);
+        }
+        .uf-contact-float-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--theme-text, #222);
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+        .uf-contact-float-img {
+            display: block;
+            width: 210px;
+            max-width: 100%;
+            max-height: 260px;
+            object-fit: contain;
+            border-radius: 8px;
+            margin: 0 auto 10px;
+        }
+        .uf-contact-float-desc {
+            font-size: 12px;
+            line-height: 1.7;
+            color: var(--theme-text-secondary, #666);
+            word-break: break-word;
+            white-space: pre-line;
+        }
+        /* 底部的联系链接图标行：横向居中、自动换行，与上方内容虚线分隔 */
+        .uf-contact-float-links {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--theme-border, #e6e6e6);
+        }
+        .uf-contact-float-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: var(--theme-surface-2, #f5f5f5);
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+        .uf-contact-float-link:hover {
+            transform: translateY(-2px) scale(1.06);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .16);
+        }
+        .uf-contact-float-link img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        /* 图标为后台粘贴的 SVG 源码：铺满按钮，保留原配色 */
+        .uf-contact-float-link.is-svg {
+            background: transparent;
+            border-radius: 6px;
+        }
+        .uf-contact-float-link.is-svg svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* 窄屏隐藏，避免遮挡正文与手机端底部导航 */
+        @@media (max-width: 768px) {
+            .uf-contact-float-wrap { display: none; }
+        }
+    </style>
+}
+
+@if (!string.IsNullOrEmpty(Config.AdHomeTop))
+{
+    <div class="ad-box">@Html.Raw(Config.AdHomeTop)</div>
+}
+
+<div class="home-container">
+    <div class="home-main">
+        @* 首行：站点标题。独占首行并水平居中；后台「App 副标题」有值时展示该文案，否则回退默认标题 *@
+        <div class="search-title">
+            @if (!string.IsNullOrWhiteSpace(Config.AppSubname))
+            {
+                @Config.AppSubname
+            }
+            else
+            {
+                <text>一站式 <span class="highlight">网盘资源搜索</span></text>
+            }
+        </div>
+
+        <!-- 第二行：搜索卡片（整行铺满） -->
+        <div class="home-left">
+            <!-- 搜索卡片：网盘类型切换 → 搜索输入框 → 热门搜索 → 今日概览统计 -->
+            <div class="search-section">
+                <!-- 网盘类型切换 - 电脑端（默认不选中任何类型，即展示全部类型的结果） -->
+                <div class="pan-type-tabs" id="searchPanTypeTabs">
+                    @foreach (var kv in panTypeDict)
+                    {
+                        <span class="pan-type-tab" data-type="@kv.Key" data-pan-icon="@panIconName(kv.Key)" onclick="switchPanType(this)">@kv.Value</span>
+                    }
+                </div>
+
+                <!-- 网盘类型切换 - 手机端（默认不选中任何类型） -->
+                <div class="pan-type-mobile" id="searchPanTypeMobile">
+                    <div class="pan-type-mobile-list">
+                        @foreach (var kv in panTypeDict)
+                        {
+                            <button class="pan-type-mobile-btn" data-type="@kv.Key" data-pan-icon="@panIconName(kv.Key)" onclick="switchPanTypeMobile(this)">@kv.Value</button>
+                        }
+                    </div>
+                </div>
+
+                <div class="search-box-wrapper">
+                    <div class="search-input-box">
+                        @* 左侧图标：默认放大镜；选中网盘类型后由 yfs.runtime.js 的 updateSearchPanIcon 换成对应网盘图标
+                           （图标文件名取自 CloudTypes，如 quark.png / tianyi.svg，缺失时自动回退放大镜）
+                           v-pre：该节点由原生 JS 控制，避免被 Vue 重新 patch *@
+                        <span class="input-search-icon" id="searchInputIcon" v-pre>
+                            <img class="search-icon-pan" src="/userfrontend/images/search.svg" alt="" />
+                        </span>
+                        @* 首页不再原地搜索：回车/点击搜索统一携带关键词跳转到搜索页 /UserFrontend/Home/Search，由搜索页执行真正的搜索 *@
+                        <input type="text" placeholder="搜索：可搜索一切资源" onkeyup="if(event.key==='Enter')goSearchPage()">
+                        <button class="search-btn" onclick="goSearchPage()">搜索</button>
+                    </div>
+                </div>
+
+                @{
+                    // 今日概览统计三项的显示开关（后台「参数配置 - 前端设置」）：
+                    // stat_show_panel 为总开关，为 0 时三项一律隐藏；否则再分别看 stat_show_today / stat_show_total / stat_show_avgcost
+                    bool statPanel = Config.StatShowPanel != 0;
+                    bool showStatToday = statPanel && Config.StatShowToday != 0;
+                    bool showStatTotal = statPanel && Config.StatShowTotal != 0;
+                    bool showStatCost = statPanel && Config.StatShowAvgcost != 0;
+                    bool showStats = showStatToday || showStatTotal || showStatCost;
+                }
+                <!-- 今日概览统计（已并入搜索卡片末位，数值由 get_search_stats 接口刷新） -->
+                @if (showStats)
+                {
+                    <div class="stats-grid">
+                        @if (showStatToday)
+                        {
+                            <div class="stat-item">
+                                <div class="stat-label">今日搜索</div>
+                                <div class="stat-value" id="statToday">@Config.TodayFormatted</div>
+                            </div>
+                        }
+                        @if (showStatTotal)
+                        {
+                            <div class="stat-item">
+                                <div class="stat-label">总搜索量</div>
+                                <div class="stat-value" id="statTotal">@Config.TotalFormatted</div>
+                            </div>
+                        }
+                        @if (showStatCost)
+                        {
+                            <div class="stat-item">
+                                <div class="stat-label">搜索耗时</div>
+                                <!-- 平均搜索耗时：pan_search_log.cost_ms 平均值，由 get_search_stats 接口刷新 -->
+                                <div class="stat-value" id="statAvgCost">@Config.LoadTime</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+        </div>
+
+        <!-- 资源分类（数据来源同"资源分类"页：pan_source_category）——独占第三行 -->
+        @if (Model.Categories != null && Model.Categories.Count > 0)
+        {
+            <div class="category-section">
+                <div class="category-header">
+                    <div class="category-head">
+                        <span class="category-title">资源分类</span>
+                    </div>
+                    <a class="category-more" href="/category">查看更多</a>
+                </div>
+                <div class="category-chips">
+                    @await Html.PartialAsync("_CategoryNav", Model.Categories)
+                </div>
+
+                <!-- 分类资源：与"资源分类"页右侧列表同一数据源、同一套样式（_ResourceList + category.css） -->
+                <div class="category-resource-list">
+                    @if (Model.CategoryList == null || Model.CategoryList.Count == 0)
+                    {
+                        <div class="uf-empty">暂无数据</div>
+                    }
+                    else
+                    {
+                        @await Html.PartialAsync("_ResourceList", Model.CategoryList)
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- 搜索结果区域 -->
+    <div class="search-result-section" id="searchResultSection">
+        <div class="search-result-header">
+            <div class="search-result-title">
+                <div class="search-result-title-left">
+                    <span class="search-result-title-icon">🔍</span>
+                    搜索结果
+                    <span class="search-result-count" id="searchResultCount"></span>
+                </div>
+                <span class="search-result-close desktop-close" onclick="closeSearchResult()">
+                    <i class="iconfont icon-guanbi"></i> 关闭
+                </span>
+            </div>
+        </div>
+        <div id="searchResultContent">
+            <div class="search-result-loading">
+                <div class="loading-wrapper">
+                    <div class="loading-pulse"></div>
+                    <div class="loading-pulse"></div>
+                    <div class="loading-pulse"></div>
+                    <i class="iconfont icon-jiazai"></i>
+                </div>
+                <div class="loading-text">正在全网搜索</div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Config.AdHomeBottom))
+    {
+        <div class="ad-box">@Html.Raw(Config.AdHomeBottom)</div>
+    }
+</div>
+
+@* 右侧「联系方式」悬浮方块：两组各自由独立开关控制，关闭或内容为空则不渲染该组；组间虚线分隔，超高可滚动 *@
+@if (contactGroups.Count > 0)
+{
+    <div class="uf-contact-float-wrap" id="ufContactFloatWrap">
+        <button type="button" class="uf-contact-float-toggle" id="ufContactToggle" aria-label="收起联系方式" aria-expanded="true" title="收起">
+            <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path d="M9 5l6 7-6 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        </button>
+        <div class="uf-contact-float" id="ufContactFloat">
+            <div class="uf-contact-float-body">
+                @foreach (var group in contactGroups)
+                {
+                    <div class="uf-contact-float-item">
+                        @if (group.Title.Length > 0)
+                        {
+                            <div class="uf-contact-float-title">@group.Title</div>
+                        }
+                        @if (group.Image.Length > 0)
+                        {
+                            <img class="uf-contact-float-img" src="@group.Image" alt="@(group.Title.Length > 0 ? group.Title : "联系方式")" loading="lazy" onerror="this.style.display='none'" />
+                        }
+                        @if (group.Desc.Length > 0)
+                        {
+                            <div class="uf-contact-float-desc">@group.Desc</div>
+                        }
+                    </div>
+                }
+                @* 联系链接图标行：横向居中，随 body 一起淡入淡出，放在伸缩内容内部 *@
+                @if (contactLinks.Count > 0)
+                {
+                    <div class="uf-contact-float-links">
+                        @foreach (var link in contactLinks)
+                        {
+                            <a class="uf-contact-float-link@(link.IsSvg ? " is-svg" : "")" href="@link.Url" target="_blank" rel="noopener noreferrer" title="@link.Url" aria-label="联系方式">
+                                @if (link.IsSvg)
+                                {
+                                    @Html.Raw(link.Raw)
+                                }
+                                else
+                                {
+                                    <img src="@link.Src" alt="" loading="lazy" onerror="this.parentNode.style.display='none'" />
+                                }
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <!-- 首页仅「联系方式」悬浮块的伸缩动画依赖 jQuery，其余交互仍为原生 JS / Vue -->
+    <script src="/lib/jquery/2.1.4/jquery.min.js"></script>
+    <script>
+        // 搜索结果关闭
+        window.closeSearchResult = function() {
+            var section = document.getElementById('searchResultSection');
+            if (section) { section.classList.remove('show'); }
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        };
+
+        // 首页搜索入口：不在首页原地搜索，携带关键词跳转到搜索页（搜索页负责真正发请求）
+        window.goSearchPage = function () {
+            var inp = document.querySelector('.search-input-box input');
+            var kw = inp ? String(inp.value || '').trim() : '';
+            // 兜底：输入框取不到时用 Vue 绑定的 keyword
+            if (!kw) {
+                try {
+                    var k = window.app && window.app.keyword;
+                    kw = String((k && typeof k.value !== 'undefined' ? k.value : k) || '').trim();
+                } catch (e) {}
+            }
+            if (!kw) {
+                if (window.showMessage) window.showMessage('请输入你要搜索的内容~', 'error');
+                return;
+            }
+            window.location.href = '/UserFrontend/Home/Search?keyword=' + encodeURIComponent(kw);
+            return false;
+        };
+    </script>
+    <script>
+        // 「联系方式」悬浮块收缩 / 展开（jQuery 动画：宽度收放 + 内容淡入淡出）
+        (function ($) {
+            var $wrap = $('#ufContactFloatWrap');
+            if (!$wrap.length) { return; }
+            var $float = $wrap.find('#ufContactFloat');
+            var $body = $float.children('.uf-contact-float-body');
+            var $btn = $wrap.find('#ufContactToggle');
+            var fullWidth = $float.width();
+            var fullPadL = parseFloat($float.css('padding-left')) || 0;
+            var fullPadR = parseFloat($float.css('padding-right')) || 0;
+            var busy = false;
+
+            $btn.on('click', function () {
+                if (busy) { return; }
+                busy = true;
+                var collapsed = $wrap.hasClass('is-collapsed');
+                $wrap.toggleClass('is-collapsed', !collapsed);
+                if (collapsed) {
+                    // 展开：先撑开宽度，再淡入内容
+                    $float.stop(true).animate({ width: fullWidth, paddingLeft: fullPadL, paddingRight: fullPadR }, 280, function () {
+                        $body.stop(true).animate({ opacity: 1 }, 160, function () { busy = false; });
+                    });
+                } else {
+                    // 收起：内容先淡出，同时把宽度收到 0（按钮不随宽度变化，始终完整可见）
+                    $body.stop(true).animate({ opacity: 0 }, 120);
+                    $float.stop(true).animate({ width: 0, paddingLeft: 0, paddingRight: 0 }, 280, function () { busy = false; });
+                }
+                $btn.attr('aria-expanded', collapsed ? 'true' : 'false')
+                    .attr('title', collapsed ? '收起' : '展开')
+                    .attr('aria-label', collapsed ? '收起联系方式' : '展开联系方式');
+            });
+        })(jQuery);
+    </script>
+}

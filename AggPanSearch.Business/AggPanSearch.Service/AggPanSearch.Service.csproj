@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\AggPanSearch.Data\AggPanSearch.Data.Repository\AggPanSearch.Data.Repository.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Entity\AggPanSearch.Entity\AggPanSearch.Entity.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Entity\AggPanSearch.Enum\AggPanSearch.Enum.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Entity\AggPanSearch.Model\AggPanSearch.Model.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Util\AggPanSearch.IdGenerator\AggPanSearch.IdGenerator.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Util\AggPanSearch.Util\AggPanSearch.Util.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="ToolManage\" />
+  </ItemGroup>
+
+</Project>

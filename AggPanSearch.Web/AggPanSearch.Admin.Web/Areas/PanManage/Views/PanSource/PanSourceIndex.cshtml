@@ -1,0 +1,505 @@
+﻿@{
+    Layout = "~/Views/Shared/_Index.cshtml";
+}
+@using AggPanSearch.Util
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostingEnvironment
+@section header{
+    @* 卡片列表公共样式：与采集资源页共用同一套卡片排版 *@
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/aggpansearch/css/aggpansearch-card-list.min.css"))
+    @* 通用图片查看器样式：卡片封面点击查看大图 *@
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/aggpansearch/css/aggpansearch-image-viewer.min.css"))
+}
+
+<div class="container-div">
+    <div class="row">
+        <div id="searchDiv" class="col-sm-12 search-collapse">
+            <div class="select-list">
+                <ul>
+                    <li>
+                        <label>资源分类：</label>
+                        <div id="source_category_id" col="source_category_id" class="select-wrap"></div>
+                    </li>
+                    <li>
+                        <label>关键词：</label>
+                        <input id="keyword" col="keyword" type="text" placeholder="资源名称/地址/介绍" />
+                    </li>
+                    <li>
+                        <a id="btnSearch" class="btn btn-primary btn-sm" onclick="searchGrid()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="btn-group-sm hidden-xs collect-toolbar" id="toolbar">
+            @* 卡片列表无表头，用这里的复选框代替表格表头的全选；勾选范围为当前页 *@
+            <label class="collect-check-all" title="勾选 / 取消勾选当前页全部资源">
+                <input type="checkbox" id="chkSelectAllPage" />
+                <span>全选本页</span>
+            </label>
+            <a id="btnAdd" class="btn btn-success" onclick="showSaveForm(true)"><i class="fa fa-plus"></i> 新增</a>
+            @* 工具栏的删除作用于勾选项；单张卡片的修改 / 删除在卡片底部 *@
+            <a id="btnDelete" class="btn btn-danger disabled" onclick="deleteForm()"><i class="fa fa-remove"></i> 删除</a>
+            @* 自动截图：对勾选的夸克资源做移动端截图，图片落盘后追加到资源图片末尾 *@
+            <a id="btnScreenshot" class="btn btn-default disabled" onclick="startScreenshot()"><i class="fa fa-camera"></i> 自动截图</a>
+        </div>
+        @* 截图进度：提交任务后显示，结束时自动隐藏；进度条样式复用 aggpansearch-card-list.css 里的 collect-progress-* *@
+        <div id="screenshotProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
+            <div class="progress" style="margin-bottom:6px;height:16px;">
+                <div id="screenshotProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;"></div>
+            </div>
+            <span id="screenshotProgressText" class="collect-progress-text"></span>
+            <a id="btnCancelScreenshot" class="btn btn-warning btn-xs collect-progress-cancel" style="display:none;" onclick="cancelScreenshot()"><i class="fa fa-stop"></i> 取消截图</a>
+        </div>
+        @* 保留 #gridTable：分页、勾选、请求仍由 bootstrap-table 负责，
+           卡片化由 renderCard 的单卡片列 + aggpansearch-card-list.css 的瀑布流布局完成。
+           去掉 data-mobile-responsive，避免窄屏时 bootstrap-table 把行重排成内置卡片，与自定义卡片冲突。 *@
+        <div class="col-sm-12 select-table collect-card-table">
+            <table id="gridTable"></table>
+        </div>
+    </div>
+</div>
+
+@section footer{
+    @* 通用图片查看器与卡片列表公共脚本：需在页面脚本之前加载 *@
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/aggpansearch/js/aggpansearch-image-viewer.min.js"))
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/aggpansearch/js/aggpansearch-card-list.min.js"))
+    <script type="text/javascript">
+        // source_category_id 外键：分类资源 Id → 名称，搜索下拉与卡片分类标签共用同一份数据
+        var sourceCategoryMap = {};
+        // 分类资源列表：搜索下拉的选项数据源，与上面的字典来自同一次请求
+        var sourceCategoryList = [];
+
+        // 网盘类型文案（与 PanSourceForm 的 is_type 选项保持一致）
+        var panTypeMap = { '0': '夸克', '1': '阿里', '2': '百度', '3': 'UC', '4': '迅雷' };
+
+        $(function () {
+            loadSourceCategories();
+            initGrid();
+            // 刷新页面后恢复仍在运行的截图任务进度
+            resumeScreenshot();
+        });
+
+        function loadSourceCategories() {
+            $.ajax({
+                url: '@Url.Content("~/PanManage/PanSourceCategory/GetListJson")',
+                type: 'get',
+                async: false,
+                success: function (obj) {
+                    $.each(obj.Data || [], function (i, item) {
+                        sourceCategoryList.push({ Id: item.Id, Name: item.Name });
+                        sourceCategoryMap[item.Id] = item.Name;
+                    });
+                }
+            });
+            // ysComboBox 传 url 时会用请求结果覆盖 data，这里直接用已取到的列表初始化，避免重复请求。
+            // 「全部」由 ysComboBox 自动追加在最前，因此把「未分类」(Id=0) 放在列表首位，最终顺序为 全部 / 未分类 / 各分类。
+            $("#source_category_id").ysComboBox({
+                data: [{ Id: 0, Name: '未分类' }].concat(sourceCategoryList),
+                key: "Id",
+                value: "Name",
+                search: false
+            });
+        }
+
+        // 时间统一格式化到分钟，避免卡片里出现过长的 ISO 字符串
+        function formatTime(value) {
+            if (ys.isNullOrEmpty(value)) {
+                return '';
+            }
+            return String(value).replace('T', ' ').substring(0, 16);
+        }
+
+        // 卡片标签：分类 / 网盘类型 / 状态 / 置顶 / 软删除，配色由 ys.cardList.renderTags 统一处理
+        function buildTags(row) {
+            var tags = [];
+
+            // 分类：空值表示未分类，分类被删除时保留 Id 便于排查
+            var categoryId = row.SourceCategoryId;
+            if (ys.isNullOrEmpty(categoryId) || String(categoryId) === '0') {
+                tags.push({ text: '未分类', type: 'danger' });
+            }
+            else {
+                var name = sourceCategoryMap[String(categoryId)];
+                tags.push(name
+                    ? { text: name, type: 'primary', title: name }
+                    : { text: '已删除分类', type: 'mute', title: '分类资源 Id ' + categoryId });
+            }
+
+            // 网盘类型
+            if (!ys.isNullOrEmpty(row.IsType)) {
+                tags.push({ text: panTypeMap[String(row.IsType)] || ('类型 ' + row.IsType) });
+            }
+
+            // 状态：只在有值时展示，0 禁用 / 1 启用
+            if (!ys.isNullOrEmpty(row.Status)) {
+                tags.push(String(row.Status) === '1'
+                    ? { text: '启用', type: 'ok' }
+                    : { text: '禁用', type: 'mute' });
+            }
+
+            // 置顶与软删除都是需要一眼看到的异常态，统一用橙色提示
+            if (String(row.IsTop) === '1') {
+                tags.push({ text: '置顶', type: 'warn' });
+            }
+            if (String(row.IsDelete) === '1') {
+                tags.push({ text: '已删除', type: 'warn' });
+            }
+            return tags;
+        }
+
+        // 整张资源卡片：表格只保留这一列，行即卡片
+        // 封面 / 标题 / 标签 / 简介 / 元信息 / 链接 / 操作条全部复用公共脚本 ys.cardList
+        function renderCard(value, row) {
+            row = row || {};
+            var cl = ys.cardList;
+            var id = row.Id === undefined || row.Id === null ? '' : row.Id;
+            // 后台编辑过的记录用修改时间，从未修改的退回创建时间
+            var timeText = formatTime(row.BaseModifyTime || row.BaseCreateTime);
+            var viewsText = ys.isNullOrEmpty(row.PageViews) ? '0' : String(row.PageViews);
+            var codeText = $.trim(row.Code || '') === '' ? '无提取码' : $.trim(row.Code);
+
+            return '<div class="collect-card" data-id="' + cl.escHtml(id) + '">' +
+                cl.renderCover(cl.parseImages(row.VodPic)) +
+                '<div class="collect-card-body">' +
+                cl.renderTitle(row.Title, '（未命名资源）') +
+                cl.renderTags(buildTags(row)) +
+                // 资源介绍行数随内容自适应（上限约 12 行），超出时由 ys.cardList 在末行末尾补「查看完整」
+                // 传 id + 函数名后正文渲染成 a 标签，点击直接打开资源介绍编辑弹窗
+                cl.renderIntro(row.VodContent, null, { id: id, fn: 'openIntroForm', title: '点击编辑资源介绍' }) +
+                cl.renderMeta([
+                    { icon: 'fa-key', text: codeText, title: '提取码：' + codeText },
+                    { icon: 'fa-eye', text: viewsText, title: '浏览量：' + viewsText },
+                    { icon: 'fa-clock-o', text: timeText, title: '修改时间：' + timeText }
+                ]) +
+                cl.renderLink(row.Url) +
+                '</div>' +
+                // 修改 / 删除直接作用于当前卡片，无需先勾选
+                cl.renderFoot(id, 'editSourceRow', 'deleteSourceRow') +
+                '</div>';
+        }
+
+        function initGrid() {
+            var queryUrl = '@Url.Content("~/PanManage/PanSource/GetPageListJson")';
+            $('#gridTable').ysTable({
+                url: queryUrl,
+                // 卡片列表没有表头：排序仍由服务端处理，同时关闭「列选择」与「视图切换」，
+                // 避免切到 bootstrap-table 内置 cardView 打乱卡片布局
+                showHeader: false,
+                showColumns: false,
+                showToggle: false,
+                striped: false,
+                // 点击卡片内的链接 / 按钮不勾选整行，勾选只由左上角复选框触发
+                clickToSelect: false,
+                // 列收敛为「勾选列 + 单卡片列」：分页、勾选、请求仍由 bootstrap-table 负责
+                columns: [
+                    { checkbox: true, width: 30, valign: 'middle' },
+                    { field: 'Id', title: '资源', valign: 'top', formatter: renderCard }
+                ],
+                formatNoMatches: function () {
+                    return '暂无数据';
+                },
+                queryParams: function (params) {
+                    var pagination = $('#gridTable').ysTable('getPagination', params);
+                    var queryString = $('#searchDiv').getWebControls(pagination);
+                    // ysComboBox 的「全部」选项取值为 -1，这里按未选择处理；
+                    // 「未分类」取值为 0，需原样提交，由服务端按 source_category_id 为空或 0 过滤
+                    if (queryString.source_category_id == '-1') {
+                        queryString.source_category_id = '';
+                    }
+                    return queryString;
+                }
+            });
+
+            // 卡片交互（勾选描边、「全选本页」、封面看大图、简介超长截断）统一由公共脚本处理，
+            // 勾选数量变化时回调 updateToolbarState 刷新工具栏按钮状态
+            ys.cardList.bind({
+                table: '#gridTable',
+                selectAll: '#chkSelectAllPage',
+                onSelection: updateToolbarState
+            });
+        }
+
+        function searchGrid() {
+            $('#gridTable').ysTable('search');
+            updateToolbarState();
+        }
+
+        // 工具栏按钮状态：删除对勾选项批量生效
+        // 注意：不要命名为 resetToolbarStatus，aggpansearch-init.min.js 有同名全局函数会覆盖本页实现
+        function updateToolbarState(count) {
+            if (count === undefined || count === null) {
+                var rows = $('#gridTable').bootstrapTable('getSelections') || [];
+                count = rows.length;
+            }
+            $('#btnDelete').toggleClass('disabled', count === 0);
+            // 截图同样只对勾选项生效；任务运行中由 startScreenshotPolling 单独置灰
+            $('#btnScreenshot').toggleClass('disabled', count === 0);
+        }
+
+        // 卡片简介（资源介绍）点击：打开独立的资源介绍编辑弹窗
+        function openIntroForm(id) {
+            if (!id) {
+                ys.msgWarning('缺少资源 Id，无法编辑资源介绍');
+                return;
+            }
+            ys.openDialog({
+                title: '资源介绍',
+                content: '@Url.Content("~/PanManage/PanSource/PanSourceIntroForm")' + '?id=' + id + '&t=' + new Date().getTime(),
+                width: '1040px',
+                height: '680px',
+                callback: function (index, layero) {
+                    var iframeWin = window[layero.find('iframe')[0]['name']];
+                    iframeWin.saveIntro(index);
+                }
+            });
+        }
+
+        // 资源介绍弹窗保存成功后回调：介绍已落库，刷新卡片即可
+        window.onIntroSaved = function (id, content) {
+            searchGrid();
+        };
+
+        // 新增传 bAdd=true；卡片底部「修改」传当前行 Id
+        function showSaveForm(bAdd, id) {
+            id = bAdd ? 0 : (id || 0);
+            if (!bAdd && !id) {
+                // 没有 Id 无法确定编辑对象（工具栏已无「修改」入口，此处仅作防御）
+                ys.msgWarning('请选择要修改的数据');
+                return;
+            }
+            ys.openDialog({
+                title: id > 0 ? '编辑' : '添加',
+                content: '@Url.Content("~/PanManage/PanSource/PanSourceForm")' + '?id=' + id,
+                width: '960px',
+                height: '750px',
+                callback: function (index, layero) {
+                    var iframeWin = window[layero.find('iframe')[0]['name']];
+                    iframeWin.saveForm(index);
+                }
+            });
+        }
+
+        // 删除：ids 为单条（卡片底部按钮）或逗号分隔的多条（工具栏批量）
+        function deleteRows(ids) {
+            if (!ids) {
+                ys.msgWarning('请选择要删除的数据');
+                return;
+            }
+            var count = String(ids).split(',').length;
+            ys.confirm('确认要删除这' + (count > 1 ? ' ' + count + ' ' : '') + '条数据吗？', function () {
+                ys.ajax({
+                    url: '@Url.Content("~/PanManage/PanSource/DeleteFormJson")' + '?ids=' + ids,
+                    type: 'post',
+                    success: function (obj) {
+                        if (obj.Tag == 1) {
+                            ys.msgSuccess(obj.Message);
+                            searchGrid();
+                        }
+                        else {
+                            ys.msgError(obj.Message);
+                        }
+                    }
+                });
+            });
+        }
+
+        // 工具栏「删除」：批量删除勾选行
+        function deleteForm() {
+            var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+            if (ys.checkRowDelete(selectedRow)) {
+                deleteRows(ys.getIds(selectedRow));
+            }
+        }
+
+        // 卡片底部「修改 / 删除」：由 ys.cardList.renderFoot 生成的 onclick 调用，传入当前行 Id
+        function editSourceRow(id) {
+            showSaveForm(false, id);
+        }
+
+        function deleteSourceRow(id) {
+            deleteRows(id);
+        }
+
+        // ==================== 自动截图 ====================
+        // 后台任务 + 轮询进度：接口立即返回 jobId，前端每 2 秒拉一次进度，可随时取消。
+        // 单条截图约 3~10 秒（无头浏览器打开夸克分享页），单次最多 50 条。
+        var screenshotTimer = null;
+        var screenshotJobId = '';
+        var screenshotPollFailures = 0;
+
+        function startScreenshot() {
+            if ($('#btnCancelScreenshot').is(':visible')) {
+                ys.msgWarning('截图任务正在运行，请等待完成后再试');
+                return;
+            }
+            var rows = $('#gridTable').bootstrapTable('getSelections') || [];
+            if (rows.length === 0) {
+                ys.msgWarning('请选择要截图的资源');
+                return;
+            }
+            var ids = ys.getIds(rows);
+            ys.confirm('确认对选中的 ' + rows.length + ' 条资源自动截图吗？将用无头浏览器打开夸克分享链接、进入第一个文件夹后截图，并把截图追加到资源图片末尾。仅处理夸克资源，已有截图的资源会跳过。', function () {
+                ys.ajax({
+                    url: '@Url.Content("~/PanManage/PanSource/StartScreenshotJson")',
+                    type: 'post',
+                    data: { ids: ids },
+                    success: function (obj) {
+                        if (obj.Tag == 1 && obj.Data) {
+                            ys.msgSuccess(obj.Message);
+                            startScreenshotPolling(obj.Data);
+                        } else {
+                            ys.msgError(obj.Message || '截图任务提交失败');
+                        }
+                    }
+                });
+            });
+        }
+
+        // 页面加载时若还有运行中的任务（刷新 / 换页），直接接上进度条
+        function resumeScreenshot() {
+            $.ajax({
+                url: '@Url.Content("~/PanManage/PanSource/GetScreenshotProgressJson")',
+                type: 'get',
+                data: { jobId: '' },
+                dataType: 'json',
+                success: function (result) {
+                    if (result && result.Tag == 1 && result.Data && result.Data.JobId) {
+                        startScreenshotPolling(result.Data.JobId);
+                    }
+                }
+            });
+        }
+
+        function startScreenshotPolling(jobId) {
+            stopScreenshotTimer();
+            screenshotJobId = jobId || '';
+            screenshotPollFailures = 0;
+            $('#btnScreenshot').addClass('disabled');
+            $('#screenshotProgressBar').show();
+            $('#screenshotProgressInner')
+                .removeClass('progress-bar-success progress-bar-danger')
+                .addClass('active')
+                .css('width', '5%');
+            $('#screenshotProgressText').text('截图任务已启动，正在打开分享页…');
+            $('#btnCancelScreenshot').show().removeClass('disabled');
+            pollScreenshot();
+            screenshotTimer = setInterval(pollScreenshot, 2000);
+        }
+
+        function stopScreenshotTimer() {
+            if (screenshotTimer) {
+                clearInterval(screenshotTimer);
+                screenshotTimer = null;
+            }
+        }
+
+        function pollScreenshot() {
+            $.ajax({
+                url: '@Url.Content("~/PanManage/PanSource/GetScreenshotProgressJson")',
+                type: 'get',
+                data: { jobId: screenshotJobId },
+                dataType: 'json',
+                success: function (result) {
+                    screenshotPollFailures = 0;
+                    if (!result || result.Tag != 1 || !result.Data) {
+                        finishScreenshot(null);
+                        return;
+                    }
+                    var state = result.Data;
+                    if (state.JobId) {
+                        screenshotJobId = state.JobId;
+                    }
+                    renderScreenshotProgress(state);
+                    if (state.Status != 'running') {
+                        finishScreenshot(state);
+                    }
+                },
+                error: function () {
+                    // 偶发网络抖动不打断轮询，连续 5 次失败才收尾
+                    screenshotPollFailures++;
+                    if (screenshotPollFailures >= 5) {
+                        finishScreenshot(null);
+                    }
+                }
+            });
+        }
+
+        function renderScreenshotProgress(state) {
+            var total = state.Total || 0;
+            var done = state.Done || 0;
+            var succeeded = state.Succeeded || 0;
+            var skipped = state.Skipped || 0;
+            var failed = state.Failed || 0;
+            var percent = total > 0 ? Math.min(100, Math.round(done * 100 / total)) : 5;
+            if (state.Status == 'running' && percent < 5) {
+                percent = 5;
+            }
+            $('#screenshotProgressInner').css('width', percent + '%');
+            var text;
+            if (state.Status == 'running') {
+                text = '截图进度：' + done + '/' + total + ' 条，成功 ' + succeeded + '，跳过 ' + skipped + '，失败 ' + failed;
+            } else {
+                text = state.Message || ('截图进度：' + done + '/' + total + ' 条');
+            }
+            $('#screenshotProgressText').text(text);
+        }
+
+        function finishScreenshot(state) {
+            stopScreenshotTimer();
+            $('#btnCancelScreenshot').hide().addClass('disabled');
+            $('#screenshotProgressInner').removeClass('active');
+
+            var status = state ? state.Status : '';
+            if (status == 'succeeded') {
+                $('#screenshotProgressInner').removeClass('progress-bar-danger').addClass('progress-bar-success').css('width', '100%');
+            } else if (status == 'failed' || !state) {
+                $('#screenshotProgressInner').removeClass('progress-bar-success').addClass('progress-bar-danger');
+            }
+
+            var message = state && state.Message ? state.Message : '截图任务已结束，请刷新查看结果';
+            $('#screenshotProgressText').text(message);
+            if (status == 'succeeded') {
+                ys.msgSuccess(message);
+            } else if (status == 'failed') {
+                ys.msgError(message);
+            } else if (status == 'canceled') {
+                ys.msgWarning(message);
+            } else {
+                ys.msgWarning(message);
+            }
+
+            screenshotJobId = '';
+            // 刷新卡片，显示新追加的截图封面（列表封面仍是首图）
+            searchGrid();
+
+            setTimeout(function () {
+                // 期间若又启动了新任务，保留进度条
+                if (!screenshotTimer) {
+                    $('#screenshotProgressBar').fadeOut(300);
+                }
+            }, 5000);
+        }
+
+        function cancelScreenshot() {
+            if (!screenshotJobId) {
+                ys.msgWarning('当前没有正在运行的截图任务');
+                return;
+            }
+            var jobId = screenshotJobId;
+            ys.confirm('确认取消正在进行的截图任务吗？已完成的截图会保留。', function () {
+                ys.ajax({
+                    url: '@Url.Content("~/PanManage/PanSource/CancelScreenshotJson")',
+                    type: 'post',
+                    data: { jobId: jobId },
+                    success: function (obj) {
+                        if (obj.Tag == 1) {
+                            $('#btnCancelScreenshot').addClass('disabled');
+                            $('#screenshotProgressText').text(obj.Message || '正在取消截图…');
+                        } else {
+                            ys.msgError(obj.Message);
+                        }
+                    }
+                });
+            });
+        }
+    </script>
+}

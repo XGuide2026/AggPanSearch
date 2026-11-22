@@ -1,0 +1,210 @@
+@{
+    Layout = "~/Views/Shared/_FormWhite.cshtml";
+}
+
+<div class="wrapper animated fadeInRight">
+    <div class="form-horizontal m">
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">当前状态</label>
+            <div class="col-sm-8">
+                <div style="padding-top:7px;" id="statusText">-</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">作品名称</label>
+            <div class="col-sm-8">
+                <div style="padding-top:7px;font-weight:600;" id="titleText">-</div>
+                <span class="help-block m-b-none" style="font-size:12px;color:#999;">
+                    审核通过后，该名称会自动加入搜索屏蔽关键词（版权关键词库）。
+                </span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">侵权链接</label>
+            <div class="col-sm-8">
+                <div style="padding-top:7px;word-break:break-all;" id="urlText">-</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">投诉人</label>
+            <div class="col-sm-8">
+                <div style="padding-top:7px;" id="complainantText">-</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">联系方式</label>
+            <div class="col-sm-8">
+                <div style="padding-top:7px;" id="contactText">-</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">提交信息</label>
+            <div class="col-sm-8">
+                <div style="padding-top:7px;font-size:12px;color:#888;" id="submitInfoText">-</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">侵权说明</label>
+            <div class="col-sm-8">
+                <div style="padding:8px 10px;background:#fafafa;border:1px solid #eee;border-radius:4px;line-height:1.9;white-space:pre-wrap;word-break:break-word;max-height:160px;overflow:auto;" id="descText">-</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">证明材料</label>
+            <div class="col-sm-8">
+                <div id="evidenceBox" style="padding-top:4px;">
+                    <span style="color:#999;font-size:12px;">无</span>
+                </div>
+                <span class="help-block m-b-none" style="font-size:12px;color:#999;">点击缩略图可查看大图。</span>
+            </div>
+        </div>
+
+        <div class="form-group" id="auditInfoGroup" style="display:none;">
+            <label class="col-sm-3 control-label">上次处理</label>
+            <div class="col-sm-8">
+                <div style="padding-top:7px;font-size:12px;color:#888;" id="auditInfoText">-</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">处理备注<span class="required">*</span></label>
+            <div class="col-sm-8">
+                <textarea id="remark" class="form-control" rows="4" maxlength="1000" placeholder="审核通过或驳回时必须填写，将记录在台账中"></textarea>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-sm-8 col-sm-offset-3">
+                <a class="btn btn-success" onclick="audit(1)"><i class="fa fa-check"></i> 审核通过</a>
+                <a class="btn btn-warning" onclick="audit(2)"><i class="fa fa-ban"></i> 驳回</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    var id = ys.request("id");
+    var currentRow = null;
+
+    $(function () {
+        getForm();
+        $('#evidenceBox').on('click', '.ev-img', function () {
+            var src = $(this).attr('src');
+            layer.open({
+                type: 1,
+                title: false,
+                shadeClose: true,
+                area: ['auto', 'auto'],
+                content: '<img src="' + src + '" style="max-width:80vw;max-height:80vh;display:block;border-radius:6px;" />'
+            });
+        });
+    });
+
+    function statusText(status) {
+        if (status === 0) { return '待处理'; }
+        if (status === 1) { return '已通过'; }
+        if (status === 2) { return '已驳回'; }
+        return '-';
+    }
+
+    function renderTime(value) {
+        if (ys.isNullOrEmpty(value)) {
+            return '';
+        }
+        return String(value).replace('T', ' ').substring(0, 19);
+    }
+
+    function getForm() {
+        if (!id || id <= 0) {
+            return;
+        }
+        ys.ajax({
+            url: '@Url.Content("~/PanManage/PanCopyrightComplaint/GetFormJson")' + '?id=' + id,
+            type: 'get',
+            success: function (obj) {
+                if (obj.Tag != 1 || !obj.Data) {
+                    ys.msgError(obj.Message || '投诉记录不存在');
+                    return;
+                }
+                currentRow = obj.Data;
+                // 用户提交内容一律用 text() 写入，避免 XSS
+                $('#statusText').text(statusText(currentRow.Status));
+                $('#titleText').text(currentRow.Title || '-');
+                $('#urlText').text(currentRow.InfringingUrl || '-');
+                $('#complainantText').text(currentRow.Complainant || '-');
+                $('#contactText').text(currentRow.Contact || '-');
+                $('#descText').text(currentRow.Description || '（未填写）');
+                $('#submitInfoText').text('提交时间：' + renderTime(currentRow.BaseCreateTime) + '　提交 IP：' + (currentRow.ComplaintIp || '-'));
+
+                if (currentRow.AuditTime) {
+                    $('#auditInfoGroup').show();
+                    $('#auditInfoText').text('审核时间：' + renderTime(currentRow.AuditTime) + '　处理备注：' + (currentRow.AuditRemark || '-'));
+                    $('#remark').val(currentRow.AuditRemark || '');
+                }
+
+                renderEvidence(currentRow.EvidenceImages);
+            }
+        });
+    }
+
+    function renderEvidence(images) {
+        var list = (images || '').split(',');
+        var html = [];
+        for (var i = 0; i < list.length; i++) {
+            var path = $.trim(list[i]);
+            if (!path) { continue; }
+            html.push('<img class="ev-img" src="' + path + '" title="点击查看大图" style="width:96px;height:96px;object-fit:cover;border:1px solid #eee;border-radius:6px;margin:0 8px 8px 0;cursor:zoom-in;" />');
+        }
+        if (html.length == 0) {
+            $('#evidenceBox').html('<span style="color:#999;font-size:12px;">无</span>');
+        } else {
+            $('#evidenceBox').html(html.join(''));
+        }
+    }
+
+    function audit(status) {
+        var remark = $.trim($('#remark').val() || '');
+        if (remark === '') {
+            ys.msgWarning('请填写处理备注');
+            $('#remark').focus();
+            return;
+        }
+        var actionText = status == 1 ? '审核通过' : '驳回';
+        ys.confirm('确认要' + actionText + '该投诉吗？' + (status == 1 ? '通过后作品名称将加入搜索屏蔽关键词。' : ''), function () {
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanCopyrightComplaint/AuditJson")',
+                type: 'post',
+                data: { ids: id, status: status, remark: remark },
+                success: function (obj) {
+                    if (obj.Tag == 1) {
+                        ys.msgSuccess(obj.Message);
+                        closeSelf();
+                    }
+                    else {
+                        ys.msgError(obj.Message);
+                    }
+                }
+            });
+        });
+    }
+
+    function closeSelf() {
+        try {
+            var index = parent.layer.getFrameIndex(window.name);
+            parent.layer.close(index);
+            if (parent.searchGrid) {
+                parent.searchGrid();
+            }
+        } catch (e) {
+            window.location.reload();
+        }
+    }
+</script>

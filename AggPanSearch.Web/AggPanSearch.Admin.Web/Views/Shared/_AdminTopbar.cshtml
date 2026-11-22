@@ -1,0 +1,66 @@
+@model OperatorInfo
+@using AggPanSearch.Admin.Web.ViewComponents
+@{
+    // 当前菜单模式：dev 开发模式 / manage 管理模式，按钮显示的是“切换后进入的模式”
+    string menuMode = MenuModeHelper.GetMode(Context);
+    string menuModeTarget = MenuModeHelper.GetTargetMode(Context);
+    string menuModeSwitchText = "切换" + MenuModeHelper.GetModeName(menuModeTarget);
+    string menuModeSwitchTitle = "当前为" + MenuModeHelper.GetModeName(menuMode) + "，点击切换到" + MenuModeHelper.GetModeName(menuModeTarget);
+
+    string portrait = Model == null ? null : Model.Portrait;
+    if (string.IsNullOrEmpty(portrait))
+    {
+        portrait = Url.Content("~/image/portrait.png");
+    }
+    else
+    {
+        portrait = GlobalContext.SystemConfig.ApiSite + portrait;
+    }
+    string realName = Model == null ? string.Empty : Model.RealName;
+}
+<!--顶部栏开始-->
+<div class="admin-topbar">
+    <nav class="navbar navbar-static-top" role="navigation">
+        <a class="navbar-minimalize minimalize-styl-2" href="javascript:void(0)" title="收起菜单">
+            <i class="fa fa-bars"></i>
+        </a>
+        <ul class="nav navbar-top-links navbar-right welcome-message">
+            <li>
+                <a href="javascript:void(0)" id="menuModeSwitch" data-mode="@menuModeTarget" title="@menuModeSwitchTitle">
+                    <i class="fa fa-exchange"></i>@menuModeSwitchText
+                </a>
+            </li>
+            <li><a id="fullScreen" href="javascript:void(0)"><i class="fa fa-arrows-alt"></i>全屏</a></li>
+            <li class="dropdown user-menu">
+                <a href="javascript:void(0)" class="dropdown-toggle" data-toggle="dropdown">
+                    <img src="@portrait" class="user-image" alt="image">
+                    <span class="hidden-xs">@realName</span>
+                </a>
+                <ul class="dropdown-menu">
+                    <li class="mt5">
+                        <a href="javascript:void(0)" onclick="showUserDetailForm()">
+                            <i class="fa fa-user"></i> 个人中心
+                        </a>
+                    </li>
+                    <li>
+                        <a href="javascript:void(0)" onclick="showChangePasswordForm()">
+                            <i class="fa fa-key"></i> 修改密码
+                        </a>
+                    </li>
+                    <li>
+                        <a href="javascript:void(0)" onclick="showSwitchSkinForm()">
+                            <i class="fa fa-dashboard"></i> 切换主题
+                        </a>
+                    </li>
+                    <li class="divider"></li>
+                    <li>
+                        <a href="javascript:void(0)" onclick="loginOff()">
+                            <i class="fa fa-sign-out"></i> 退出登录
+                        </a>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+    </nav>
+</div>
+<!--顶部栏结束-->

@@ -1,0 +1,496 @@
+@using AggPanSearch.Util
+@{
+    Layout = "~/Views/Shared/_FormWhite.cshtml";
+}
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostingEnvironment
+@section header{
+    <style>
+        /* ===== 资源介绍弹窗：左事实清单 + 右（AI 文案 / 资源介绍） ===== */
+        html, body.white-bg { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        /* 用 body > .intro-wrapper 提高特异性，避免被后加载的 aggpansearch.min.css 里的 .wrapper 内边距覆盖 */
+        body.white-bg > .intro-wrapper { display: flex; flex-direction: column; height: 100%; margin: 0; box-sizing: border-box; padding: 10px 14px 12px; }
+        .is-disabled { pointer-events: none; opacity: .55; }
+
+        .intro-body { flex: 1; display: flex; gap: 12px; min-height: 0; padding-top: 10px; }
+        .intro-side { display: flex; flex-direction: column; flex: 0 0 300px; width: 300px; min-height: 0; background: #fff; border: 1px solid #e8edf2; border-radius: 6px; }
+        .intro-main { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
+        .intro-pane { display: flex; flex-direction: column; min-height: 0; background: #fff; border: 1px solid #e8edf2; border-radius: 6px; }
+        .intro-pane-ai { flex: 1; }
+        .intro-pane-text { flex: 1.4; }
+        .intro-pane-head { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; padding: 8px 12px; border-bottom: 1px solid #eef2f6; color: #1f2d3d; font-size: 13px; font-weight: 600; }
+        .intro-pane-head a { color: #1ab394; font-size: 12px; font-weight: 400; text-decoration: none; }
+        .intro-pane-head a:hover { text-decoration: underline; }
+        .intro-pane .ai-meta, .ai-foot .ai-meta { color: #98a6b8; font-size: 12px; font-weight: 400; }
+
+        /* ===== 事实清单（左栏） ===== */
+        .ai-fact { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; color: #5e6d82; font-size: 12px; }
+        .ai-empty { padding: 28px 8px; text-align: center; color: #98a6b8; line-height: 20px; }
+        .ai-share-title { color: #1f2d3d; font-size: 13px; font-weight: 600; line-height: 18px; word-break: break-all; }
+        .ai-stat { display: flex; gap: 10px; margin: 8px 0; }
+        .ai-stat span { padding: 2px 9px; border-radius: 10px; background: #e8f7f4; color: #16977e; }
+        .ai-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        .ai-tag { padding: 1px 7px; border-radius: 3px; background: #f2f5f7; color: #5e6d82; font-size: 11px; }
+        .ai-tag.video { background: #e8f7f4; color: #16977e; }
+        .ai-tag.sub { background: #eef4ff; color: #2d8cf0; }
+        .ai-tag.archive { background: #fff7e6; color: #ff9900; }
+        .ai-dir { margin-bottom: 6px; color: #98a6b8; }
+        .ai-files { padding-top: 8px; border-top: 1px dashed #eef2f6; line-height: 20px; }
+        .ai-files div { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .ai-more { margin-top: 6px; color: #98a6b8; }
+
+        /* ===== 文本域（AI 文案 / 资源介绍） ===== */
+        .ai-editor, .intro-editor { flex: 1; display: flex; min-height: 0; padding: 8px 10px 4px; }
+        #aiContent, #vod_content { flex: 1; width: 100%; padding: 8px 10px; border: 1px solid #e8edf2; border-radius: 4px; outline: none; resize: none; overflow: auto; color: #1f2d3d; font-size: 13px; line-height: 22px; }
+        #aiContent:focus, #vod_content:focus { border-color: #1ab394; box-shadow: 0 0 0 2px rgba(26, 179, 148, .12); }
+
+        /* ===== AI 文案操作条 ===== */
+        .ai-foot { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; padding: 8px 10px 10px; }
+        .ai-foot-left { display: flex; align-items: center; gap: 10px; }
+        .ai-foot-right { display: flex; gap: 8px; }
+
+        /* ===== 提示条 ===== */
+        .ai-alert { display: none; flex: 0 0 auto; margin-top: 8px; padding: 8px 12px; border: 1px solid #ffd8d8; border-left: 3px solid #ed4014; border-radius: 3px; background: #fff2f0; color: #c0392b; font-size: 12px; line-height: 18px; }
+        .ai-alert.show { display: block; animation: aiFade .16s ease; }
+        .ai-alert.info { border-color: #cfe8ff; border-left-color: #2d8cf0; background: #f2f8ff; color: #2d6faf; }
+
+        .ai-spin { display: inline-block; width: 12px; height: 12px; margin-right: 6px; border: 2px solid #cfe9e3; border-top-color: #1ab394; border-radius: 50%; vertical-align: -2px; animation: aiSpin .7s linear infinite; }
+        @@keyframes aiSpin { to { transform: rotate(360deg); } }
+        @@keyframes aiFade { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+        @@media (max-width: 980px) {
+            .intro-body { flex-direction: column; }
+            .intro-side { flex: 0 0 auto; width: auto; max-height: 200px; }
+        }
+    </style>
+}
+
+<div class="wrapper animated fadeInRight intro-wrapper">
+    <div class="ai-alert" id="aiAlert"></div>
+
+    <div class="intro-body">
+        <div class="intro-side">
+            <div class="intro-pane-head">
+                <span>事实清单 <span class="ai-meta" id="aiFactMeta"></span></span>
+                <a href="javascript:void(0)" id="aiReload">重新读取</a>
+            </div>
+            <div class="ai-fact" id="aiFact">
+                <div class="ai-empty">点击「重新生成」会自动读取网盘分享链接里的文件清单并生成介绍文案</div>
+            </div>
+        </div>
+
+        <div class="intro-main">
+            <div class="intro-pane intro-pane-ai">
+                <div class="intro-pane-head">
+                    <span>AI 文案</span>
+                    <span class="ai-meta" id="aiModelInfo"></span>
+                </div>
+                <div class="ai-editor">
+                    <textarea id="aiContent" placeholder="点击「重新生成」按链接里的真实文件生成介绍，生成后可直接编辑"></textarea>
+                </div>
+                <div class="ai-foot">
+                    <div class="ai-foot-left">
+                        <a href="javascript:void(0)" class="btn btn-default btn-sm" id="aiRegen">重新生成</a>
+                        <span class="ai-meta" id="aiCounter">0 字</span>
+                    </div>
+                    <div class="ai-foot-right">
+                        <a href="javascript:void(0)" class="btn btn-default btn-sm" id="aiAppend">追加写入</a>
+                        <a href="javascript:void(0)" class="btn btn-primary btn-sm" id="aiOverwrite">覆盖写入</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="intro-pane intro-pane-text">
+                <div class="intro-pane-head">
+                    <span>资源介绍</span>
+                    <span class="ai-meta" id="introCounter">0 字</span>
+                </div>
+                <div class="intro-editor">
+                    <textarea id="vod_content" placeholder="填写资源介绍，可用上方「AI 文案」生成后追加或覆盖写入"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    var id = ys.request("id");
+    // 资源原始数据：code / url 供读取网盘分享链接详情、生成资源介绍使用
+    var introSource = null;
+
+    $(function () {
+        getForm();
+        bindAiActions();
+        $('#vod_content').on('input', updateCounter);
+    });
+
+    function updateCounter() {
+        $('#introCounter').text(($('#vod_content').val() || '').length + ' 字');
+    }
+
+    function getForm() {
+        if (!(id > 0)) {
+            return;
+        }
+        ys.ajax({
+            url: '@Url.Content("~/PanManage/PanSource/GetFormJson")' + '?id=' + id,
+            type: 'get',
+            success: function (obj) {
+                if (obj.Tag == 1 && obj.Data) {
+                    introSource = obj.Data;
+                    $('#vod_content').val(obj.Data.VodContent || '');
+                    updateCounter();
+                }
+                else {
+                    ys.msgError(obj.Message || '资源介绍读取失败');
+                }
+            }
+        });
+    }
+
+    // 弹窗底部「确认」按钮由父页面调用：只提交 Id + 资源介绍，服务端按非空字段更新
+    function saveIntro(index) {
+        var content = $('#vod_content').val() || '';
+        if (!(id > 0)) {
+            // 新建资源尚未落库：介绍随主表单一起保存，这里只回写父页面
+            notifyParentSaved();
+            ys.msgSuccess('已写入资源介绍，保存资源后生效');
+            closeParentDialog(index);
+            return;
+        }
+        ys.ajax({
+            url: '@Url.Content("~/PanManage/PanSource/SaveFormJson")',
+            type: 'post',
+            data: { Id: id, VodContent: content },
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    ys.msgSuccess('资源介绍已保存');
+                    notifyParentSaved();
+                    closeParentDialog(index);
+                }
+                else {
+                    ys.msgError(obj.Message);
+                }
+            }
+        });
+    }
+
+    function closeParentDialog(index) {
+        if (!index) { return; }
+        if (window.parent && window.parent.layer) {
+            window.parent.layer.close(index);
+        }
+    }
+
+    // 通知父页面回写展示（父页面可能是编辑表单，也可能是卡片列表）
+    function notifyParentSaved() {
+        var content = $('#vod_content').val() || '';
+        try {
+            if (window.parent && window.parent !== window && typeof window.parent.onIntroSaved === 'function') {
+                window.parent.onIntroSaved(id, content);
+            }
+        } catch (e) {
+            // 跨域 / 父页面无该方法时忽略
+        }
+    }
+
+    // 直接关闭弹窗（供父页面需要时调用）
+    function closeIntro() {
+        if (window.parent && window.parent.layer) {
+            var index = window.parent.layer.getFrameIndex(window.name);
+            window.parent.layer.close(index);
+        }
+    }
+
+    // ==================== 资源介绍 AI 改写（内联面板，无二级弹层） ====================
+    var AI_VIDEO_EXT = ['mp4', 'mkv', 'avi', 'ts', 'mov', 'rmvb', 'flv', 'wmv', 'm4v', 'mpg', 'mpeg', 'webm', 'm2ts'];
+    var AI_SUB_EXT = ['srt', 'ass', 'ssa', 'sub', 'vtt', 'smi'];
+    var AI_ARCHIVE_EXT = ['zip', 'rar', '7z', 'tar', 'gz', 'iso', 'apk', 'exe'];
+
+    var aiFact = null;        // 当前链接事实（左栏数据）
+    var aiBusy = false;       // 正在请求中，避免重复触发
+    var aiSerial = 0;         // 请求序号，丢弃过期回调
+
+    function bindAiActions() {
+        // 用 document 委托绑定，避免节点被移动/重绘后事件失效
+        $(document).on('click', '#aiReload', function () {
+            if (aiBusy) { return; }
+            aiSetAlert('');
+            aiSetBusy(true, '读取中');
+            aiRefreshFact(false);
+        });
+        $(document).on('click', '#aiRegen', function () {
+            aiRegenerate();
+        });
+        $(document).on('click', '#aiAppend', function () {
+            aiApply('append');
+        });
+        $(document).on('click', '#aiOverwrite', function () {
+            aiApply('overwrite');
+        });
+        $(document).on('input', '#aiContent', function () {
+            aiUpdateCounter();
+        });
+    }
+
+    // 点击「重新生成」：先强制重新读取网盘分享链接，读取成功后再自动生成介绍
+    function aiRegenerate() {
+        if (!(id > 0)) {
+            ys.msgWarning('缺少资源 Id，无法读取链接');
+            return;
+        }
+        if (aiBusy) { return; }
+        aiShow(true);
+    }
+
+    // 激活内联 AI 面板：重置状态 → 读事实 → 需要时自动生成
+    function aiShow(autoGenerate) {
+        aiFact = null;
+        aiSetAlert('');
+        $('#aiContent').val('');
+        $('#aiModelInfo').text('');
+        aiUpdateCounter();
+        aiRenderFactLoading();
+        aiSetBusy(true, '读取中');
+        aiRefreshFact(autoGenerate);
+    }
+
+    function aiCode() {
+        return $.trim((introSource && introSource.Code) || '');
+    }
+
+    function aiRefreshFact(autoGenerate) {
+        var seq = ++aiSerial;
+        aiRenderFactLoading();
+        $.ajax({
+            url: '@Url.Content("~/PanManage/PanSource/GetShareFactJson")',
+            type: 'get',
+            data: { id: id, code: aiCode() },
+            dataType: 'json',
+            cache: false,
+            success: function (obj) {
+                if (seq !== aiSerial) { return; }
+                if (obj && obj.Tag == 1 && obj.Data) {
+                    aiFact = obj.Data;
+                    aiRenderFact(aiFact);
+                    aiSetBusy(false);
+                    if (autoGenerate) {
+                        aiGenerate();
+                    }
+                }
+                else {
+                    aiSetBusy(false);
+                    aiRenderFactEmpty('链接未读取成功');
+                    aiSetAlert((obj && obj.Message) || '读取分享链接失败，请稍后重试');
+                }
+            },
+            error: function (xhr) {
+                if (seq !== aiSerial) { return; }
+                aiSetBusy(false);
+                aiRenderFactEmpty('链接未读取成功');
+                aiSetAlert(aiHttpError(xhr));
+            }
+        });
+    }
+
+    function aiGenerate() {
+        if (aiBusy) { return; }
+        if (!aiFact) {
+            aiSetBusy(true, '读取中');
+            aiRefreshFact(true);
+            return;
+        }
+
+        var seq = ++aiSerial;
+        aiSetAlert('');
+        $('#aiContent').val('');
+        $('#aiModelInfo').text('');
+        aiUpdateCounter();
+        aiSetBusy(true, 'AI 生成中');
+
+        $.ajax({
+            url: '@Url.Content("~/PanManage/PanSource/AiRewriteIntroJson")',
+            type: 'get',
+            data: { id: id, code: aiCode() },
+            dataType: 'json',
+            cache: false,
+            success: function (obj) {
+                if (seq !== aiSerial) { return; }
+                aiSetBusy(false);
+                if (obj && obj.Tag == 1 && obj.Data && obj.Data.Content) {
+                    var data = obj.Data;
+                    if (data.Fact) {
+                        aiFact = data.Fact;
+                        aiRenderFact(aiFact);
+                    }
+                    $('#aiContent').val(data.Content);
+                    aiUpdateCounter();
+
+                    var modelText = data.Model ? data.Model : 'AI';
+                    var seconds = (data.ElapsedMs > 0 ? data.ElapsedMs : 0) / 1000;
+                    $('#aiModelInfo').text(seconds > 0 ? modelText + ' · ' + seconds.toFixed(1) + 's' : modelText);
+
+                    if (data.RawContent && $.trim(data.RawContent) !== $.trim(data.Content)) {
+                        aiSetAlert('已按字数上限截断到句末，如不完整可手工补全', 'info');
+                    }
+                }
+                else {
+                    aiSetAlert((obj && obj.Message) || 'AI 生成失败，请稍后重试');
+                }
+            },
+            error: function (xhr) {
+                if (seq !== aiSerial) { return; }
+                aiSetBusy(false);
+                aiSetAlert(aiHttpError(xhr));
+            }
+        });
+    }
+
+    function aiApply(mode) {
+        var text = $.trim($('#aiContent').val() || '');
+        if (!text) {
+            aiSetAlert('文案为空，请先生成或手工输入内容');
+            return;
+        }
+
+        var apply = function () {
+            var content = text;
+            if (mode === 'append') {
+                var old = $.trim($('#vod_content').val() || '');
+                content = old ? old + '\n' + text : text;
+            }
+            $('#vod_content').val(content).trigger('input');
+            ys.msgSuccess(mode === 'append' ? '已追加到资源介绍，记得点击确认保存' : '已写入资源介绍，记得点击确认保存');
+        };
+
+        if (mode === 'append') {
+            apply();
+            return;
+        }
+        layer.confirm('将用 AI 文案替换「资源介绍」原有内容，确定覆盖？', { icon: 3, title: '覆盖写入' }, function (index) {
+            layer.close(index);
+            apply();
+        });
+    }
+
+    function aiSetBusy(busy, text) {
+        aiBusy = busy;
+        var $regen = $('#aiRegen');
+        if (busy) {
+            $regen.addClass('is-disabled').html('<span class="ai-spin"></span>' + (text || '处理中'));
+            $('#aiReload, #aiAppend, #aiOverwrite').addClass('is-disabled');
+        }
+        else {
+            $regen.removeClass('is-disabled').text('重新生成');
+            $('#aiReload, #aiAppend, #aiOverwrite').removeClass('is-disabled');
+        }
+    }
+
+    function aiSetAlert(message, kind) {
+        var $alert = $('#aiAlert');
+        if (!$alert.length) { return; }
+        if (!message) {
+            $alert.removeClass('show info').text('');
+            return;
+        }
+        if (kind === 'info') {
+            $alert.addClass('info');
+        }
+        else {
+            $alert.removeClass('info');
+        }
+        $alert.addClass('show').text(message);
+    }
+
+    function aiUpdateCounter() {
+        var length = ($('#aiContent').val() || '').length;
+        $('#aiCounter').text(length + ' 字');
+    }
+
+    function aiRenderFactLoading() {
+        $('#aiFactMeta').text('');
+        $('#aiFact').html('<div class="ai-empty"><span class="ai-spin"></span>正在读取分享链接…</div>');
+    }
+
+    function aiRenderFactEmpty(text) {
+        $('#aiFactMeta').text('');
+        $('#aiFact').html('<div class="ai-empty">' + aiEscape(text) + '</div>');
+    }
+
+    function aiRenderFact(fact) {
+        var html = [];
+        var shareTitle = $.trim(fact.ShareTitle || '');
+        html.push('<div class="ai-share-title">' + aiEscape(shareTitle || fact.Title || '未命名分享') + '</div>');
+        html.push('<div class="ai-stat"><span>文件 ' + (fact.FileCount || 0) + '</span><span>' + aiEscape(fact.TotalSizeText || '未知') + '</span></div>');
+
+        var tags = aiParseTypeSummary(fact.TypeSummary);
+        if (tags.length > 0) {
+            var tagHtml = [];
+            for (var i = 0; i < tags.length; i++) {
+                tagHtml.push('<span class="ai-tag ' + tags[i].cls + '">' + aiEscape(tags[i].ext)
+                    + (tags[i].count ? ' × ' + aiEscape(tags[i].count) : '') + '</span>');
+            }
+            html.push('<div class="ai-tags">' + tagHtml.join('') + '</div>');
+        }
+
+        if (fact.TopDirName) {
+            html.push('<div class="ai-dir">所属目录：' + aiEscape(fact.TopDirName) + '</div>');
+        }
+
+        var names = fact.FileNames || [];
+        if (names.length > 0) {
+            var shown = names.slice(0, 15);
+            var fileHtml = [];
+            for (var j = 0; j < shown.length; j++) {
+                fileHtml.push('<div title="' + aiEscape(shown[j]) + '">' + aiEscape(shown[j]) + '</div>');
+            }
+            html.push('<div class="ai-files">' + fileHtml.join('') + '</div>');
+            if (fact.FileCount > shown.length) {
+                html.push('<div class="ai-more">仅展示前 ' + shown.length + ' 个，共 ' + fact.FileCount + ' 个文件</div>');
+            }
+        }
+
+        $('#aiFact').html(html.join(''));
+        $('#aiFactMeta').text(fact.CategoryName ? '· ' + fact.CategoryName : '');
+    }
+
+    function aiParseTypeSummary(summary) {
+        var list = [];
+        if (!summary) { return list; }
+        var parts = String(summary).split('、');
+        for (var i = 0; i < parts.length; i++) {
+            var part = $.trim(parts[i]);
+            if (!part) { continue; }
+            var bits = part.split('×');
+            var ext = $.trim(bits[0] || '');
+            if (!ext) { continue; }
+            list.push({ ext: ext, count: $.trim(bits[1] || ''), cls: aiExtClass(ext) });
+        }
+        return list;
+    }
+
+    function aiExtClass(ext) {
+        var value = (ext || '').toLowerCase();
+        if ($.inArray(value, AI_VIDEO_EXT) >= 0) { return 'video'; }
+        if ($.inArray(value, AI_SUB_EXT) >= 0) { return 'sub'; }
+        if ($.inArray(value, AI_ARCHIVE_EXT) >= 0) { return 'archive'; }
+        return '';
+    }
+
+    function aiHttpError(xhr) {
+        var status = xhr && xhr.status ? xhr.status : 0;
+        if (status === 401 || status === 403) { return '登录状态已失效，请刷新页面后重试'; }
+        if (status === 404) { return '接口不存在，请确认后台版本是否为最新'; }
+        if (status === 0) { return '网络不可达或请求超时，请稍后重试'; }
+        if (status >= 500) { return '服务端处理失败（' + status + '），请稍后重试或查看后台日志'; }
+        return '请求失败（' + status + '）';
+    }
+
+    function aiEscape(text) {
+        return String(text == null ? '' : text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+</script>

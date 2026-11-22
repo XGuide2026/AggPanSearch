@@ -1,0 +1,42 @@
+@model System.Collections.Generic.List<AggPanSearch.Admin.Web.Areas.UserFrontend.Models.CategoryItem>
+@{
+    // 资源分类导航：首页与"资源分类"页共用，只渲染链接本身。
+    // 链接类名、当前选中分类由调用方通过 ViewData 传入，两处各自沿用既有样式。
+    var linkClass = ViewData["CategoryLinkClass"] as string ?? "cat-chip";
+    // 是否在分类项右侧显示资源数量标签（"资源分类"页开启，首页横向标签不显示）
+    var showCount = ViewData["CategoryShowCount"] as bool? ?? false;
+    var totalCount = showCount && Model != null ? Model.Sum(c => c.Count) : 0;
+    // 分类主键是 bigint：后台新增的分类是雪花 ID（19 位），必须按 long 解析，
+    // 否则用 int 装箱时 as int? 会得到 null，任何分类都无法高亮。
+    long activeId = 0;
+    var rawActiveId = ViewData["ActiveCategoryId"] ?? ViewData["CategoryId"];
+    if (rawActiveId is long activeLong)
+    {
+        activeId = activeLong;
+    }
+    else if (rawActiveId is int activeInt)
+    {
+        activeId = activeInt;
+    }
+    else if (long.TryParse(rawActiveId as string, out long parsedActiveId))
+    {
+        activeId = parsedActiveId;
+    }
+}
+<a class="@linkClass @(activeId <= 0 ? "active" : "")" href="/category">
+    <span>全部资源</span>
+    @if (showCount)
+    {
+        <span class="uf-cat-count">@totalCount</span>
+    }
+</a>
+@foreach (var c in Model)
+{
+    <a class="@linkClass @(activeId == c.Id ? "active" : "")" href="/category?categoryId=@c.Id">
+        <span>@c.Name</span>
+        @if (showCount)
+        {
+            <span class="uf-cat-count">@c.Count</span>
+        }
+    </a>
+}

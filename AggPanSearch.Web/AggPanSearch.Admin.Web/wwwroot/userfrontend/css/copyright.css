@@ -1,0 +1,486 @@
+/* ==========================================================================
+   版权声明 · 侵权投诉页样式
+   仅使用站点主题变量（--theme-*），不引入新的视觉体系
+   ========================================================================== */
+.cpr-page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 20px 16px 48px;
+}
+
+/* ---------- 头部 ---------- */
+.cpr-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    padding: 34px 28px;
+    background: var(--theme-surface, #fff);
+    border: 1px solid var(--theme-border, #f0f0f0);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .05);
+}
+
+.cpr-hero::after {
+    content: "";
+    position: absolute;
+    right: -80px;
+    top: -110px;
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    background: var(--theme-primary-gradient, linear-gradient(135deg, #ff6b6b, #ff8e53));
+    opacity: .12;
+    filter: blur(6px);
+    pointer-events: none;
+}
+
+.cpr-hero .cpr-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    letter-spacing: .5px;
+    color: var(--theme-primary, #ff6b6b);
+    background: rgba(255, 107, 107, .1);
+    border-radius: 20px;
+    padding: 4px 12px;
+    margin-bottom: 12px;
+}
+
+.cpr-hero h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--theme-text, #222);
+    margin: 0 0 10px;
+    line-height: 1.4;
+}
+
+.cpr-hero p {
+    font-size: 14px;
+    line-height: 1.9;
+    color: var(--theme-text-secondary, #666);
+    margin: 0;
+    max-width: 640px;
+}
+
+.cpr-hero .cpr-update {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--theme-text-secondary, #999);
+}
+
+/* ---------- 三步指引 ---------- */
+.cpr-steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin: 18px 0;
+}
+
+.cpr-step {
+    background: var(--theme-surface, #fff);
+    border: 1px solid var(--theme-border, #f0f0f0);
+    border-radius: 14px;
+    padding: 18px 16px;
+    transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.cpr-step:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, .07);
+}
+
+.cpr-step .no {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--theme-primary-gradient, linear-gradient(135deg, #ff6b6b, #ff8e53));
+    margin-bottom: 10px;
+}
+
+.cpr-step h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--theme-text, #222);
+    margin: 0 0 6px;
+}
+
+.cpr-step p {
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--theme-text-secondary, #666);
+    margin: 0;
+}
+
+/* ---------- 声明条款 ---------- */
+.cpr-policy {
+    background: var(--theme-surface, #fff);
+    border: 1px solid var(--theme-border, #f0f0f0);
+    border-radius: 14px;
+    padding: 6px 18px;
+    margin-bottom: 18px;
+}
+
+.cpr-policy details {
+    border-bottom: 1px dashed var(--theme-border, #f0f0f0);
+    padding: 12px 0;
+}
+
+.cpr-policy details:last-child {
+    border-bottom: none;
+}
+
+.cpr-policy summary {
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--theme-text, #222);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.cpr-policy summary::-webkit-details-marker { display: none; }
+
+.cpr-policy summary::after {
+    content: "+";
+    font-weight: 400;
+    font-size: 18px;
+    color: var(--theme-primary, #ff6b6b);
+    transition: transform .2s ease;
+}
+
+.cpr-policy details[open] summary::after {
+    content: "–";
+}
+
+.cpr-policy .content {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 2;
+    color: var(--theme-text-secondary, #666);
+}
+
+.cpr-policy .content p { margin: 0 0 8px; }
+.cpr-policy .content p:last-child { margin-bottom: 0; }
+
+/* ---------- 表单 ---------- */
+.cpr-form-card {
+    background: var(--theme-surface, #fff);
+    border: 1px solid var(--theme-border, #f0f0f0);
+    border-radius: 18px;
+    padding: 24px 22px 26px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .05);
+}
+
+.cpr-form-card .cpr-form-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.cpr-form-card .cpr-form-head h2 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--theme-text, #222);
+    margin: 0;
+}
+
+.cpr-form-card .cpr-form-head span {
+    font-size: 12px;
+    color: var(--theme-text-secondary, #999);
+}
+
+.cpr-form-card .cpr-tip {
+    font-size: 12px;
+    color: var(--theme-text-secondary, #999);
+    margin: 6px 0 18px;
+    line-height: 1.7;
+}
+
+.cpr-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+}
+
+.cpr-field { min-width: 0; }
+.cpr-field.full { grid-column: 1 / -1; }
+
+.cpr-field label {
+    display: block;
+    font-size: 13px;
+    color: var(--theme-text, #222);
+    margin-bottom: 6px;
+}
+
+.cpr-field label .req { color: #e74c3c; margin-left: 2px; }
+
+.cpr-field input[type="text"],
+.cpr-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 13px;
+    color: var(--theme-text, #222);
+    background: var(--theme-background, #f7f8fa);
+    border: 1px solid var(--theme-border, #eee);
+    border-radius: 10px;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+}
+
+.cpr-field textarea {
+    min-height: 110px;
+    resize: vertical;
+    line-height: 1.8;
+}
+
+.cpr-field input[type="text"]:focus,
+.cpr-field textarea:focus {
+    border-color: var(--theme-primary, #ff6b6b);
+    background: var(--theme-surface, #fff);
+    box-shadow: 0 0 0 3px rgba(255, 107, 107, .12);
+}
+
+.cpr-field .err {
+    display: none;
+    font-size: 12px;
+    color: #e74c3c;
+    margin-top: 5px;
+}
+
+.cpr-field.invalid input[type="text"],
+.cpr-field.invalid textarea {
+    border-color: #e74c3c;
+}
+
+.cpr-field.invalid .err { display: block; }
+
+/* ---------- 证据上传 ---------- */
+.cpr-upload {
+    border: 1px dashed var(--theme-border, #ddd);
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    cursor: pointer;
+    background: var(--theme-background, #fafafa);
+    transition: border-color .2s ease, background-color .2s ease;
+}
+
+.cpr-upload:hover,
+.cpr-upload.dragover {
+    border-color: var(--theme-primary, #ff6b6b);
+    background: rgba(255, 107, 107, .04);
+}
+
+.cpr-upload .icon {
+    font-size: 22px;
+    color: var(--theme-primary, #ff6b6b);
+    line-height: 1;
+}
+
+.cpr-upload .t1 {
+    font-size: 13px;
+    color: var(--theme-text, #222);
+    margin-top: 8px;
+}
+
+.cpr-upload .t2 {
+    font-size: 12px;
+    color: var(--theme-text-secondary, #999);
+    margin-top: 4px;
+}
+
+.cpr-thumbs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.cpr-thumb {
+    position: relative;
+    padding-top: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--theme-border, #eee);
+    background: var(--theme-background, #f5f5f5);
+}
+
+.cpr-thumb img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cpr-thumb .del {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    width: 22px;
+    height: 22px;
+    line-height: 20px;
+    text-align: center;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .55);
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+}
+
+.cpr-thumb .del:hover { background: #e74c3c; }
+
+/* ---------- 验证码与提交 ---------- */
+.cpr-captcha-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cpr-captcha-row input {
+    flex: 1;
+}
+
+.cpr-captcha-row img {
+    width: 100px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--theme-border, #eee);
+    cursor: pointer;
+    background: var(--theme-background, #f5f5f5);
+    flex: none;
+    object-fit: fill;
+}
+
+.cpr-submit-bar {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.cpr-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 168px;
+    padding: 11px 26px;
+    border: none;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    background: var(--theme-primary-gradient, linear-gradient(135deg, #ff6b6b, #ff8e53));
+    transition: transform .2s ease, filter .2s ease, box-shadow .2s ease;
+    box-shadow: 0 8px 20px rgba(255, 107, 107, .25);
+}
+
+.cpr-btn:hover { filter: brightness(1.06); box-shadow: 0 10px 24px rgba(255, 107, 107, .32); }
+.cpr-btn:active { transform: scale(.985); }
+.cpr-btn:disabled { opacity: .65; cursor: not-allowed; box-shadow: none; }
+
+.cpr-submit-bar .hint {
+    font-size: 12px;
+    color: var(--theme-text-secondary, #999);
+}
+
+.cpr-loading {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, .45);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: cprSpin .7s linear infinite;
+    display: none;
+}
+
+.cpr-btn.loading .cpr-loading { display: inline-block; }
+
+@keyframes cprSpin { to { transform: rotate(360deg); } }
+
+/* ---------- 提交结果 ---------- */
+.cpr-success {
+    display: none;
+    text-align: center;
+    padding: 34px 20px 30px;
+}
+
+.cpr-success.show { display: block; animation: cprIn .35s ease both; }
+
+.cpr-success .mark {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: rgba(39, 174, 96, .12);
+    color: #27ae60;
+    font-size: 28px;
+    line-height: 56px;
+}
+
+.cpr-success h3 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--theme-text, #222);
+    margin: 0 0 8px;
+}
+
+.cpr-success p {
+    font-size: 13px;
+    color: var(--theme-text-secondary, #666);
+    line-height: 1.9;
+    margin: 0 0 18px;
+}
+
+.cpr-success .cpr-btn {
+    min-width: 130px;
+    box-shadow: none;
+    background: var(--theme-background, #f5f5f5);
+    color: var(--theme-text, #222);
+    border: 1px solid var(--theme-border, #eee);
+}
+
+@keyframes cprIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- 入场动效 ---------- */
+.cpr-reveal {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity .5s ease, transform .5s ease;
+}
+
+.cpr-reveal.in {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 768px) {
+    .cpr-page { padding: 14px 12px 36px; }
+    .cpr-hero { padding: 24px 18px; border-radius: 16px; }
+    .cpr-hero h1 { font-size: 20px; }
+    .cpr-steps { grid-template-columns: 1fr; gap: 10px; }
+    .cpr-grid { grid-template-columns: 1fr; }
+    .cpr-thumbs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .cpr-submit-bar .cpr-btn { width: 100%; }
+    .cpr-form-card { padding: 20px 16px 22px; }
+}

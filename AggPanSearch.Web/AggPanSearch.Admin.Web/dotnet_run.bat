@@ -1,0 +1,1 @@
+dotnet AggPanSearch.Admin.Web.dll

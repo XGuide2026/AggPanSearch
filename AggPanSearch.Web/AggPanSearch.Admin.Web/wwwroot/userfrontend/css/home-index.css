@@ -1,0 +1,620 @@
+/* 新皮肤首页布局（从 Index.cshtml 内联样式整理而来） */
+.home-container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+    box-sizing: border-box;
+}
+
+.home-main {
+    display: grid;
+    grid-template-columns: 1fr;
+    /* 首行：站点标题；第二行：搜索卡片整行铺满；第三行：资源分类卡
+       各行按内容高度排列，避免出现多余空白 */
+    align-items: start;
+    gap: 20px;
+}
+
+@media (max-width: 900px) {
+    /* 单列布局下的阅读顺序：标题 → 搜索卡片 → 资源分类 */
+    .home-main { grid-template-columns: 1fr; }
+    .home-main > .search-title { order: 0; }
+    .home-left { order: 1; }
+    .category-section { order: 2; }
+}
+
+/* 第二行：搜索卡片 */
+.home-left {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+}
+
+/* 资源分类（数据同"资源分类"页 pan_source_category），独占第三行并跨满整行 */
+.category-section {
+    grid-column: 1 / -1;
+    min-width: 0;
+    background: var(--theme-surface);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    transition: background-color 0.3s ease;
+}
+
+.category-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.category-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--theme-text);
+    position: relative;
+    padding-left: 12px;
+}
+
+/* 标题 + 合计总数：合计与标题同一行，右侧"查看更多"仍由 .category-header 的 space-between 撑到最右 */
+.category-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.category-title::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 18px;
+    border-radius: 2px;
+    background: var(--theme-primary-gradient);
+}
+
+.category-more {
+    font-size: 13px;
+    color: var(--theme-text-secondary);
+    text-decoration: none;
+}
+
+.category-more:hover { color: var(--theme-primary); }
+
+.category-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 14px;
+    font-size: 13px;
+    color: var(--theme-text-secondary);
+    text-decoration: none;
+    border: 1px solid var(--theme-border);
+    transition: all 0.2s ease;
+}
+
+/* 分类数量徽标：category.css 的 .uf-cat-count 只作用于竖排列表（.uf-cat-item > .uf-cat-count），
+   首页横向标签下不会命中，故在此补充同色系规则，不影响"资源分类"页 */
+.cat-chip > .uf-cat-count {
+    flex: 0 0 auto;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 16px;
+    color: var(--theme-primary);
+    background: color-mix(in srgb, var(--theme-primary) 12%, transparent);
+}
+
+.cat-chip:hover {
+    color: var(--theme-primary);
+    border-color: var(--theme-primary);
+}
+
+.cat-chip.active {
+    color: #fff;
+    background: var(--theme-primary-gradient);
+    border-color: transparent;
+}
+
+/* 选中态徽标反白，保证渐变底上的可读性 */
+.cat-chip.active > .uf-cat-count {
+    color: #fff;
+    background: rgba(255, 255, 255, .28);
+}
+
+/* 分类块内的资源列表：卡片样式直接复用 category.css 的 .uf-list / .uf-item，此处只做分隔 */
+.category-resource-list {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--theme-border);
+}
+
+/* 左侧搜索区 */
+.search-section {
+    background: var(--theme-surface);
+    border-radius: 14px;
+    padding: 35px 28px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    transition: background-color 0.3s ease;
+}
+
+.search-title {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.5;
+    color: var(--theme-text);
+}
+
+/* 首页首行标题：作为 .home-main 网格首项横跨两列并水平居中
+   （容器 20px 上内边距 + 4px 外边距、网格 20px 行间距 + 4px 外边距 ≈ 24px 上下留白） */
+.home-main > .search-title {
+    grid-column: 1 / -1;
+    text-align: center;
+    margin: 4px 0;
+}
+
+.search-title .highlight {
+    background: var(--theme-primary-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* 搜索框上方为网盘类型切换，间距由 .pan-type-tabs（桌面端 30px）/ .pan-type-mobile（手机端 14px）的 margin-bottom 承担
+   左右留白 + 限宽居中：让搜索框比卡片略窄，视觉更聚焦 */
+.search-box-wrapper {
+    margin-top: 0;
+    padding: 0 clamp(0px, 5vw, 48px);
+}
+
+.search-input-box {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    background: var(--theme-surface);
+    border: 2px solid var(--theme-border);
+    border-radius: 12px;
+    padding: 4px 6px 4px 16px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.search-input-box:focus-within {
+    border-color: var(--theme-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 15%, transparent);
+}
+
+.input-search-icon {
+    display: flex;
+    align-items: center;
+    color: var(--theme-text-secondary);
+    margin-right: 10px;
+}
+
+/* 搜索框左侧图标：默认放大镜（search.svg），选中网盘类型后换成对应网盘图标
+   默认与网盘图标同为 26px，切换类型时不再出现尺寸跳变 */
+.input-search-icon .search-icon-pan {
+    display: block;
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+    border-radius: 5px;
+}
+
+.search-input-box input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 15px;
+    color: var(--theme-text);
+    background: transparent;
+    padding: 10px 0;
+}
+
+.search-input-box input::placeholder { color: var(--theme-text-secondary); opacity: 0.7; }
+
+.search-btn {
+    padding: 10px 26px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: var(--theme-primary-gradient);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    transition: opacity 0.2s ease;
+}
+
+.search-btn:hover { opacity: 0.88; }
+
+/* 网盘类型切换（位于搜索卡最前，顶部间距由 .search-section 内边距承担） */
+.pan-type-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 0 0 30px;
+}
+
+.pan-type-tab {
+    padding: 5px 14px;
+    border-radius: 14px;
+    font-size: 13px;
+    color: var(--theme-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid var(--theme-border);
+}
+
+.pan-type-tab:hover {
+    color: var(--theme-primary);
+    border-color: var(--theme-primary);
+}
+
+.pan-type-tab.active {
+    color: #fff;
+    background: var(--theme-primary-gradient);
+    border-color: transparent;
+}
+
+/* 手机端网盘切换（同样位于搜索框之上，桌面端隐藏不占位） */
+.pan-type-mobile { margin: 0 0 14px; display: none; }
+.pan-type-mobile-list {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+.pan-type-mobile-btn {
+    flex-shrink: 0;
+    padding: 6px 16px;
+    border: 1px solid var(--theme-border);
+    border-radius: 16px;
+    background: var(--theme-surface);
+    color: var(--theme-text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+}
+.pan-type-mobile-btn.active {
+    color: #fff;
+    background: var(--theme-primary-gradient);
+    border-color: transparent;
+}
+
+@media (max-width: 768px) {
+    .pan-type-tabs { display: none; }
+    .pan-type-mobile { display: block; }
+    .search-section { padding: 20px 16px; }
+    /* 小屏不再额外收窄搜索框，保持近似满宽 */
+    .search-box-wrapper { padding: 0; }
+    .category-section { padding: 16px; }
+    .search-title { font-size: 20px; }
+    /* 小屏收紧分类标题区间距 */
+    .category-head { gap: 8px; }
+}
+
+/* 今日概览统计：并入搜索卡末位，仅靠间距分隔 */
+.search-section > .stats-grid {
+    margin-top: 30px;
+    padding: 0;
+}
+
+.stats-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 12px;
+}
+
+/* 统计块按内容自适应宽度（胶囊感），不再等分铺满整行 */
+.stat-item {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
+    min-width: 96px;
+    padding: 8px 20px;
+    background: color-mix(in srgb, var(--theme-primary) 6%, transparent);
+    border-radius: 10px;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: var(--theme-text-secondary);
+}
+
+.stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--theme-primary);
+    margin-top: 4px;
+}
+
+/* 搜索结果区域 */
+.search-result-section {
+    display: none;
+    margin-top: 20px;
+    background: var(--theme-surface);
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+.search-result-section.show { display: block; }
+
+.search-result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--theme-border);
+}
+
+.search-result-title-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--theme-text);
+}
+
+.search-result-title-icon { font-size: 18px; }
+
+.search-result-count {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--theme-text-secondary);
+    margin-left: 6px;
+}
+
+.search-result-close {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--theme-text-secondary);
+}
+
+.search-result-close:hover { color: var(--theme-primary); }
+
+#searchResultContent { max-height: 60vh; overflow-y: auto; }
+
+/* 搜索结果项 */
+.search-result-loading { padding: 50px 0; text-align: center; }
+
+.loading-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 6px;
+    height: 32px;
+}
+
+.loading-pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--theme-primary);
+    animation: pulseLoading 1.2s ease-in-out infinite;
+}
+
+.loading-pulse:nth-child(2) { animation-delay: 0.2s; }
+.loading-pulse:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes pulseLoading {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+}
+
+.loading-text {
+    font-size: 15px;
+    color: var(--theme-text);
+    margin-top: 14px;
+}
+
+.search-result-list { padding: 12px; }
+
+.search-result-item {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid transparent;
+    margin-bottom: 8px;
+}
+
+.search-result-item:hover {
+    background: color-mix(in srgb, var(--theme-primary) 5%, transparent);
+    border-color: color-mix(in srgb, var(--theme-primary) 20%, transparent);
+}
+
+.search-result-info { flex: 1; min-width: 0; }
+
+/* 资源名称行：名称 + 链接检测状态(link-check-status) 同行 */
+.search-result-name-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 8px;
+}
+
+/* 资源标签组（类型 / 本地资源 / 时间 / 来源）独立一行展示 */
+.search-result-tags-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    margin-top: 8px;
+}
+
+.search-result-name {
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--theme-text);
+    word-break: break-all;
+}
+
+.search-result-desc {
+    font-size: 13px;
+    color: var(--theme-text-secondary);
+    margin-top: 4px;
+    word-break: break-all;
+}
+
+.search-result-meta:empty { display: none; }
+
+.search-result-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.search-result-tag {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--theme-primary) 8%, transparent);
+    color: var(--theme-primary);
+}
+
+/* 类型标签背景：用中性灰替代主题色，弱化视觉权重 */
+.search-result-tag.type {
+    background: color-mix(in srgb, #c4c7ce 10%, transparent);
+}
+
+/* 类型标签的网盘图标（/userfrontend/images/pan/{name}.png|svg） */
+.search-result-tag-icon {
+    width: 14px;
+    height: 14px;
+    vertical-align: -2px;
+    margin-right: 4px;
+    object-fit: contain;
+}
+
+.search-result-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: 12px;
+    justify-content: flex-end;
+}
+
+.search-result-btn {
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    line-height: 1.4;
+}
+
+.search-result-btn i {
+    line-height: 1;
+    font-size: 12px;
+}
+
+.search-result-btn.get {
+    color: #fff;
+    background: var(--theme-primary-gradient);
+}
+
+.search-result-empty {
+    padding: 50px 0;
+    text-align: center;
+    color: var(--theme-text-secondary);
+    font-size: 14px;
+}
+
+/* ===== 手机端搜索结果项布局加固（竖屏 / 横屏 / 平板均适用） =====
+   首页搜索结果与搜索页共用 yfs.runtime.js 渲染的 .search-result-item：
+   桌面端 info 与 actions 同行，actions 不收缩、按钮文字也不换行，
+   窄屏下会把 .search-result-info 挤压到只剩几十像素，标题变成"一个字一行"。
+   这里在 <=1024px 统一改为纵向两行：信息区占满整行，操作按钮另起一行。 */
+@media (max-width: 1024px) {
+    .search-result-list { padding: 10px; min-width: 0; }
+
+    .search-result-item {
+        flex-direction: column;
+        align-items: stretch;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 12px;
+    }
+
+    .search-result-info {
+        flex: 0 0 auto;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .search-result-name-row {
+        align-items: flex-start;
+    }
+
+    .search-result-name {
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+
+    .search-result-desc {
+        word-break: break-word;
+        overflow-wrap: anywhere;
+    }
+
+    .search-result-meta {
+        min-width: 0;
+        align-items: center;
+    }
+
+    .search-result-tag {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .search-result-actions {
+        flex: 0 0 auto;
+        width: 100%;
+        margin: 10px 0 0;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+}
+
+/* 手机端"查看资源"按钮整体收小一档，避免按钮把整行占满、结果项过高 */
+@media (max-width: 768px) {
+    .search-result-actions {
+        gap: 6px;
+    }
+
+    .search-result-btn {
+        font-size: 10px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        line-height: 1.4;
+    }
+}

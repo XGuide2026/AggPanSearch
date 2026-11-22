@@ -1,0 +1,293 @@
+@using AggPanSearch.Admin.Web.Areas.UserFrontend.Models
+@{
+    var config = ViewData["Config"] as SiteConfig ?? new SiteConfig();
+    var hideHeader = ViewData["HideHeader"] as bool? ?? false;
+    // 主题由后台"网盘管理-切换主题"设置，非法值统一回退暖红
+    var themeName = config.Theme;
+    if (themeName != "red" && themeName != "blue" && themeName != "green" && themeName != "dark")
+    {
+        themeName = "red";
+    }
+    // 是否允许访客在前台导航栏自行切换主题（后台可关闭）
+    var allowThemeSwitch = config.ThemeSwitch == 1;
+}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="keywords" content="@config.AppName,@config.AppSubname,网盘搜索,夸克网盘,资源搜索" />
+    <title>@(ViewData["Title"] ?? config.AppName)</title>
+    <link rel="icon" href="@(!string.IsNullOrEmpty(config.AppIcon) ? config.AppIcon : "/userfrontend/images/favicon.ico")" />
+    <script>
+        // 首屏预置主题，避免闪烁
+        // 主题以后台"切换主题"设置为准；仅当后台允许访客切换时，才读取本地缓存
+        (function() {
+            var configTheme = '@themeName';
+            var allowSwitch = @(allowThemeSwitch ? "true" : "false");
+            var savedTheme = allowSwitch ? (localStorage.getItem('app-theme') || configTheme) : configTheme;
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            document.documentElement.setAttribute('data-page-loading', '');
+            window.__UF_THEME_SWITCH__ = allowSwitch;
+        })();
+    </script>
+    <link rel="stylesheet" href="/userfrontend/news/common/static/css/index.min.css" />
+    <link rel="stylesheet" href="/userfrontend/news/common/static/css/app.css" />
+    <link rel="stylesheet" href="/userfrontend/news/common/static/css/m.css" />
+    <style>
+        /* ---- 新皮肤主题变量体系（--theme-primary） ---- */
+        /* 默认红：主色/背景/文字取后台"基础设置-颜色风格"，未配置时回退默认值 */
+        :root,
+        [data-theme="red"] {
+            --theme-primary: @config.HomeTheme;
+            --theme-primary-light: @config.HomeTheme;
+            --theme-primary-gradient: linear-gradient(135deg, @config.HomeTheme 0%, @config.HomeTheme 100%);
+            --theme-primary-hover: @config.HomeTheme;
+            --theme-secondary-gradient: linear-gradient(135deg, @config.HomeTheme 0%, @config.HomeTheme 100%);
+            --theme-tertiary-gradient: linear-gradient(135deg, @config.HomeTheme 0%, @config.HomeTheme 100%);
+            --theme-background: @config.HomeBackground;
+            --theme-surface: @config.OtherBackground;
+            --theme-card: @config.HomeBackground;
+            --theme-card-gradient: linear-gradient(135deg, @config.HomeBackground 0%, @config.OtherBackground 100%);
+            --theme-text: @config.HomeColor;
+            --theme-text-secondary: @config.HomeColor;
+            --theme-border: #f0f0f0;
+        }
+        /* 海洋蓝 */
+        [data-theme="blue"] {
+            --theme-primary: #4a90e2;
+            --theme-primary-light: #5fa3f0;
+            --theme-primary-gradient: linear-gradient(135deg, #4a90e2 0%, #5fa3f0 100%);
+            --theme-primary-hover: #3a7bc8;
+            --theme-secondary-gradient: linear-gradient(135deg, #5fa3f0 0%, #7eb8f7 100%);
+            --theme-tertiary-gradient: linear-gradient(135deg, #7eb8f7 0%, #9dcdff 100%);
+            --theme-background: #f0f4f8;
+            --theme-surface: #ffffff;
+            --theme-card: #f0f8ff;
+            --theme-card-gradient: linear-gradient(135deg, #f0f8ff 0%, #e6f2ff 100%);
+            --theme-text: #2c3e50;
+            --theme-text-secondary: #5a6c7d;
+            --theme-border: #e1e8ed;
+        }
+        /* 森林绿 */
+        [data-theme="green"] {
+            --theme-primary: #27ae60;
+            --theme-primary-light: #2ecc71;
+            --theme-primary-gradient: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            --theme-primary-hover: #229954;
+            --theme-secondary-gradient: linear-gradient(135deg, #2ecc71 0%, #58d68d 100%);
+            --theme-tertiary-gradient: linear-gradient(135deg, #58d68d 0%, #82e0aa 100%);
+            --theme-background: #f0f7f4;
+            --theme-surface: #ffffff;
+            --theme-card: #f0faf4;
+            --theme-card-gradient: linear-gradient(135deg, #f0faf4 0%, #e6f5eb 100%);
+            --theme-text: #1e3a2f;
+            --theme-text-secondary: #4a6356;
+            --theme-border: #d4e6dc;
+        }
+        /* 暗夜黑 */
+        [data-theme="dark"] {
+            --theme-primary: #6366f1;
+            --theme-primary-light: #8b5cf6;
+            --theme-primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            --theme-primary-hover: #4f46e5;
+            --theme-secondary-gradient: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+            --theme-tertiary-gradient: linear-gradient(135deg, #a78bfa 0%, #c4b5fd 100%);
+            --theme-background: #0f0f1a;
+            --theme-surface: #1a1a2e;
+            --theme-card: #252538;
+            --theme-card-gradient: linear-gradient(135deg, #252538 0%, #1e1e32 100%);
+            --theme-text: #f0f0f5;
+            --theme-text-secondary: #a0a0b0;
+            --theme-border: #3a3a4a;
+            --theme-text-muted: #808090;
+        }
+
+        body {
+            background-color: var(--theme-background) !important;
+            color: var(--theme-text);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /*
+         * 注：--theme-text / --theme-surface / --theme-border 已在各 [data-theme] 内定义，
+         * 此处绝对不要再以 :root 自引用覆盖，否则会让变量整个失效（guaranteed-invalid）。
+         * 以下别名用来补齐第三方皮肤 app.css / m.css 实际使用的旧变量名，映射到新主题体系，
+         * 映射目标都是已定义的有效变量，避免再次出现 var() 取不到值导致样式失效。
+         */
+        :root {
+            --theme: var(--theme-primary);
+            --theme-bg: var(--theme-background);
+            /* 旧体系：正文/前景文字色 */
+            --theme-color: var(--theme-text);
+            /* 旧体系：主色调（皮肤顶部、高亮用） */
+            --theme-theme: var(--theme-primary);
+            /* 旧体系：次级背景（与页面背景区分） */
+            --theme-other_background: var(--theme-background);
+        }
+
+        @if (!string.IsNullOrEmpty(config.HomeCss))
+        {
+            @Html.Raw(config.HomeCss)
+        }
+    </style>
+    <link rel="stylesheet" href="/userfrontend/css/header.css?v=20261107f" />
+    @RenderSection("Head", required: false)
+    @{
+        // 进站弹窗广告（后台"网盘管理-配置-登录弹窗广告"里的 ad_popup_*）：
+        // ad_popup_image 是「选择二维码」控件，存的是「二维码设置」里的二维码 key，
+        // 已由 UserFrontendService.ApplyConfig 解析成图片路径；这里只负责补前导斜杠（后台存相对路径，深层路由下会 404）。
+        var popupImage = (config.AdPopupImage ?? "").Trim();
+        if (popupImage.Length > 0
+            && !popupImage.StartsWith("/")
+            && !popupImage.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            && !popupImage.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            popupImage = "/" + popupImage;
+        }
+        var popupAd = new
+        {
+            enable = config.AdPopupEnable == 1 ? 1 : 0,
+            title = config.AdPopupTitle ?? "",
+            image = popupImage,
+            content = config.AdPopupContent ?? "",
+            link = config.AdPopupLink ?? "",
+            btn = string.IsNullOrEmpty(config.AdPopupBtn) ? "知道了" : config.AdPopupBtn
+        };
+    }
+    <script>
+        window.SITE_POPUP_AD = @Html.Raw(JsonConvert.SerializeObject(popupAd));
+        // 弹窗频次：同一浏览器（跨标签页、跨会话）每 14 天最多弹一次，用 localStorage 记录上次弹出的时间戳
+        // 注意 localStorage 按域名隔离，换域名/换设备/清缓存都会重新计算
+        (function () {
+            var cfg = window.SITE_POPUP_AD || { enable: 0 };
+            var POPUP_KEY = 'site_popup_ad_shown_at';
+            var POPUP_INTERVAL = 14 * 24 * 60 * 60 * 1000; // 14 天
+            function shownRecently() {
+                try {
+                    var ts = parseInt(localStorage.getItem(POPUP_KEY) || '0', 10);
+                    if (!ts) return false;
+                    var diff = Date.now() - ts;
+                    // 记录时间在未来（系统时间回拨）时视为过期，允许重新弹一次
+                    return diff >= 0 && POPUP_INTERVAL > diff;
+                } catch (e) {
+                    // 隐私模式等禁用 localStorage 的场景，退化为本次访问必弹
+                    return false;
+                }
+            }
+            function markShown() {
+                try { localStorage.setItem(POPUP_KEY, String(Date.now())); } catch (e) { }
+            }
+            function init() {
+                if (!cfg || cfg.enable != 1) return;
+                if (!cfg.title && !cfg.image && !cfg.content) return;
+                if (shownRecently()) return;
+                markShown();
+
+                var wrap = document.createElement('div');
+                wrap.id = 'site-popup-ad';
+                wrap.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:999999;display:flex;align-items:center;justify-content:center;';
+                var h = '<div class="spa-mask" style="position:absolute;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.55);"></div>';
+                h += '<div class="spa-box" style="position:relative;width:92%;max-width:480px;max-height:88vh;overflow:auto;background:var(--theme-surface,#fff);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.3);z-index:1;animation:spaIn .3s ease;">';
+                h += '<div class="spa-close" style="position:absolute;right:8px;top:6px;width:30px;height:30px;line-height:28px;text-align:center;font-size:22px;color:#999;cursor:pointer;z-index:2;border-radius:50%;background:rgba(255,255,255,.9);">&times;</div>';
+                h += '<div style="padding:18px 22px 24px;text-align:center;">';
+                if (cfg.title) {
+                    h += '<div class="spa-title" style="font-size:18px;font-weight:700;color:var(--theme-text,#222);margin-bottom:10px;">' + cfg.title + '</div>';
+                }
+                if (cfg.image) {
+                    // 图片放在标题下方：宽度不铺满，按原始比例缩放并以 max-height 兜底，避免撑破父级
+                    h += '<div style="max-width:100%;margin:0 auto 12px;">';
+                    h += '<img src="' + cfg.image + '" alt="广告" style="display:block;width:auto;height:auto;max-width:100%;max-height:48vh;margin:0 auto;border-radius:10px;object-fit:contain;" onerror="this.parentNode.style.display=\'none\'">';
+                    h += '</div>';
+                }
+                if (cfg.content) {
+                    // 弹窗内容按句号断行（一句一行），同时保留后台输入的原生换行，末尾不残留空行
+                    var contentHtml = String(cfg.content)
+                        .replace(/。\s*/g, '。<br>')
+                        .replace(/\r\n|\r|\n+/g, '<br>')
+                        .replace(/(<br>\s*)+$/, '');
+                    h += '<div class="spa-content" style="font-size:14px;color:var(--theme-text-secondary,#555);line-height:1.8;word-break:break-word;">' + contentHtml + '</div>';
+                }
+                var btnText = cfg.btn || '知道了';
+                if (cfg.link) {
+                    h += '<a class="spa-btn" href="' + cfg.link + '" target="_blank" rel="noopener" style="display:block;margin-top:18px;padding:10px 0;background:var(--theme-primary-gradient,linear-gradient(135deg,#ff6b6b,#ff8e53));background-color:var(--theme-primary,#ff6b6b);color:#fff;border-radius:22px;font-size:15px;font-weight:600;text-decoration:none;">' + btnText + '</a>';
+                } else {
+                    h += '<div class="spa-btn" style="display:block;margin-top:18px;padding:10px 0;background:var(--theme-primary-gradient,linear-gradient(135deg,#ff6b6b,#ff8e53));background-color:var(--theme-primary,#ff6b6b);color:#fff;border-radius:22px;font-size:15px;font-weight:600;cursor:pointer;">' + btnText + '</div>';
+                }
+                h += '</div></div>';
+                wrap.innerHTML = h;
+                document.body.appendChild(wrap);
+
+                function close() {
+                    if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+                }
+                wrap.querySelector('.spa-mask').addEventListener('click', close);
+                wrap.querySelector('.spa-close').addEventListener('click', close);
+                var btnEl = wrap.querySelector('.spa-btn');
+                if (btnEl && !cfg.link) btnEl.addEventListener('click', close);
+
+                if (!document.getElementById('spaStyle')) {
+                    var st = document.createElement('style');
+                    st.id = 'spaStyle';
+                    st.textContent = '@@keyframes spaIn{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}'
+                        + '.spa-btn{transition:filter .2s ease,transform .2s ease}'
+                        + '.spa-btn:hover{filter:brightness(1.08)}'
+                        + '.spa-btn:active{transform:scale(.99)}';
+                    document.head.appendChild(st);
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function () { setTimeout(init, 500); });
+            } else {
+                setTimeout(init, 500);
+            }
+        })();
+    </script>
+    @{
+        // 公众号引流弹窗（后台"引流设置 - 搜索资源是否开启公众号引流弹窗"）：
+        // 0 不弹窗 / 1 点击「搜索资源」强制弹窗 / 2 查看详情页资源链接强制弹窗
+        // 二维码沿用后台"二维码设置"里 qr_wxchannel 的图片，存的是不带前导斜杠的相对路径，这里补齐
+        var wxQr = (config.QrWxchannel ?? "").Trim();
+        if (wxQr.Length > 0
+            && !wxQr.StartsWith("/")
+            && !wxQr.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            && !wxQr.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            wxQr = "/" + wxQr;
+        }
+        var wxTraffic = new
+        {
+            searchMode = config.TrafficWxchannelSearch,
+            // 详情页引流（traffic_wxchannel_viewsource）：1 点击详情链接先弹窗 / 2 详情页隐藏资源地址，点「查看资源」后显示
+            viewSourceMode = config.TrafficWxchannelViewsource,
+            qr = wxQr,
+            // 公众号名称（pan_conf：traffic_wxchannel_name），用于步骤里的「或者搜索公众号：xxx」
+            channel = (config.TrafficWxchannelName ?? "").Trim(),
+            code = (config.TrafficWxchannelCode ?? "").Trim()
+        };
+    }
+    <!-- 公众号引流弹窗：样式 / 脚本独立在 wwwroot/userfrontend（css/wx-traffic.css、js/wx-traffic.js），
+         后台「网盘管理 - 引流设置」tab 的预览复用同一份资源，改样式无需重编译后台 -->
+    <link rel="stylesheet" href="/userfrontend/css/wx-traffic.css?v=20261109m" />
+    <script>
+        window.SITE_WX_TRAFFIC = @Html.Raw(JsonConvert.SerializeObject(wxTraffic));
+    </script>
+    <script src="/userfrontend/js/wx-traffic.js?v=20261109h"></script>
+</head>
+<body>
+    @if (!string.IsNullOrEmpty(config.HomeBg))
+    {
+        <div class="headBg" style="background-image: url('@config.HomeBg');"></div>
+    }
+    <div id="app" v-cloak>
+        @if (!hideHeader)
+        {
+            @await Html.PartialAsync("_Header")
+        }
+        @RenderBody()
+        @await Html.PartialAsync("_Foot")
+    </div>
+    @await Html.PartialAsync("_Footer")
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

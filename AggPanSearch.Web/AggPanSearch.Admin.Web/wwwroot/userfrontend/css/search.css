@@ -1,0 +1,668 @@
+/* ===== Search 页面样式（由 Search.cshtml 内联样式整理而来） ===== */
+
+/* ---- AggPanSearch 全网搜结果容器（对齐首页 home-index.css 的渲染） ---- */
+.search-result-section {
+    display: none;
+    margin-top: 20px;
+    background: var(--theme-surface);
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+.search-result-section.show { display: block; }
+.search-result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--theme-border);
+}
+.search-result-title-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--theme-text);
+}
+.search-result-title-icon { font-size: 18px; }
+.search-result-summary {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--theme-text-secondary);
+}
+.search-result-hl {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--theme-primary, #ff6b6b);
+    font-style: normal;
+}
+.search-result-count {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--theme-text-secondary);
+    margin-left: 4px;
+}
+/* 固定高度：切换网盘类型时容器高度不再随内容变化，避免页面闪动。
+   另设最低高度：保证一页（默认 10 条）能完整显示，超过部分才在容器内滚动 */
+#searchResultContent {
+    height: 70vh;
+    min-height: 1080px;
+    max-height: none;
+    /* 结果区保留自身滚动条（整页滚动条已在文件末尾隐藏） */
+    overflow-y: auto;
+}
+.search-result-loading { padding: 50px 0; text-align: center; }
+.loading-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 6px;
+    height: 32px;
+}
+.loading-pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--theme-primary);
+    animation: pulseLoading 1.2s ease-in-out infinite;
+}
+.loading-pulse:nth-child(2) { animation-delay: 0.2s; }
+.loading-pulse:nth-child(3) { animation-delay: 0.4s; }
+@keyframes pulseLoading {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+}
+.loading-text {
+    font-size: 15px;
+    color: var(--theme-text);
+    margin-top: 14px;
+}
+.search-result-list { padding: 12px; }
+.search-result-empty {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--theme-text-secondary, #999);
+    font-size: 14px;
+}
+
+.home-container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+    box-sizing: border-box;
+}
+
+.search-section {
+    background: var(--theme-surface);
+    border-radius: 14px;
+    padding: 24px 28px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    margin-bottom: 20px;
+    transition: background-color 0.3s ease;
+}
+
+.search-input-box {
+    display: flex;
+    align-items: center;
+    background: var(--theme-surface);
+    border: 2px solid var(--theme-border);
+    border-radius: 12px;
+    padding: 4px 6px 4px 16px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.search-input-box:focus-within {
+    border-color: var(--theme-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 15%, transparent);
+}
+
+.input-search-icon {
+    display: flex;
+    align-items: center;
+    color: var(--theme-text-secondary);
+    margin-right: 10px;
+}
+
+/* 搜索框左侧图标：默认放大镜（search.svg），选中网盘类型后换成对应网盘图标
+   默认与网盘图标同为 26px，切换类型时不再出现尺寸跳变 */
+.input-search-icon .search-icon-pan {
+    display: block;
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+    border-radius: 5px;
+}
+
+.search-input-box input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 15px;
+    color: var(--theme-text);
+    background: transparent;
+    padding: 10px 0;
+}
+
+.search-input-box input::placeholder { color: var(--theme-text-secondary); opacity: 0.7; }
+
+.search-btn {
+    padding: 10px 26px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: var(--theme-primary-gradient);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    transition: opacity 0.2s ease;
+}
+
+.search-btn:hover { opacity: 0.88; }
+
+/* 搜索列表 */
+.search-list-wrap {
+    background: var(--theme-surface);
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    padding: 18px 20px;
+    transition: background-color 0.3s ease;
+}
+
+.search-result-item {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    border: 1px solid transparent;
+    margin-bottom: 8px;
+    background: color-mix(in srgb, var(--theme-primary) 3%, transparent);
+}
+
+.search-result-item:hover {
+    background: color-mix(in srgb, var(--theme-primary) 7%, transparent);
+    border-color: color-mix(in srgb, var(--theme-primary) 20%, transparent);
+}
+
+.search-result-info { flex: 1; min-width: 0; }
+
+/* 资源名称行：名称 + 链接检测状态(link-check-status) 同行 */
+.search-result-name-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 8px;
+}
+
+/* 资源标签组（类型 / 本地资源 / 时间 / 来源）独立一行展示 */
+.search-result-tags-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    margin-top: 8px;
+}
+
+.search-result-name {
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--theme-text);
+    word-break: break-all;
+}
+
+/* 资源描述（yfs.runtime.js 渲染的 .search-result-desc，与首页保持一致） */
+.search-result-desc {
+    font-size: 13px;
+    color: var(--theme-text-secondary);
+    margin-top: 4px;
+    word-break: break-all;
+}
+
+.search-result-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--theme-text-secondary);
+}
+
+.search-result-meta:empty { display: none; }
+
+.search-result-tag {
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--theme-primary);
+    background: color-mix(in srgb, var(--theme-primary) 10%, transparent);
+}
+
+/* 类型标签背景：用中性灰替代主题色，弱化视觉权重 */
+.search-result-tag.type {
+    background: color-mix(in srgb, #c4c7ce 10%, transparent);
+}
+
+/* 类型标签的网盘图标（/userfrontend/images/pan/{name}.png|svg） */
+.search-result-tag-icon {
+    width: 14px;
+    height: 14px;
+    vertical-align: -2px;
+    margin-right: 4px;
+    object-fit: contain;
+}
+
+.search-result-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: 12px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.search-result-btn {
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    line-height: 1.4;
+}
+
+.search-result-btn i {
+    line-height: 1;
+    font-size: 12px;
+}
+
+.search-result-btn.get {
+    color: #fff;
+    background: var(--theme-primary-gradient);
+}
+
+.uf-pager { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+
+.uf-pager a, .uf-pager span {
+    padding: 6px 14px;
+    border: 1px solid var(--theme-border);
+    border-radius: 6px;
+    color: var(--theme-text);
+    text-decoration: none;
+    font-size: 13px;
+    background: var(--theme-surface);
+}
+
+.uf-pager a.active {
+    color: #fff;
+    background: var(--theme-primary-gradient);
+    border-color: transparent;
+}
+
+.uf-empty { text-align: center; padding: 50px 0; color: var(--theme-text-secondary); }
+
+/* 网盘类型筛选 tab（下划线式选项卡） */
+#sourceTabs {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-top: 14px;
+    border-bottom: 1px solid var(--theme-border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    /* 隐藏滚动条但保持可滚动 */
+    scrollbar-width: none;
+}
+#sourceTabs::-webkit-scrollbar { display: none; }
+
+.pan-type-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 7px 10px 9px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.3px;
+    color: var(--theme-text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.2s ease;
+    position: relative;
+    user-select: none;
+}
+
+/* 底部横线（默认透明，选中时填充主题色） */
+.pan-type-tab::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 0;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: var(--theme-primary);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+/* 常态 hover：文字变主题色 */
+.pan-type-tab:hover { color: var(--theme-primary); }
+
+/* 选中态：下方一条主题色横线 */
+.pan-type-tab.active {
+    color: var(--theme-primary);
+    font-weight: 600;
+}
+.pan-type-tab.active::after { opacity: 1; }
+
+/* 网盘类型 tab 上的结果数量徽标 */
+.pan-type-tab .tab-count {
+    display: inline-flex;
+    align-items: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 5px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--theme-primary);
+    background: color-mix(in srgb, var(--theme-primary) 12%, transparent);
+}
+.pan-type-tab.active .tab-count {
+    color: #fff;
+    background: var(--theme-primary);
+}
+.pan-type-tab .tab-count.zero { opacity: 0.45; }
+
+/* ---- 搜索结果本地分页 ---- */
+.search-pagination {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--theme-border);
+    background: var(--theme-surface, #fff);
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+    user-select: none;
+}
+.search-pagination .page-info {
+    font-size: 13px;
+    color: var(--theme-text-secondary, #909399);
+    margin-right: 6px;
+}
+.search-pagination .page-prop {
+    font-size: 13px;
+    color: var(--theme-text-secondary, #909399);
+}
+.search-pagination button {
+    min-width: 34px;
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--theme-border, #e4e7ed);
+    background: var(--theme-surface, #fff);
+    color: var(--theme-text, #303133);
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1;
+    transition: all .2s;
+}
+.search-pagination button:hover:not(:disabled) {
+    border-color: var(--theme-primary, #ff6b6b);
+    color: var(--theme-primary, #ff6b6b);
+}
+.search-pagination button:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+}
+.search-pagination button.active {
+    background: var(--theme-primary, #ff6b6b);
+    border-color: var(--theme-primary, #ff6b6b);
+    color: #fff;
+}
+.search-pagination button.page-first,
+.search-pagination button.page-last {
+    min-width: 60px;
+}
+.search-pagination .page-ellipsis {
+    color: var(--theme-text-secondary, #909399);
+    font-size: 13px;
+    padding: 0 2px;
+}
+.search-pagination select.page-size {
+    height: 32px;
+    padding: 0 6px;
+    border: 1px solid var(--theme-border, #e4e7ed);
+    background: var(--theme-surface, #fff);
+    color: var(--theme-text, #303133);
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* ---- 搜索页隐藏浏览器整页滚动条的外观 ----
+   本文件只在 Search 页加载，因此这些规则只影响搜索页。
+   仅隐藏滚动条（不设 overflow:hidden），页面仍可滚轮/触控/键盘滚动，
+   也不会因为滚动条出现/消失造成横向抖动。 */
+html,
+body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+/* ===== 手机端样式（对齐用户首页 Index 的手机端观感） =====
+   放在文件末尾，确保能覆盖上方同名通用规则（如 .search-pagination 的吸底位置）。 */
+@media (max-width: 768px) {
+    /* ---- 搜索卡片 ---- */
+    .search-section {
+        padding: 16px 14px;
+        margin-bottom: 12px;
+        border-radius: 12px;
+    }
+    .search-input-box {
+        padding: 4px 5px 4px 12px;
+        border-radius: 10px;
+    }
+    .input-search-icon { margin-right: 8px; }
+    .search-input-box input { font-size: 14px; padding: 9px 0; }
+    .search-btn {
+        padding: 9px 16px;
+        font-size: 14px;
+        border-radius: 8px;
+    }
+    /* 窄屏下按钮只保留"搜索"二字，避免输入框可用宽度过小 */
+    .search-btn i { display: none; }
+
+    /* ---- 网盘类型筛选：改成与首页手机端一致的胶囊式横向滚动（PC 仍为下划线 tab） ---- */
+    #sourceTabs {
+        gap: 8px;
+        margin-top: 12px;
+        margin-right: 0;
+        padding-bottom: 4px;
+        border-bottom: none;
+    }
+    .pan-type-tab {
+        padding: 6px 14px;
+        font-size: 13px;
+        border: 1px solid var(--theme-border);
+        border-radius: 16px;
+        background: var(--theme-surface);
+    }
+    /* 胶囊形态下不再需要底部横线 */
+    .pan-type-tab::after { display: none; }
+    .pan-type-tab.active {
+        color: #fff;
+        font-weight: 500;
+        background: var(--theme-primary-gradient);
+        border-color: transparent;
+    }
+    .pan-type-tab.active .tab-count {
+        color: var(--theme-primary);
+        background: #fff;
+    }
+
+    /* ---- 结果区 ---- */
+    /* 去掉 search-list-wrap 与 search-result-section 的卡片嵌套，只留一层卡片 */
+    .search-list-wrap {
+        padding: 0;
+        background: transparent;
+        box-shadow: none;
+        border-radius: 0;
+    }
+    .search-result-header { padding: 12px 14px; }
+    .search-result-title-left { font-size: 14px; }
+    .search-result-summary { font-size: 12px; }
+    .search-result-hl { font-size: 17px; }
+    /* 手机上不再固定 70vh 内部滚动，改为随页面整体滚动，避免结果区被"困"在小窗口里 */
+    #searchResultContent {
+        height: auto;
+        /* 最低高度足够完整显示一页（10 条），避免结果区过矮造成页面跳动 */
+        min-height: 1500px;
+        max-height: none;
+        overflow: visible;
+    }
+    .search-result-loading { padding: 36px 0; }
+    .loading-text { font-size: 14px; }
+    .search-result-list { padding: 10px; }
+    .search-result-item {
+        padding: 12px;
+        margin-bottom: 8px;
+        border-radius: 8px;
+    }
+    .search-result-name { font-size: 14px; line-height: 1.5; }
+    /* 描述最多显示两行，超出省略，避免单条结果过高 */
+    .search-result-desc {
+        font-size: 12px;
+        line-height: 1.5;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .search-result-meta { gap: 6px; margin-top: 6px; font-size: 11px; }
+    /* 类型/来源等小标签：显式收紧字号，避免继承默认字号显得过大 */
+    .search-result-tag { padding: 2px 7px; font-size: 10px; }
+    /* 手机端"查看资源"按钮：保证可读性，文字与按钮都保持足够尺寸 */
+    .search-result-btn {
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 5px;
+        line-height: 1.4;
+    }
+    .search-result-actions {
+        margin-left: 0;
+        margin-top: 10px;
+        width: 100%;
+        gap: 6px;
+    }
+    .search-result-empty { padding: 40px 16px; font-size: 13px; }
+
+    /* ---- 分页条 ----
+       桌面端 #searchResultContent 是内部滚动容器，分页条 sticky 在容器底部没问题；
+       手机端结果区改成了随整页滚动（overflow: visible），sticky 会贴到视口底部、
+       浮在列表之上把最后一条结果遮住一截。这里改为跟随文档流，永不再遮挡内容，
+       底部导航的遮挡由 body 的 padding-bottom 兜住 */
+    .search-pagination {
+        position: static;
+        bottom: auto;
+        margin-top: 10px;
+        padding: 10px;
+        gap: 6px;
+        box-shadow: none;
+    }
+    .search-pagination button {
+        min-width: 30px;
+        height: 30px;
+        padding: 0 10px;
+        font-size: 12px;
+    }
+    .search-pagination button.page-first,
+    .search-pagination button.page-last { min-width: 48px; }
+    .search-pagination .page-info,
+    .search-pagination .page-prop,
+    .search-pagination .page-ellipsis { font-size: 12px; }
+}
+
+/* ===== 结果项布局加固（手机竖屏 / 横屏 / 平板均适用） =====
+   桌面端 .search-result-info 与 .search-result-actions 同行渲染，actions 是 flex-shrink: 0
+   且按钮文字不换行，窄屏下会把 info 挤压到只剩几十像素，标题就变成"一个字一行"。
+   这里在 <=1024px 统一改为纵向两行：信息区占满整行，操作按钮另起一行，
+   并允许长标题/描述在任意位置换行，避免再次被压成竖排。 */
+@media (max-width: 1024px) {
+    .search-result-list { padding: 10px; min-width: 0; }
+
+    .search-result-item {
+        flex-direction: column;
+        align-items: stretch;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .search-result-info {
+        flex: 0 0 auto;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .search-result-name-row {
+        align-items: flex-start;
+    }
+
+    .search-result-name {
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+
+    .search-result-desc {
+        word-break: break-word;
+        overflow-wrap: anywhere;
+    }
+
+    .search-result-meta {
+        min-width: 0;
+        align-items: center;
+    }
+
+    .search-result-tag {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .search-result-actions {
+        flex: 0 0 auto;
+        width: 100%;
+        margin: 10px 0 0;
+        /* 窄屏改为上下两行后，按钮仍然靠右对齐，与桌上/页面的右侧视觉基准保持一致 */
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+}

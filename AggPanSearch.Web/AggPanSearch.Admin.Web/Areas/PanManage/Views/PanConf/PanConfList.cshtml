@@ -1,0 +1,268 @@
+@{
+    Layout = "~/Views/Shared/_Index.cshtml";
+}
+<div class="container-div">
+    <div class="row">
+        <div id="searchDiv" class="col-sm-12 search-collapse">
+            <div class="select-list">
+                <ul>
+                    <li>
+                        <label>配置分类：</label>
+                        <div id="ConfType" col="ConfType" class="select-wrap"></div>
+                    </li>
+                    <li>
+                        <label>参数名：</label>
+                        <input id="ConfKey" col="ConfKey" type="text" placeholder="按 conf_key 模糊匹配" />
+                    </li>
+                    <li>
+                        <label>参数名称：</label>
+                        <input id="ConfTitle" col="ConfTitle" type="text" placeholder="按标题模糊匹配" />
+                    </li>
+                    <li>
+                        <a id="btnSearch" class="btn btn-primary btn-sm" onclick="searchGrid()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="btn-group-sm hidden-xs" id="toolbar">
+            <a id="btnAdd" class="btn btn-success" onclick="showSaveForm(true)"><i class="fa fa-plus"></i> 新增</a>
+            <a id="btnEdit" class="btn btn-primary disabled" onclick="showSaveForm(false)"><i class="fa fa-edit"></i> 修改</a>
+            <a id="btnView" class="btn btn-info disabled" onclick="showDetailForm()"><i class="fa fa-eye"></i> 查看详情</a>
+            <a id="btnDelete" class="btn btn-danger disabled" onclick="deleteForm()"><i class="fa fa-remove"></i> 删除</a>
+        </div>
+        <div class="col-sm-12 select-table table-striped">
+            <table id="gridTable" data-mobile-responsive="true"></table>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    // conf_type 中文名（与基础设置页保持一致）
+    var confTypeMap = {
+        '0': '基础设置',
+        '1': '搜索设置',
+        '2': '上传设置',
+        '3': '前端设置',
+        '4': '网盘Cookie设置',
+        '9': 'SEO设置',
+        '10': '二维码设置',
+        '11': '引流设置',
+        '12': '广告设置',
+        '13': '联系方式',
+        '14': 'AI设置'
+    };
+    // conf_spec 控件类型（渲染规则见基础设置页 renderControl）
+    var confSpecMap = {
+        '0': '单行文本',
+        '1': '多行文本',
+        '2': '单选',
+        '3': '下拉',
+        '4': '图片上传',
+        '5': '选择二维码'
+    };
+
+    $(function () {
+        // 配置分类下拉框：宽度由搜索区统一样式控制，且不启用下拉搜索输入框
+        $('#ConfType').ysComboBox({
+            data: [
+                { Key: '0', Value: '基础设置' },
+                { Key: '12', Value: '广告设置' },
+                { Key: '11', Value: '引流设置' },
+                { Key: '10', Value: '二维码设置' },
+                { Key: '1', Value: '搜索设置' },
+                { Key: '3', Value: '前端设置' },
+                { Key: '9', Value: 'SEO设置' },
+                { Key: '2', Value: '上传设置' },
+                { Key: '4', Value: '网盘Cookie设置' },
+                { Key: '13', Value: '联系方式' }
+            ],
+            search: false
+        });
+        initGrid();
+    });
+
+    function escHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // 长文本列截断显示，完整内容放在 title 里
+    function renderEllipsis(value, maxLength) {
+        if (ys.isNullOrEmpty(value)) {
+            return '';
+        }
+        var text = String(value);
+        var display = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+        return '<span title="' + escHtml(text) + '">' + escHtml(display) + '</span>';
+    }
+
+    function renderBadge(text, primary) {
+        if (ys.isNullOrEmpty(text)) {
+            return '';
+        }
+        var cls = primary ? 'badge badge-primary' : 'badge badge-warning';
+        return '<span class="' + cls + '">' + escHtml(text) + '</span>';
+    }
+
+    function initGrid() {
+        var queryUrl = '@Url.Content("~/PanManage/PanConf/GetPageListJson")';
+        $('#gridTable').ysTable({
+            url: queryUrl,
+            columns: [
+                { checkbox: true, visible: true },
+                { field: 'Id', title: 'Id', visible: false },
+                { field: 'ConfKey', title: '参数名', width: 180 },
+                { field: 'ConfTitle', title: '参数名称', width: 160 },
+                {
+                    field: 'ConfType', title: '分类', width: 100,
+                    formatter: function (value) {
+                        if (ys.isNullOrEmpty(value)) {
+                            return '';
+                        }
+                        var name = confTypeMap[String(value)] || ('类型' + value);
+                        return renderBadge(name, true);
+                    }
+                },
+                {
+                    field: 'ConfSpec', title: '控件类型', width: 100,
+                    formatter: function (value) {
+                        if (ys.isNullOrEmpty(value)) {
+                            return renderBadge('单行文本', false);
+                        }
+                        return renderBadge(confSpecMap[String(value)] || ('类型' + value), false);
+                    }
+                },
+                {
+                    field: 'ConfValue', title: '参数值',
+                    formatter: function (value, row) {
+                        if (String(row.ConfSpec) === '4' && !ys.isNullOrEmpty(value)) {
+                            return '<span class="badge badge-primary">图片</span> ' + renderEllipsis(value, 36);
+                        }
+                        return renderEllipsis(value, 36);
+                    }
+                },
+                {
+                    field: 'ConfContent', title: '可选项', visible: false,
+                    formatter: function (value) {
+                        return renderEllipsis(value, 60);
+                    }
+                },
+                {
+                    field: 'ConfDesc', title: '说明',
+                    formatter: function (value) {
+                        return renderEllipsis(value, 30);
+                    }
+                },
+                { field: 'ConfSort', title: '排序', width: 60 },
+                {
+                    field: 'ConfStatus', title: '状态', width: 70,
+                    formatter: function (value) {
+                        return String(value) === '1' ? renderBadge('显示', true) : renderBadge('隐藏', false);
+                    }
+                },
+                {
+                    field: 'ConfSystem', title: '系统', width: 70,
+                    formatter: function (value) {
+                        return String(value) === '1' ? renderBadge('系统', true) : renderBadge('自定义', false);
+                    }
+                }
+            ],
+            queryParams: function (params) {
+                var pagination = $('#gridTable').ysTable('getPagination', params);
+                var queryString = $('#searchDiv').getWebControls(pagination);
+                return queryString;
+            }
+        });
+
+        // 选中行变化时切换“查看详情”按钮状态（框架只处理 btnEdit/btnDelete，需自行处理 btnView）
+        // 注意：不能命名为 resetToolbarStatus，aggpansearch-init.min.js 有同名全局函数会覆盖本页实现
+        $('#gridTable').on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table load-success.bs.table', function () {
+            updateToolbarStatus();
+        });
+    }
+
+    function updateToolbarStatus() {
+        var rows = $('#gridTable').bootstrapTable('getSelections');
+        var count = rows ? rows.length : 0;
+        $('#btnView').toggleClass('disabled', count !== 1);
+    }
+
+    function searchGrid() {
+        $('#gridTable').ysTable('search');
+        resetToolbarStatus();
+        updateToolbarStatus();
+    }
+
+    // 查看详情：以只读方式打开表单页（detail=1），仅支持单选
+    function showDetailForm() {
+        var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+        if (!ys.checkRowEdit(selectedRow)) {
+            return;
+        }
+        ys.openDialog({
+            title: '查看参数详情',
+            content: '@Url.Content("~/PanManage/PanConf/PanConfForm")' + '?id=' + selectedRow[0].Id + '&detail=1',
+            width: '820px',
+            height: '720px',
+            btn: null
+        });
+    }
+
+    function showSaveForm(bAdd) {
+        var id = 0;
+        if (!bAdd) {
+            var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+            if (!ys.checkRowEdit(selectedRow)) {
+                return;
+            }
+            id = selectedRow[0].Id;
+        }
+        ys.openDialog({
+            title: id > 0 ? '编辑参数' : '新增参数',
+            content: '@Url.Content("~/PanManage/PanConf/PanConfForm")' + '?id=' + id,
+            width: '820px',
+            height: '720px',
+            callback: function (index, layero) {
+                var iframeWin = window[layero.find('iframe')[0]['name']];
+                iframeWin.saveForm(index);
+            }
+        });
+    }
+
+    function deleteForm() {
+        var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+        if (!ys.checkRowDelete(selectedRow)) {
+            return;
+        }
+        var systemCount = 0;
+        $.each(selectedRow, function (i, row) {
+            if (String(row.ConfSystem) === '1') {
+                systemCount++;
+            }
+        });
+        var message = '确认要删除选中的 ' + selectedRow.length + ' 条配置吗？';
+        if (systemCount > 0) {
+            message += '其中 ' + systemCount + ' 条为系统参数，删除后对应功能将读不到配置！';
+        }
+        ys.confirm(message, function () {
+            var ids = ys.getIds(selectedRow);
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanConf/DeleteFormJson")' + '?ids=' + ids,
+                type: 'post',
+                success: function (obj) {
+                    if (obj.Tag == 1) {
+                        ys.msgSuccess(obj.Message);
+                        searchGrid();
+                    }
+                    else {
+                        ys.msgError(obj.Message);
+                    }
+                }
+            });
+        });
+    }
+</script>

@@ -1,0 +1,111 @@
+@{
+    Layout = "~/Views/Shared/_FormWhite.cshtml";
+}
+
+<div class="wrapper animated fadeInRight">
+    <form id="form" class="form-horizontal m">
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">搜索关键词</label>
+            <div class="col-sm-8">
+                <input id="keyword" col="Keyword" type="text" class="form-control" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">来源IP</label>
+            <div class="col-sm-8">
+                <input id="ip" col="Ip" type="text" class="form-control" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">是否命中缓存</label>
+            <div class="col-sm-8">
+                <div id="is_cache" col="IsCache"></div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">搜索结果总数</label>
+            <div class="col-sm-8">
+                <input id="result_total" col="ResultTotal" type="text" class="form-control" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">分类网盘搜索结果</label>
+            <div class="col-sm-8">
+                <input id="pan_type_results" col="PanTypeResults" type="text" class="form-control" placeholder="如：夸克网盘:12;百度网盘:3" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">搜索耗时(ms)</label>
+            <div class="col-sm-8">
+                <input id="cost_ms" col="CostMs" type="text" class="form-control" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">搜索时间</label>
+            <div class="col-sm-8">
+                <input id="create_time" col="CreateTime" type="text" class="form-control" />
+            </div>
+        </div>
+    </form>
+</div>
+
+<script type="text/javascript">
+    var id = ys.request("id");
+    $(function () {
+        laydate.render({ elem: '#create_time', type: 'datetime', format: 'yyyy-MM-dd HH:mm:ss' });
+
+        // 是否命中缓存：不启用下拉搜索输入框，空值表示「未记录」
+        $("#is_cache").ysComboBox({
+            data: [{ Key: '1', Value: '是' }, { Key: '0', Value: '否' }],
+            class: "form-control",
+            search: false,
+            placeholder: "未记录"
+        });
+
+        getForm();
+
+        $('#form').validate({});
+    });
+
+    function getForm() {
+        if (id > 0) {
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanSearchLog/GetFormJson")' + '?id=' + id,
+                type: 'get',
+                success: function (obj) {
+                    if (obj.Tag == 1) {
+                        if (!ys.isNullOrEmpty(obj.Data.CreateTime)) {
+                            obj.Data.CreateTime = ys.formatDate(obj.Data.CreateTime, "yyyy-MM-dd HH:mm:ss");
+                        }
+                        $('#form').setWebControls(obj.Data);
+                    }
+                }
+            });
+        }
+        else {
+            var defaultData = {};
+            $('#form').setWebControls(defaultData);
+        }
+    }
+
+    function saveForm(index) {
+        if ($('#form').validate().form()) {
+            var postData = $('#form').getWebControls({ Id: id });
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanSearchLog/SaveFormJson")',
+                type: 'post',
+                data: postData,
+                success: function (obj) {
+                    if (obj.Tag == 1) {
+                        ys.msgSuccess(obj.Message);
+                        parent.searchGrid();
+                        parent.layer.close(index);
+                    }
+                    else {
+                        ys.msgError(obj.Message);
+                    }
+                }
+            });
+        }
+    }
+</script>

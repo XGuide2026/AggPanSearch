@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>preview</LangVersion>
+    <RootNamespace>AggPanSearch.AI</RootNamespace>
+    <PackageId>AggPanSearch.AI</PackageId>
+    <Version>1.0.0</Version>
+    <Description>AI 能力独立类库：封装 OpenAI 兼容协议（DeepSeek 等）的模型探测、对话补全、超时重试、错误映射与文案清洗。零第三方依赖，配置由调用方注入，不访问数据库；通过 Provider 注册表可扩展到其他厂商。</Description>
+    <Authors>AggPanSearch</Authors>
+  </PropertyGroup>
+
+</Project>

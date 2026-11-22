@@ -1,0 +1,220 @@
+﻿@{
+    Layout = "~/Views/Shared/_FormWhite.cshtml";
+}
+
+<div class="wrapper animated fadeInRight">
+    <form id="form" class="form-horizontal m">
+        <div class="form-group">
+            <label class="col-sm-3 control-label"><span class="text-danger">*</span>参数名</label>
+            <div class="col-sm-8">
+                <input id="conf_key" col="ConfKey" type="text" class="form-control" maxlength="100" placeholder="如 qr_customer、traffic_popup" />
+                <span class="help-block m-b-none" style="font-size:12px;color:#999;">
+                    程序按此键读取配置值，建议小写字母+下划线；<span id="confKeyTip">分类以「配置分类」为准（二维码设置=10、引流设置=11、广告设置=12、联系方式=13、AI设置=14），qr_ / traffic_ / ad_ 前缀仅用于历史数据兼容</span>
+                </span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label"><span class="text-danger">*</span>参数名称</label>
+            <div class="col-sm-8">
+                <input id="conf_title" col="ConfTitle" type="text" class="form-control" maxlength="100" placeholder="显示在表单上的标题" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">配置分类</label>
+            <div class="col-sm-8" id="conf_type" col="ConfType"></div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">控件类型</label>
+            <div class="col-sm-8" id="conf_spec" col="ConfSpec"></div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">参数值</label>
+            <div class="col-sm-8">
+                <textarea id="conf_value" col="ConfValue" class="form-control" rows="3"></textarea>
+                <span class="help-block m-b-none" style="font-size:12px;color:#999;">控件类型为「图片上传」时填图片相对路径（如 /upload/xxx.png）；「选择二维码」时填「二维码设置」里的参数名（如 qr_wxgroup），留空表示不设置</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">可选项</label>
+            <div class="col-sm-8">
+                <textarea id="conf_content" col="ConfContent" class="form-control" rows="4" placeholder="单选：文字=>值（每行一个）&#10;下拉：值=显示值（每行一个）"></textarea>
+                <span class="help-block m-b-none" style="font-size:12px;color:#999;">
+                    仅「单选」「下拉」需要；单选格式 <code>开启=>1</code>，下拉格式 <code>red=暖红</code>，每行一个
+                </span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">说明</label>
+            <div class="col-sm-8">
+                <textarea id="conf_desc" col="ConfDesc" class="form-control" rows="2" placeholder="显示在配置项下方的帮助文字"></textarea>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">排序</label>
+            <div class="col-sm-8">
+                <input id="conf_sort" col="ConfSort" type="number" class="form-control" value="90" />
+                <span class="help-block m-b-none" style="font-size:12px;color:#999;">数值越小越靠前（当前列表按记录顺序返回，该值暂未强制排序）</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">状态</label>
+            <div class="col-sm-8" id="conf_status" col="ConfStatus"></div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">系统参数</label>
+            <div class="col-sm-8" id="conf_system" col="ConfSystem"></div>
+        </div>
+    </form>
+</div>
+
+<script type="text/javascript">
+    var id = ys.request("id");
+    // detail=1 表示只读查看详情
+    var isDetail = ys.request("detail") == '1';
+
+    $(function () {
+        $("#conf_type").ysComboBox({
+            class: "form-control",
+            data: [
+                { Key: '0', Value: '基础设置' },
+                { Key: '12', Value: '广告设置' },
+                { Key: '11', Value: '引流设置' },
+                { Key: '10', Value: '二维码设置' },
+                { Key: '1', Value: '搜索设置' },
+                { Key: '3', Value: '前端设置' },
+                { Key: '9', Value: 'SEO设置' },
+                { Key: '2', Value: '上传设置' },
+                { Key: '4', Value: '网盘Cookie设置' },
+                { Key: '13', Value: '联系方式' },
+                { Key: '14', Value: 'AI设置' }
+            ]
+        });
+        $("#conf_spec").ysComboBox({
+            class: "form-control",
+            data: [
+                { Key: '0', Value: '单行文本' },
+                { Key: '1', Value: '多行文本' },
+                { Key: '2', Value: '单选' },
+                { Key: '3', Value: '下拉' },
+                { Key: '4', Value: '图片上传' },
+                { Key: '5', Value: '选择二维码' }
+            ]
+        });
+        $("#conf_status").ysRadioBox({ data: [{ Key: '1', Value: '显示' }, { Key: '0', Value: '隐藏' }] });
+        $("#conf_system").ysRadioBox({ data: [{ Key: '1', Value: '是' }, { Key: '0', Value: '否' }] });
+
+        getForm();
+
+        $.validator.addMethod('confKey', function (value, element) {
+            return this.optional(element) || /^[a-zA-Z0-9_-]+$/.test(value);
+        }, '参数名只能包含字母、数字、下划线和短横线');
+
+        $('#form').validate({
+            rules: {
+                conf_key: {
+                    required: true,
+                    maxlength: 100,
+                    confKey: true
+                },
+                conf_title: { required: true, maxlength: 100 }
+            },
+            messages: {
+                conf_key: {
+                    required: '请输入参数名',
+                    maxlength: '参数名不能超过 100 个字符'
+                },
+                conf_title: { required: '请输入参数名称', maxlength: '参数名称不能超过 100 个字符' }
+            }
+        });
+    });
+
+    // 编辑已有记录时禁止修改 conf_key：程序按 key 读值，改了会读不到
+    function lockConfKey() {
+        $('#conf_key').prop('readonly', true).css('background-color', '#f5f5f5');
+        $('#confKeyTip').text('参数名创建后不可修改，如需重命名请新增一项并迁移数据');
+    }
+
+    // 详情模式：表单整体只读，避免误改（conf_type 等 ysComboBox 生成的是 select2，需同步禁用）
+    function applyDetailMode() {
+        $('#form').find('input, textarea, select').prop('disabled', true);
+        $('#conf_type, #conf_spec, #conf_status, #conf_system').find('select').each(function () {
+            if ($(this).data('select2')) {
+                $(this).select2('enable', false);
+            }
+        });
+        $('#confKeyTip').text('只读查看模式，如需修改请关闭本窗口后点击「修改」');
+    }
+
+    // 兼容库里出现的非常规分类/控件值，避免下拉框回显为空
+    function ensureOption(controlId, value, prefix) {
+        if (ys.isNullOrEmpty(value)) {
+            return;
+        }
+        var $select = $('#' + controlId).find('select');
+        if ($select.length === 0) {
+            return;
+        }
+        if ($select.find('option[value="' + value + '"]').length === 0) {
+            $select.append('<option value="' + value + '">' + prefix + value + '</option>');
+        }
+    }
+
+    function getForm() {
+        if (id > 0) {
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanConf/GetFormJson")' + '?id=' + id,
+                type: 'get',
+                success: function (obj) {
+                    if (obj.Tag == 1) {
+                        ensureOption('conf_type', obj.Data.ConfType, '类型');
+                        ensureOption('conf_spec', obj.Data.ConfSpec, '类型');
+                        $('#form').setWebControls(obj.Data);
+                        lockConfKey();
+                        if (isDetail) {
+                            applyDetailMode();
+                        }
+                    }
+                }
+            });
+        }
+        else {
+            var defaultData = {
+                ConfType: '0',
+                ConfSpec: '0',
+                ConfSort: '90',
+                ConfStatus: '1',
+                ConfSystem: '0'
+            };
+            $('#form').setWebControls(defaultData);
+            if (isDetail) {
+                applyDetailMode();
+            }
+        }
+    }
+
+    function saveForm(index) {
+        if (!$('#form').validate().form()) {
+            return;
+        }
+        var postData = $('#form').getWebControls({ Id: id });
+        // 编辑时 conf_key 只读，仍按原值提交，避免误清空
+        if (id > 0) {
+            postData.ConfKey = $('#conf_key').val();
+        }
+        ys.ajax({
+            url: '@Url.Content("~/PanManage/PanConf/SaveFormJson")',
+            type: 'post',
+            data: postData,
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    ys.msgSuccess(obj.Message);
+                    parent.searchGrid();
+                    parent.layer.close(index);
+                }
+                else {
+                    ys.msgError(obj.Message);
+                }
+            }
+        });
+    }
+</script>

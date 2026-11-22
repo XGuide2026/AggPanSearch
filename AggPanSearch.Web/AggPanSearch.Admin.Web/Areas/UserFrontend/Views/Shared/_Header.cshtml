@@ -1,0 +1,364 @@
+@using AggPanSearch.Admin.Web.Areas.UserFrontend.Models
+@{
+    var config = ViewData["Config"] as SiteConfig ?? new SiteConfig();
+
+    // 后台"上传图片"保存的是不带前导斜杠的相对路径（如 Resource/News/2026/xx.png），
+    // 直接在 /category、/d/1.html 等深层路径下引用会被解析成 /xxx/Resource/... 导致 404，这里统一补斜杠。
+    var logoUrl = config.Logo == null ? "" : config.Logo.Trim();
+    if (logoUrl.Length > 0
+        && !logoUrl.StartsWith("/")
+        && !logoUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+        && !logoUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+    {
+        logoUrl = "/" + logoUrl;
+    }
+    var hasLogo = logoUrl.Length > 0;
+
+    // 导航 active：同一菜单只允许一个 active，多个链接都能匹配时取"最长路径"。
+    // 规则与 yfs.runtime.js 的 setNavActive 保持一致（那边负责后台自定义链接的兜底）。
+    var currentPath = (Context.Request.Path.Value ?? "/").TrimEnd('/');
+    if (currentPath.Length == 0)
+    {
+        currentPath = "/";
+    }
+    // 路由别名归一化：短链（/category、/uf、/s/xx.html、/UserFrontend/Home/Index）与菜单的规范地址不同，
+    // 不归一会导致这些页面一个 active 都没有
+    if (string.Equals(currentPath, "/category", StringComparison.OrdinalIgnoreCase))
+    {
+        currentPath = "/UserFrontend/Home/Category";
+    }
+    else if (string.Equals(currentPath, "/uf", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentPath, "/UserFrontend", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentPath, "/UserFrontend/Home", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentPath, "/UserFrontend/Home/Index", StringComparison.OrdinalIgnoreCase))
+    {
+        // 首页本身没有独立菜单项，统一归到"搜索"菜单（首页即搜索入口）
+        currentPath = "/UserFrontend/Home/Search";
+    }
+    else if (currentPath.StartsWith("/s/", StringComparison.OrdinalIgnoreCase))
+    {
+        currentPath = "/UserFrontend/Home/Search";
+    }
+    var navItems = new[]
+    {
+        new { Href = "/UserFrontend/Home/Search", Text = "搜索" },
+        new { Href = "/UserFrontend/Home/Category", Text = "资源分类" }
+    };
+    string activeHref = null;
+    foreach (var navItem in navItems)
+    {
+        var matched = string.Equals(currentPath, navItem.Href, StringComparison.OrdinalIgnoreCase)
+            || (navItem.Href != "/" && currentPath.StartsWith(navItem.Href + "/", StringComparison.OrdinalIgnoreCase));
+        if (matched && (activeHref == null || navItem.Href.Length > activeHref.Length))
+        {
+            activeHref = navItem.Href;
+        }
+    }
+
+    // ---- 手机端底部导航数据：取自顶部菜单（后台"前端设置-顶部其他外链"），最多 5 项 ----
+    // 后台外链是一段 HTML 片段，这里按出现顺序解析出其中的链接项 <a href="...">，
+    // 保证底部导航与顶部菜单完全一致；非链接项（无有效 href）直接跳过。
+    var bottomNavItems = new List<System.Tuple<string, string>>();
+    if (!string.IsNullOrWhiteSpace(config.AppLinks))
+    {
+        var menuItemMatches = System.Text.RegularExpressions.Regex.Matches(
+            config.AppLinks,
+            @"<a\b[^>]*?href\s*=\s*[""'](?<href>[^""']*)[""'][^>]*>(?<atext>.*?)</a>"
+                + @"|<(?<tag>div|span|li)\b[^>]*?(?:class\s*=\s*[""'][^""']*nav-menu-item[^""']*[""']|@click\s*=|onclick\s*=)[^>]*>(?<dtext>.*?)</\k<tag>>",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+        foreach (System.Text.RegularExpressions.Match menuMatch in menuItemMatches)
+        {
+            var isLink = menuMatch.Groups["href"].Success;
+            var navHref = isLink ? menuMatch.Groups["href"].Value.Trim() : "";
+            // 空链接 / # / javascript:; 没有实际跳转目标，底部导航不展示
+            if (navHref == "#" || navHref.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase))
+            {
+                navHref = "";
+            }
+            if (navHref.Length == 0)
+            {
+                continue;
+            }
+            var navText = System.Text.RegularExpressions.Regex.Replace(
+                isLink ? menuMatch.Groups["atext"].Value : menuMatch.Groups["dtext"].Value,
+                "<[^>]+>", " ");
+            navText = System.Net.WebUtility.HtmlDecode(navText).Trim();
+            navText = System.Text.RegularExpressions.Regex.Replace(navText, @"\s+", " ");
+            if (navText.Length == 0)
+            {
+                continue;
+            }
+            bottomNavItems.Add(System.Tuple.Create(navHref, navText));
+        }
+    }
+    if (bottomNavItems.Count == 0)
+    {
+        foreach (var navItem in navItems)
+        {
+            bottomNavItems.Add(System.Tuple.Create(navItem.Href, navItem.Text));
+        }
+    }
+    if (bottomNavItems.Count > 5)
+    {
+        bottomNavItems = bottomNavItems.Take(5).ToList();
+    }
+    // 图标按文字关键字匹配，匹配不到则按位置兜底，保证每项都有图标
+    var bottomNavIcons = new[] { "icon-sousuo", "icon-fenlei", "icon-laiyuan", "icon-fangwen", "icon-tiaozhuan" };
+    Func<string, int, string> pickBottomIcon = (text, index) =>
+    {
+        // 首页优先级最高：后台新增的"首页"菜单如果走到兜底会拿到"搜索"图标，视觉上重复
+        if (text.IndexOf("首页", StringComparison.Ordinal) >= 0 || text.IndexOf("主页", StringComparison.Ordinal) >= 0) { return "icon-home"; }
+        if (text.IndexOf("搜索", StringComparison.Ordinal) >= 0) { return "icon-sousuo"; }
+        if (text.IndexOf("分类", StringComparison.Ordinal) >= 0 || text.IndexOf("资源", StringComparison.Ordinal) >= 0) { return "icon-fenlei"; }
+        if (text.IndexOf("最新", StringComparison.Ordinal) >= 0 || text.IndexOf("更新", StringComparison.Ordinal) >= 0) { return "icon-date"; }
+        if (text.IndexOf("排行", StringComparison.Ordinal) >= 0 || text.IndexOf("热门", StringComparison.Ordinal) >= 0) { return "icon-fangwen"; }
+        if (text.IndexOf("联系", StringComparison.Ordinal) >= 0 || text.IndexOf("客服", StringComparison.Ordinal) >= 0) { return "icon-laiyuan1"; }
+        return bottomNavIcons[index % bottomNavIcons.Length];
+    };
+
+    // 首页图标：iconfont 字体（alicdn 项目 4485496）里没有 home 类字形，硬塞会显示成方框，
+    // 这里用内联 SVG 画一个线框"房子"，stroke 取 currentColor，颜色自动跟随底部导航项的 active 状态
+    const string homeIconSvg =
+        "<svg class=\"uf-bottom-nav-icon uf-bottom-nav-icon-svg\" viewBox=\"0 0 24 24\" fill=\"none\" "
+        + "stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">"
+        + "<path d=\"M3.2 10.7 12 3.5l8.8 7.2\"/>"
+        + "<path d=\"M5.7 9.5v9.4a1.6 1.6 0 0 0 1.6 1.6h9.4a1.6 1.6 0 0 0 1.6-1.6V9.5\"/>"
+        + "<path d=\"M9.9 20.5v-5.3h4.2v5.3\"/>"
+        + "</svg>";
+    // 其它菜单仍走 iconfont 字体图标，保证与站内已有图标风格一致
+    Func<string, string> bottomIconHtml = icon => icon == "icon-home"
+        ? homeIconSvg
+        : "<i class=\"uf-bottom-nav-icon iconfont " + icon + "\"></i>";
+}
+<!-- 顶部导航栏（卡片式） -->
+<div class="top-nav">
+    <div class="top-nav-box">
+        <a href="/UserFrontend" class="top-nav-logo">
+            @if (hasLogo)
+            {
+                <img class="logo-img" src="@logoUrl" alt="@config.AppName"
+                     onerror="this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.classList.remove('is-hidden');}">
+            }
+            <div class="logo-placeholder @(hasLogo ? "is-hidden" : "")">MS</div>
+            <div class="logo-text">
+                <div class="logo-title-row">
+                    <span class="logo-name">@config.AppName</span>
+                </div>
+                <span class="logo-web-address">@(string.IsNullOrEmpty(config.WebAddress) ? "" : config.WebAddress)</span>
+            </div>
+        </a>
+
+        <div class="top-nav-menu">
+            @if (!string.IsNullOrEmpty(config.AppLinks))
+            {
+                @Html.Raw(config.AppLinks)
+            }
+            else
+            {
+                foreach (var navItem in navItems)
+                {
+                    <a href="@navItem.Href" class="nav-menu-item @(navItem.Href == activeHref ? "active" : "")">@navItem.Text</a>
+                }
+            }
+        </div>
+
+        <div class="top-nav-actions">
+            <!-- 主题切换：主题已移植到后台"网盘管理-切换主题"，仅在后台允许访客切换时才显示 -->
+            @if (config.ThemeSwitch == 1)
+            {
+            <div class="theme-switcher" ref="themeSwitcherRef">
+                <div class="theme-switcher-btn" @@click.stop="toggleThemeDropdown" title="切换主题">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </div>
+                <div class="theme-dropdown" v-show="showThemeDropdown">
+                    <div class="theme-option" :class="{active: currentTheme === 'red'}" @@click="switchTheme('red')">
+                        <span class="theme-dot" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);"></span>
+                        <span class="theme-name">暖红</span>
+                    </div>
+                    <div class="theme-option" :class="{active: currentTheme === 'blue'}" @@click="switchTheme('blue')">
+                        <span class="theme-dot" style="background: linear-gradient(135deg, #4a90e2 0%, #5fa3f0 100%);"></span>
+                        <span class="theme-name">海洋蓝</span>
+                    </div>
+                    <div class="theme-option" :class="{active: currentTheme === 'green'}" @@click="switchTheme('green')">
+                        <span class="theme-dot" style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);"></span>
+                        <span class="theme-name">森林绿</span>
+                    </div>
+                    <div class="theme-option" :class="{active: currentTheme === 'dark'}" @@click="switchTheme('dark')">
+                        <span class="theme-dot" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);"></span>
+                        <span class="theme-name">暗夜黑</span>
+                    </div>
+                </div>
+            </div>
+            }
+            @* 手机端菜单入口已改为底部导航栏（见下方 .uf-bottom-nav），此处不再输出汉堡按钮；
+               抽屉弹窗 nav-drawer 保留，供后续需要时恢复使用 *@
+        </div>
+    </div>
+</div>
+
+<!-- 手机端底部导航栏：最多显示 5 个菜单项（取顶部菜单前 5 项），桌面端隐藏 -->
+<div class="uf-bottom-nav">
+    @for (int i = 0; i < bottomNavItems.Count; i++)
+    {
+        var bottomHref = bottomNavItems[i].Item1;
+        var bottomText = bottomNavItems[i].Item2;
+        var bottomIcon = pickBottomIcon(bottomText, i);
+        var bottomClass = "uf-bottom-nav-item" + (string.Equals(bottomHref, activeHref, StringComparison.OrdinalIgnoreCase) ? " active" : "");
+        <a href="@bottomHref" class="@bottomClass">
+            @Html.Raw(bottomIconHtml(bottomIcon))
+            <span class="uf-bottom-nav-text">@bottomText</span>
+        </a>
+    }
+</div>
+
+<!-- 提交需求/资源弹窗 -->
+<el-dialog v-if="layerVisible" v-model="layerVisible" width="340">
+    <div class="layerBox">
+        <div class="vname">提交需求 / 资源</div>
+        <el-input v-model="content" placeholder="请输入你想看的资源信息~" type="textarea" resize='none'></el-input>
+        <div class="vbtn" @@click="saveBtn">提交</div>
+    </div>
+</el-dialog>
+
+<!-- 手机端导航菜单 -->
+<el-dialog v-if="drawer" v-model="drawer" width="240" center custom-class="nav-drawer" :show-close="false" @@opened="navActiveRefresh()">
+    <div class="nav-drawer-content">
+        <div class="nav-drawer-header">
+            <span class="nav-drawer-title">@config.AppName</span>
+            <span class="nav-drawer-close iconfont icon-guanbi" @@click="drawer = false"></span>
+        </div>
+        <div class="nav-drawer-menu">
+            @if (!string.IsNullOrEmpty(config.AppLinks))
+            {
+                @Html.Raw(config.AppLinks)
+            }
+            else
+            {
+                foreach (var navItem in navItems)
+                {
+                    <a href="@navItem.Href" class="nav-drawer-item @(navItem.Href == activeHref ? "active" : "")">@navItem.Text</a>
+                }
+            }
+        </div>
+    </div>
+</el-dialog>
+
+<!-- 资源弹窗 -->
+<el-dialog v-if="dialogUrl" title="资源详情" v-model="dialogUrl" class="resource-dialog" custom-class="resource-dialog" :close-on-click-modal="false" width="420px">
+    <div class="resource-dialog-content" v-if="dialogUrl">
+        <!-- 加载状态 -->
+        <div v-if="dialogLoading" class="loading-content">
+            <div class="loading-spinner">
+                <div class="spinner-ring"></div>
+                <div class="spinner-ring"></div>
+                <div class="spinner-ring"></div>
+            </div>
+            <div class="loading-text">资源正在获取中，请稍候...</div>
+            <div class="loading-subtext">正在连接网盘服务器</div>
+        </div>
+        <!-- 内容状态 -->
+        <div v-else-if="dialogItem.showUrl">
+            <!-- 磁力链接 -->
+            <div v-if="dialogItem.showUrl.startsWith('magnet:')" class="magnet-content">
+                <div class="resource-subtitle">{{dialogItem.title}}</div>
+                <div class="scan-tip">磁力资源下载</div>
+                <div class="scan-desc">请使用迅雷APP扫码或点击下方按钮下载</div>
+                <div class="qrcode-wrapper">
+                    <div class="qrcode" id="qrcode"></div>
+                </div>
+                <div class="url-box">
+                    <div class="url-label">资源地址：</div>
+                    <div class="url-text">{{dialogItem.showUrl}}</div>
+                </div>
+                <div class="expire-tip" style="color: #ff6b6b; font-size: 13px; margin-top: 8px; margin-bottom: 12px; text-align: center; font-weight: 500;">⏰ 资源10分钟失效，请尽快保存！</div>
+                <div class="tip-text">打开迅雷APP扫码或点击下方按钮下载</div>
+                <div class="dialog-actions">
+                    <button @@click="copyToClipboard(dialogItem.showUrl)" class="btn-primary">复制链接</button>
+                    <button @@click="downloadWithThunder(dialogItem.showUrl, dialogItem.title)" class="btn-secondary">迅雷下载</button>
+                    <button @@click="dialogUrl = false" class="btn-secondary">关闭</button>
+                </div>
+            </div>
+            <!-- 非磁力 -->
+            <div v-else class="normal-content">
+                <div class="resource-subtitle">{{dialogItem.title}}</div>
+                <!-- 手机端只显示链接 -->
+                <template v-if="is_m == 1">
+                    <div class="url-box" style="margin-top: 20px;">
+                        <div class="url-label">资源地址：</div>
+                        <div class="url-text">{{dialogItem.showUrl}}</div>
+                    </div>
+                    <div class="expire-tip" style="color: #ff6b6b; font-size: 13px; margin-top: 8px; margin-bottom: 12px; text-align: center; font-weight: 500;">⏰ 资源10分钟失效，请尽快保存！</div>
+                    <div class="dialog-actions">
+                        <button @@click="copyToClipboard(dialogItem.showUrl)" class="btn-primary">复制链接</button>
+                        <a :href="dialogItem.showUrl" target="_blank" rel="noopener noreferrer" class="btn-secondary">打开链接</a>
+                        <button @@click="dialogUrl = false" class="btn-secondary">关闭</button>
+                    </div>
+                </template>
+                <!-- PC端 -->
+                <template v-else>
+                    <template v-if="pc_type == 1">
+                        <div class="url-box" style="margin-top: 20px;">
+                            <div class="url-label">资源地址：</div>
+                            <div class="url-text">{{dialogItem.showUrl}}</div>
+                        </div>
+                        <div class="expire-tip" style="color: #ff6b6b; font-size: 13px; margin-top: 8px; margin-bottom: 12px; text-align: center; font-weight: 500;">⏰ 资源10分钟失效，请尽快保存！</div>
+                        <div class="dialog-actions">
+                            <button @@click="copyToClipboard(dialogItem.showUrl)" class="btn-primary">复制链接</button>
+                            <a :href="dialogItem.showUrl" target="_blank" rel="noopener noreferrer" class="btn-secondary">打开链接</a>
+                            <button @@click="dialogUrl = false" class="btn-secondary">关闭</button>
+                        </div>
+                    </template>
+                    <template v-else-if="pc_type == 2">
+                        <div class="scan-tip" style="margin-top: 10px;">
+                            请使用 <span class="pan-name" v-html="dialogPanNameHtml(dialogItem.is_type)"></span> 扫码获取
+                        </div>
+                        <div class="scan-desc">打开{{panTypeMap[dialogItem.is_type] || '夸克'}}APP - 点击搜索框中的相机 - 点击扫码</div>
+                        <div class="qrcode-wrapper">
+                            <div class="qrcode" id="qrcode"></div>
+                        </div>
+                        <div class="dialog-actions">
+                            <button @@click="dialogUrl = false" class="btn-secondary">关闭</button>
+                        </div>
+                    </template>
+                    <template v-else>
+                        <div class="scan-tip">
+                            请使用 <span class="pan-name" v-html="dialogPanNameHtml(dialogItem.is_type)"></span> 扫码获取
+                        </div>
+                        <div class="scan-desc">打开{{panTypeMap[dialogItem.is_type] || '夸克'}}APP - 点击搜索框中的相机 - 点击扫码</div>
+                        <div class="qrcode-wrapper">
+                            <div class="qrcode" id="qrcode"></div>
+                        </div>
+                        <div class="url-box">
+                            <div class="url-label">资源地址：</div>
+                            <div class="url-text">{{dialogItem.showUrl}}</div>
+                        </div>
+                        <div class="expire-tip" style="color: #ff6b6b; font-size: 13px; margin-top: 8px; margin-bottom: 12px; text-align: center; font-weight: 500;">⏰ 资源10分钟失效，请尽快保存！</div>
+                        <div class="dialog-actions">
+                            <button @@click="copyToClipboard(dialogItem.showUrl)" class="btn-primary">复制链接</button>
+                            <a :href="dialogItem.showUrl" target="_blank" rel="noopener noreferrer" class="btn-secondary">打开链接</a>
+                            <button @@click="dialogUrl = false" class="btn-secondary">关闭</button>
+                        </div>
+                    </template>
+                </template>
+            </div>
+        </div>
+        <!-- 错误状态 -->
+        <div v-else-if="!dialogLoading" class="error-content">
+            <div class="error-title">获取失败</div>
+            <div class="error-message">{{dialogItem.message}}</div>
+            <div class="dialog-actions">
+                <button @@click="dialogUrl = false" class="btn-secondary">关闭</button>
+            </div>
+        </div>
+    </div>
+</el-dialog>

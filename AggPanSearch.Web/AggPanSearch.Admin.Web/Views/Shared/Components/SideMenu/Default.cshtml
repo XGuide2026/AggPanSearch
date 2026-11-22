@@ -1,0 +1,79 @@
+@model AggPanSearch.Admin.Web.ViewComponents.SideMenuModel
+<!--左侧导航开始-->
+<nav class="navbar-default navbar-static-side" role="navigation">
+    <div class="nav-close">
+        <i class="fa fa-times-circle"></i>
+    </div>
+    <div class="sidebar-collapse">
+        <ul class="nav" id="side-menu">
+            <li class="logo">一沙后台管理系统</li>
+            <li data-type="menu" class="@(Model.IsHome ? "active" : "")">
+                <a href="@Url.Content("~/Home/Index")">
+                    <i class="fa fa-home"></i>
+                    <span class="nav-label">首页</span>
+                </a>
+            </li>
+            @foreach (MenuEntity menu in Model.GetChildren(0))
+            {
+                bool menuActive = Model.IsActive(menu) || Model.HasActiveChild(menu);
+                <li data-type="menu" class="@(menuActive ? "active" : "")">
+                    @if (HttpHelper.IsUrl(menu.MenuUrl))
+                    {
+                        <a class="menuItem" href="@menu.MenuUrl" target="_blank">
+                            <i class="@menu.MenuIcon"></i>
+                            <span class="nav-label">@menu.MenuName</span>
+                        </a>
+                    }
+                    else
+                    {
+                        <a href="#">
+                            <i class="@menu.MenuIcon"></i>
+                            <span class="nav-label">@menu.MenuName</span>
+                            <span class="fa arrow"></span>
+                        </a>
+                    }
+                    <ul class="nav nav-second-level collapse @(menuActive ? "in" : "")" data-type="menu">
+                        @foreach (MenuEntity secondMenu in Model.GetChildren(menu.Id))
+                        {
+                            List<MenuEntity> thirdMenuList = Model.GetChildren(secondMenu.Id).Where(p => p.MenuType != (int)MenuTypeEnum.Button).ToList();
+                            bool secondActive = Model.IsActive(secondMenu);
+                            <li data-type="menu" class="@(secondActive ? "active" : "")">
+                                @if (thirdMenuList.Count == 0)
+                                {
+                                    if (HttpHelper.IsUrl(secondMenu.MenuUrl))
+                                    {
+                                        <a class="menuItem" href="@secondMenu.MenuUrl" target="_blank">@secondMenu.MenuName</a>
+                                    }
+                                    else
+                                    {
+                                        <a class="menuItem" href="@Url.Content("~/" + secondMenu.MenuUrl)">@secondMenu.MenuName</a>
+                                    }
+                                }
+                                else
+                                {
+                                    <a href="#">@secondMenu.MenuName<span class="fa arrow"></span></a>
+                                    <ul class="nav nav-third-level @(Model.HasActiveChild(secondMenu) ? "in" : "")" data-type="menu">
+                                        @foreach (MenuEntity thirdMenu in thirdMenuList)
+                                        {
+                                            <li data-type="menu" class="@(Model.IsActive(thirdMenu) ? "active" : "")">
+                                                @if (HttpHelper.IsUrl(thirdMenu.MenuUrl))
+                                                {
+                                                    <a class="menuItem" href="@thirdMenu.MenuUrl" target="_blank">@thirdMenu.MenuName</a>
+                                                }
+                                                else
+                                                {
+                                                    <a class="menuItem" href="@Url.Content("~/" + thirdMenu.MenuUrl)">@thirdMenu.MenuName</a>
+                                                }
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </li>
+            }
+        </ul>
+    </div>
+</nav>
+<!--左侧导航结束-->

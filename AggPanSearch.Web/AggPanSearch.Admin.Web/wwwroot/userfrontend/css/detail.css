@@ -1,0 +1,337 @@
+/* ===== 资源详情页样式（由 Detail.cshtml 内联样式整理而来） ===== */
+
+.home-container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+    box-sizing: border-box;
+}
+
+/* ---- 面包屑导航 ---- */
+.detail-crumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding: 0 2px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--theme-text-secondary);
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.detail-crumb a {
+    color: var(--theme-text-secondary);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.detail-crumb a:hover { color: var(--theme-primary); }
+
+.detail-crumb-sep {
+    color: var(--theme-text-secondary);
+    opacity: 0.55;
+    flex-shrink: 0;
+}
+
+/* 最后一级为当前页面标题，超长省略 */
+.detail-crumb-cur {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 60%;
+    color: var(--theme-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---- 详情主体 ---- */
+.detail-main {
+    background: var(--theme-surface);
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    padding: 24px 28px;
+    transition: background-color 0.3s ease;
+}
+
+.detail-head {
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--theme-border);
+}
+
+/* 资源预览图轮播：位于资源介绍（.detail-desc）下方，与后台编辑页 vod-pic-carousel 同结构 */
+.detail-poster {
+    position: relative;
+    margin-top: 16px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--theme-background);
+    border: 1px solid var(--theme-border);
+}
+
+.detail-poster-viewport {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: clamp(320px, 52vw, 620px);
+    overflow: hidden;
+}
+
+.detail-poster-viewport img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    transition: opacity 0.25s ease;
+}
+
+/* 图片加载失败提示 */
+.detail-poster-tip {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 13px;
+    color: var(--theme-text-secondary);
+    display: none;
+}
+
+/* 左右切换按钮（图片多于一张时由 JS 显示） */
+.detail-poster-prev,
+.detail-poster-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+    width: 32px;
+    height: 46px;
+    line-height: 44px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.42);
+    color: #fff;
+    font-size: 24px;
+    text-decoration: none;
+    z-index: 2;
+    transition: background-color 0.2s ease;
+}
+
+.detail-poster-prev { left: 0; border-radius: 0 6px 6px 0; }
+.detail-poster-next { right: 0; border-radius: 6px 0 0 6px; }
+.detail-poster-prev:hover,
+.detail-poster-next:hover { background: rgba(0, 0, 0, 0.65); }
+
+/* 指示点 */
+.detail-poster-dots {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    z-index: 2;
+}
+
+.detail-poster-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.detail-poster-dot.active {
+    width: 16px;
+    border-radius: 4px;
+    background: var(--theme-primary);
+}
+
+.detail-info {
+    min-width: 0;
+}
+
+.detail-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--theme-text);
+    line-height: 1.4;
+}
+
+/* 副标题/描述（description） */
+.detail-sub {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--theme-text-secondary);
+    line-height: 1.6;
+    word-break: break-all;
+}
+
+/* 资源地址链接 */
+.detail-link {
+    color: var(--theme-primary);
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.detail-link:hover { text-decoration: underline; }
+
+.detail-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.detail-tag {
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-size: 13px;
+    color: var(--theme-primary);
+    background: color-mix(in srgb, var(--theme-primary) 10%, transparent);
+}
+
+.detail-desc {
+    margin-top: 16px;
+    font-size: 14px;
+    color: var(--theme-text-secondary);
+    line-height: 1.8;
+}
+
+/* 资源地址整行可换行 */
+.detail-desc-ellipsis { word-break: break-all; }
+
+/* 提取码高亮 */
+.detail-code {
+    color: var(--theme-primary);
+    font-weight: 600;
+}
+
+.detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* 详情页引流（traffic_wxchannel_viewsource=2）：验证通过前隐藏资源地址与复制/访问按钮 */
+.detail-source-locked {
+    display: none !important;
+}
+
+.detail-btn {
+    /* 按钮尺寸收敛：比原来（10px 24px / 14px）更紧凑 */
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.5;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.detail-btn-primary {
+    color: #fff;
+    background: var(--theme-primary-gradient);
+}
+
+/* 悬浮时只保留按钮底色，文字保持白色：
+   覆盖 app.css 的全局 a:hover { color: var(--theme-theme) }（"立即访问"是 <a>） */
+.detail-btn-primary:hover {
+    color: #fff;
+}
+
+/* ---- 相关信息卡片 ---- */
+.related-card {
+    background: var(--theme-surface);
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    padding: 18px 20px;
+    transition: background-color 0.3s ease;
+}
+
+/* 相关资源卡片与主体之间的间距 */
+.related-card-offset { margin-top: 20px; }
+
+.related-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--theme-text);
+    position: relative;
+    padding-left: 12px;
+    margin-bottom: 14px;
+}
+
+.related-title::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 16px;
+    border-radius: 2px;
+    background: var(--theme-primary-gradient);
+}
+
+.related-list { display: flex; flex-direction: column; gap: 8px; }
+
+.related-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--theme-primary) 3%, transparent);
+    text-decoration: none;
+    transition: background 0.2s ease;
+}
+
+.related-item:hover {
+    background: color-mix(in srgb, var(--theme-primary) 8%, transparent);
+}
+
+.related-num {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--theme-text-secondary);
+    background: var(--theme-background);
+}
+
+.related-num.top3 {
+    color: #fff;
+    background: var(--theme-primary-gradient);
+}
+
+.related-name {
+    flex: 1;
+    font-size: 14px;
+    color: var(--theme-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.uf-empty { text-align: center; padding: 40px 0; color: var(--theme-text-secondary); }
+
+@media (max-width: 768px) {
+    .detail-main { padding: 16px; }
+    .detail-crumb { font-size: 12px; }
+    .detail-crumb-cur { max-width: 50%; }
+}

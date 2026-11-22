@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>preview</LangVersion>
+    <PackageId>AggPanSearch</PackageId>
+    <Description>AggPanSearch 网盘资源搜索核心逻辑的 C# 移植：支持 TG 频道采集、插件聚合搜索、并发调度、网盘类型识别、结果归并排序与二级缓存。</Description>
+    <Authors>AggPanSearch</Authors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Demo\**" />
+    <Compile Remove="Exceptions\**" />
+    <EmbeddedResource Remove="Demo\**" />
+    <EmbeddedResource Remove="Exceptions\**" />
+    <None Remove="Demo\**" />
+    <None Remove="Exceptions\**" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\AggPanSearch.Entity\AggPanSearch.Entity\AggPanSearch.Entity.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Entity\AggPanSearch.Enum\AggPanSearch.Enum.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Util\AggPanSearch.CodeGenerator\AggPanSearch.CodeGenerator.csproj" />
+    <ProjectReference Include="..\AggPanSearch.Business.Cache\AggPanSearch.Business.Cache.csproj" />
+    <ProjectReference Include="..\AggPanSearch.Service\AggPanSearch.Service.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch\AggPanSearch.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.CollectSite\AggPanSearch.CollectSite.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.AI\AggPanSearch.AI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 无头浏览器截图（夸克分享页自动截图） -->
+    <PackageReference Include="Microsoft.Playwright" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="ToolManage\" />
+  </ItemGroup>
+
+</Project>

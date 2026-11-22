@@ -1,0 +1,361 @@
+@using AggPanSearch.Admin.Web.Areas.UserFrontend.Models
+@{
+    var Config = (SiteConfig)(ViewData["Config"] ?? new SiteConfig());
+    ViewData["SeoTitle"] = "版权保护与侵权投诉 - " + Config.AppName;
+    ViewData["SeoKeywords"] = "版权声明,侵权投诉,版权保护,侵权处理";
+}
+@section Head {
+    <link rel="stylesheet" href="/userfrontend/css/copyright.css?v=20261109a" />
+}
+
+<div class="cpr-page">
+
+    <section class="cpr-hero">
+        <span class="cpr-badge">版权保护</span>
+        <h1>版权声明与侵权投诉</h1>
+        <p>
+            本站仅提供网盘资源的搜索与索引服务，不存储、不制作、不传播任何资源文件。
+            如您认为本站索引的内容侵犯了您的合法权益，请按下方指引提交投诉材料，我们将在核实后及时处理。
+        </p>
+        <div class="cpr-update">政策更新日期：2026-11-09</div>
+    </section>
+
+    <section class="cpr-steps">
+        <div class="cpr-step">
+            <span class="no">1</span>
+            <h3>提交材料</h3>
+            <p>填写作品名称与联系方式，并上传最多 3 张证明材料（侵权链接可选填）。</p>
+        </div>
+        <div class="cpr-step">
+            <span class="no">2</span>
+            <h3>人工审核</h3>
+            <p>我们会在收到投诉后核对权属与侵权事实，必要时通过您留下的联系方式补充材料。</p>
+        </div>
+        <div class="cpr-step">
+            <span class="no">3</span>
+            <h3>处理反馈</h3>
+            <p>审核通过后，相关作品名称将加入搜索屏蔽关键词，对应结果不再展示。</p>
+        </div>
+    </section>
+
+    <section class="cpr-policy">
+        <details open>
+            <summary>版权声明</summary>
+            <div class="content">
+                <p>本站为网盘资源聚合搜索平台，所有搜索结果均来自第三方公开渠道，本站不对资源的合法性、准确性作出保证，也不存储任何资源文件。</p>
+                <p>本站尊重并保护知识产权。对于经核实存在侵权的内容，本站将依据相关法律法规及本声明采取屏蔽、断开索引等措施。</p>
+                <p>任何单位或个人认为本站索引的内容侵犯其合法权益的，均可通过本页面的投诉表单提交书面通知，并提供权利证明与侵权证据。</p>
+            </div>
+        </details>
+        <details>
+            <summary>免责声明</summary>
+            <div class="content">
+                <p>本站仅提供信息索引服务，用户通过本站跳转至第三方网盘后产生的一切行为与后果，由用户自行承担。</p>
+                <p>投诉人应保证其陈述与所提供材料真实、合法、有效。因虚假投诉给本站或第三方造成损失的，投诉人应承担相应法律责任。</p>
+                <p>在法律允许的范围内，本站对因不可抗力、第三方服务中断等导致的服务异常不承担责任。</p>
+            </div>
+        </details>
+        <details>
+            <summary>处理时限与流程</summary>
+            <div class="content">
+                <p>收到完整投诉材料后，我们通常在 3 个工作日内完成初步核实；材料不完整的，将通过您留下的联系方式要求补充。</p>
+                <p>核实成立的投诉，我们会在 1 个工作日内对该作品名称启用搜索屏蔽，并持续观察是否出现新的侵权链接。</p>
+                <p>如对处理结果有异议，可在同一表单中重新提交并注明「申诉」，附上新的证明材料。</p>
+            </div>
+        </details>
+        <details>
+            <summary>投诉须知</summary>
+            <div class="content">
+                <p>请尽量提供准确的作品名称，该名称将作为搜索屏蔽关键词使用；名称越精确，处理效果越好。</p>
+                <p>侵权链接为选填项。如您已知具体侵权页面地址，请以 http:// 或 https:// 开头填写，便于我们快速定位。</p>
+                <p>请上传能够证明权属或侵权事实的证明材料（图片），该材料为必填项。</p>
+                <p>请如实填写联系方式，我们仅将其用于本次投诉的处理与反馈，不会对外公开。</p>
+                <p>同一 IP 每小时最多提交 5 次投诉，请勿重复提交相同内容。</p>
+            </div>
+        </details>
+    </section>
+
+    <section class="cpr-form-card">
+        <div id="cprFormWrap">
+            <div class="cpr-form-head">
+                <h2>提交侵权投诉</h2>
+                <span><span style="color:#e74c3c">*</span> 为必填项</span>
+            </div>
+            <p class="cpr-tip">提交后我们会在 3 个工作日内核实处理，处理结果将通过您填写的联系方式反馈。</p>
+
+            <form id="cprForm" action="/api/other/copyright_complaint" method="post" enctype="multipart/form-data" novalidate>
+                <div class="cpr-grid">
+                    <div class="cpr-field" data-field="title">
+                        <label for="cprTitle">被侵权作品名称<span class="req">*</span></label>
+                        <input type="text" id="cprTitle" name="title" maxlength="255" placeholder="例如：某影视剧 / 某综艺节目名称" autocomplete="off" />
+                        <div class="err">请填写作品名称（至少 2 个字符）</div>
+                    </div>
+
+                    <div class="cpr-field" data-field="complainant">
+                        <label for="cprComplainant">投诉人 / 权利人</label>
+                        <input type="text" id="cprComplainant" name="complainant" maxlength="100" placeholder="个人姓名或单位名称" autocomplete="off" />
+                        <div class="err">投诉人不能超过 100 个字符</div>
+                    </div>
+
+                    <div class="cpr-field full" data-field="infringing_url">
+                        <label for="cprUrl">侵权链接</label>
+                        <input type="text" id="cprUrl" name="infringing_url" maxlength="1000" placeholder="选填，具体侵权页面地址，以 http:// 或 https:// 开头" autocomplete="off" />
+                        <div class="err">如填写，需以 http:// 或 https:// 开头</div>
+                    </div>
+
+                    <div class="cpr-field full" data-field="contact">
+                        <label for="cprContact">联系方式<span class="req">*</span></label>
+                        <input type="text" id="cprContact" name="contact" maxlength="200" placeholder="手机号、邮箱或其他可联系到您的方式" autocomplete="off" />
+                        <div class="err">请填写联系方式，便于处理结果反馈</div>
+                    </div>
+
+                    <div class="cpr-field full" data-field="description">
+                        <label for="cprDesc">侵权情况说明</label>
+                        <textarea id="cprDesc" name="description" maxlength="2000" placeholder="请说明权属情况、侵权事实，以及您希望的处理方式"></textarea>
+                        <div class="err">侵权说明不能超过 2000 个字符</div>
+                    </div>
+
+                    <div class="cpr-field full" data-field="evidence">
+                        <label>证明材料<span class="req">*</span></label>
+                        <div class="cpr-upload" id="cprUpload">
+                            <div class="icon">+</div>
+                            <div class="t1">点击选择图片，或将图片拖到此处</div>
+                            <div class="t2">支持 jpg / jpeg / png / webp，单张不超过 5MB，最多 3 张</div>
+                        </div>
+                        <input type="file" id="cprFileInput" accept="image/jpeg,image/png,image/webp" multiple style="display:none" />
+                        <div class="cpr-thumbs" id="cprThumbs"></div>
+                        <div class="err">请上传证明材料（至少 1 张）</div>
+                    </div>
+
+                    <div class="cpr-field full" data-field="captcha">
+                        <label for="cprCaptcha">验证码<span class="req">*</span></label>
+                        <div class="cpr-captcha-row">
+                            <input type="text" id="cprCaptcha" name="captcha" maxlength="8" placeholder="请输入右侧验证码" autocomplete="off" />
+                            <img id="cprCaptchaImg" alt="验证码" title="点击刷新验证码" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" />
+                        </div>
+                        <div class="err">请填写验证码</div>
+                    </div>
+                </div>
+
+                <div class="cpr-submit-bar">
+                    <button type="submit" class="cpr-btn" id="cprSubmit">
+                        <span class="cpr-loading"></span>
+                        <span>提交投诉</span>
+                    </button>
+                    <span class="hint">提交即表示您已阅读并同意本页的版权声明与免责声明</span>
+                </div>
+            </form>
+        </div>
+
+        <div class="cpr-success" id="cprSuccess">
+            <div class="mark">✓</div>
+            <h3>投诉已提交</h3>
+            <p>我们已收到您的投诉，将在 3 个工作日内核实处理。<br />如需补充材料，请重新提交并注明。</p>
+            <button type="button" class="cpr-btn" id="cprAgain">再次提交</button>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var form = document.getElementById('cprForm');
+            if (!form) { return; }
+
+            var formWrap = document.getElementById('cprFormWrap');
+            var successBox = document.getElementById('cprSuccess');
+            var againBtn = document.getElementById('cprAgain');
+            var submitBtn = document.getElementById('cprSubmit');
+            var captchaImg = document.getElementById('cprCaptchaImg');
+            var fileInput = document.getElementById('cprFileInput');
+            var uploadBox = document.getElementById('cprUpload');
+            var thumbsBox = document.getElementById('cprThumbs');
+
+            var MAX_COUNT = 3;
+            var MAX_SIZE = 5 * 1024 * 1024;
+            var ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+            var selected = [];
+
+            // ---------- 验证码 ----------
+            function refreshCaptcha() {
+                captchaImg.src = '/api/other/copyright_captcha?t=' + new Date().getTime();
+            }
+            captchaImg.addEventListener('click', refreshCaptcha);
+            refreshCaptcha();
+
+            // ---------- 图片选择与预览 ----------
+            function renderThumbs() {
+                thumbsBox.innerHTML = '';
+                selected.forEach(function (file, index) {
+                    var box = document.createElement('div');
+                    box.className = 'cpr-thumb';
+
+                    var img = document.createElement('img');
+                    img.alt = '证明材料';
+                    img.src = URL.createObjectURL(file);
+                    img.onload = function () { URL.revokeObjectURL(img.src); };
+
+                    var del = document.createElement('button');
+                    del.type = 'button';
+                    del.className = 'del';
+                    del.title = '移除';
+                    del.innerHTML = '×';
+                    del.addEventListener('click', function () {
+                        selected.splice(index, 1);
+                        renderThumbs();
+                    });
+
+                    box.appendChild(img);
+                    box.appendChild(del);
+                    thumbsBox.appendChild(box);
+                });
+            }
+
+            function addFiles(fileList) {
+                if (!fileList || !fileList.length) { return; }
+                for (var i = 0; i < fileList.length; i++) {
+                    var file = fileList[i];
+                    if (selected.length >= MAX_COUNT) {
+                        alert('证明材料最多上传 3 张');
+                        break;
+                    }
+                    if (ALLOWED.indexOf(file.type) === -1) {
+                        alert('仅支持 jpg / jpeg / png / webp 格式的图片');
+                        continue;
+                    }
+                    if (file.size > MAX_SIZE) {
+                        alert('单张证明材料不能超过 5MB');
+                        continue;
+                    }
+                    selected.push(file);
+                }
+                renderThumbs();
+                if (selected.length > 0) { setInvalid('evidence', false); }
+            }
+
+            fileInput.addEventListener('change', function () {
+                addFiles(this.files);
+                this.value = '';
+            });
+
+            uploadBox.addEventListener('click', function () { fileInput.click(); });
+            uploadBox.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                uploadBox.classList.add('dragover');
+            });
+            uploadBox.addEventListener('dragleave', function () { uploadBox.classList.remove('dragover'); });
+            uploadBox.addEventListener('drop', function (e) {
+                e.preventDefault();
+                uploadBox.classList.remove('dragover');
+                addFiles(e.dataTransfer.files);
+            });
+
+            // ---------- 客户端校验 ----------
+            function fieldOf(name) { return form.querySelector('.cpr-field[data-field="' + name + '"]'); }
+            function setInvalid(name, invalid) {
+                var field = fieldOf(name);
+                if (!field) { return; }
+                if (invalid) { field.classList.add('invalid'); } else { field.classList.remove('invalid'); }
+            }
+
+            function validate() {
+                var ok = true;
+                var title = document.getElementById('cprTitle').value.trim();
+                var url = document.getElementById('cprUrl').value.trim();
+                var contact = document.getElementById('cprContact').value.trim();
+                var captcha = document.getElementById('cprCaptcha').value.trim();
+
+                setInvalid('title', title.length < 2);
+                if (title.length < 2) { ok = false; }
+
+                // 侵权链接为选填：仅填写时校验格式
+                var urlOk = url.length === 0 || url.indexOf('http://') === 0 || url.indexOf('https://') === 0;
+                setInvalid('infringing_url', !urlOk);
+                if (!urlOk) { ok = false; }
+
+                setInvalid('evidence', selected.length === 0);
+                if (selected.length === 0) { ok = false; }
+
+                setInvalid('contact', contact.length === 0);
+                if (contact.length === 0) { ok = false; }
+
+                setInvalid('captcha', captcha.length === 0);
+                if (captcha.length === 0) { ok = false; }
+
+                return ok;
+            }
+
+            // 输入时清除对应错误态
+            form.addEventListener('input', function (e) {
+                var wrapper = e.target.closest ? e.target.closest('.cpr-field') : null;
+                if (wrapper) { wrapper.classList.remove('invalid'); }
+            });
+
+            // ---------- 提交 ----------
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                if (!validate()) {
+                    var firstInvalid = form.querySelector('.cpr-field.invalid');
+                    if (firstInvalid) { firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+                    return;
+                }
+
+                var data = new FormData(form);
+                selected.forEach(function (file) { data.append('evidence', file, file.name); });
+
+                submitBtn.disabled = true;
+                submitBtn.classList.add('loading');
+
+                fetch(form.action, { method: 'POST', body: data, credentials: 'same-origin' })
+                    .then(function (res) { return res.json(); })
+                    .then(function (res) {
+                        if (res && res.code === 200) {
+                            formWrap.style.display = 'none';
+                            successBox.classList.add('show');
+                            successBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        } else {
+                            alert((res && res.message) || '提交失败，请稍后重试');
+                            refreshCaptcha();
+                        }
+                    })
+                    .catch(function () {
+                        alert('网络异常，请稍后重试');
+                        refreshCaptcha();
+                    })
+                    .then(function () {
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('loading');
+                    });
+            });
+
+            // ---------- 再次提交 ----------
+            againBtn.addEventListener('click', function () {
+                form.reset();
+                selected = [];
+                renderThumbs();
+                form.querySelectorAll('.cpr-field.invalid').forEach(function (el) { el.classList.remove('invalid'); });
+                successBox.classList.remove('show');
+                formWrap.style.display = '';
+                refreshCaptcha();
+                formWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+
+            // ---------- 卡片入场动效 ----------
+            var revealItems = document.querySelectorAll('.cpr-hero, .cpr-step, .cpr-policy, .cpr-form-card');
+            revealItems.forEach(function (el) { el.classList.add('cpr-reveal'); });
+            if ('IntersectionObserver' in window) {
+                var observer = new IntersectionObserver(function (entries) {
+                    entries.forEach(function (entry) {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('in');
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                }, { threshold: 0.06 });
+                revealItems.forEach(function (el) { observer.observe(el); });
+            } else {
+                revealItems.forEach(function (el) { el.classList.add('in'); });
+            }
+        })();
+    </script>
+}

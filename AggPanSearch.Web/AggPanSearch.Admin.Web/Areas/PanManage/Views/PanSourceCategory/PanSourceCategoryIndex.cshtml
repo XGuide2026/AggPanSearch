@@ -1,0 +1,130 @@
+﻿@{
+    Layout = "~/Views/Shared/_Index.cshtml";
+ }
+<div class="container-div">
+    <div class="row">
+        <div id="searchDiv" class="col-sm-12 search-collapse">
+            <div class="select-list">
+                <ul>
+                    <li class="select-time">
+                        <label>创建时间：</label>
+                        <input id="startTime" col="startTime" type="text" class="time-input" placeholder="开始时间" />
+                        <span>-</span>
+                        <input id="endTime" col="endTime" type="text" class="time-input" placeholder="结束时间" />
+                    </li>
+                    <li>
+                        <a id="btnSearch" class="btn btn-primary btn-sm" onclick="searchGrid()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="btn-group-sm hidden-xs" id="toolbar">
+            <a id="btnAdd" class="btn btn-success" onclick="showSaveForm(true)"><i class="fa fa-plus"></i> 新增</a>
+            <a id="btnEdit" class="btn btn-primary disabled" onclick="showSaveForm(false)"><i class="fa fa-edit"></i> 修改</a>
+            <a id="btnDelete" class="btn btn-danger disabled" onclick="deleteForm()"><i class="fa fa-remove"></i> 删除</a>
+        </div>
+        <div class="col-sm-12 select-table table-striped">
+            <table id="gridTable" data-mobile-responsive="true"></table>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(function () {
+        laydate.render({ elem: '#startTime', format: 'yyyy-MM-dd' });
+        laydate.render({ elem: '#endTime', format: 'yyyy-MM-dd' });
+        initGrid();
+    });
+
+    // status / is_update / is_sys / is_type 渲染样式参考"员工管理"状态字段（badge 徽章）
+    var statusTextMap = {
+        Status: { '1': '显示', '0': '不显示' },
+        IsSys: { '1': '是', '0': '否' },
+        IsUpdate: { '1': '更新', '0': '不更新' },
+        IsType: { '1': '本地', '0': '网络' }
+    };
+    function renderStatusBadge(value, row, index, field) {
+        if (ys.isNullOrEmpty(value)) {
+            return '';
+        }
+        var key = String(value);
+        var texts = statusTextMap[field] || {};
+        var text = texts[key] || key;
+        var cls = (key === '1') ? 'badge badge-primary' : 'badge badge-warning';
+        return '<span class="' + cls + '">' + text + '</span>';
+    }
+
+    function initGrid() {
+        // 分类资源数量固定且很少，不分页：一次取全部，表格用客户端渲染/排序
+        var queryUrl = '@Url.Content("~/PanManage/PanSourceCategory/GetListJson")';
+        $('#gridTable').ysTable({
+            url: queryUrl,
+            pagination: false,
+            sidePagination: 'client',
+            columns: [
+                { checkbox: true, visible: true },
+                { field: 'Id', title: 'Id', visible: false },
+                { field: 'IsSys', title: '是否不可删除', visible: false,formatter: renderStatusBadge },
+                { field: 'IsType', title: '是否展示本地',visible: false, formatter: renderStatusBadge },
+                { field: 'IsUpdate', title: '是否每日更新',visible: false, formatter: renderStatusBadge },
+                { field: 'Name', title: '分类名称' },
+                { field: 'Status', title: '是否前台显示', formatter: renderStatusBadge },
+                { field: 'Sort', title: '排序' }
+            ],
+            queryParams: function (params) {
+                // 不分页，只带查询条件（排序也由客户端处理）
+                return $('#searchDiv').getWebControls({});
+            }
+        });
+    }
+
+    function searchGrid() {
+        $('#gridTable').ysTable('search');
+        resetToolbarStatus();
+    }
+
+    function showSaveForm(bAdd) {
+        var id = 0;
+        if (!bAdd) {
+            var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+            if (!ys.checkRowEdit(selectedRow)) {
+                return;
+            }
+            else {
+                id = selectedRow[0].Id;
+            }
+        }
+        ys.openDialog({
+            title: id > 0 ? '编辑' : '添加',
+            content: '@Url.Content("~/PanManage/PanSourceCategory/PanSourceCategoryForm")' + '?id=' + id,
+            width: '768px',
+            height: '550px',
+            callback: function (index, layero) {
+                var iframeWin = window[layero.find('iframe')[0]['name']];
+                iframeWin.saveForm(index);
+            }
+        });
+    }
+
+    function deleteForm() {
+        var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+        if (ys.checkRowDelete(selectedRow)) {
+            ys.confirm('确认要删除选中的' + selectedRow.length + '条数据吗？', function () {
+                var ids = ys.getIds(selectedRow);
+                ys.ajax({
+                    url: '@Url.Content("~/PanManage/PanSourceCategory/DeleteFormJson")' + '?ids=' + ids,
+                    type: 'post',
+                    success: function (obj) {
+                        if (obj.Tag == 1) {
+                            ys.msgSuccess(obj.Message);
+                            searchGrid();
+                        }
+                        else {
+                            ys.msgError(obj.Message);
+                        }
+                    }
+                });
+            });
+        }
+    }
+</script>
