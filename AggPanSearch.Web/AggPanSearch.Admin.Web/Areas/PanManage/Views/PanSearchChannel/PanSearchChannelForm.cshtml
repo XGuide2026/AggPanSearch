@@ -1,0 +1,102 @@
+@{
+    Layout = "~/Views/Shared/_FormWhite.cshtml";
+}
+
+<div class="wrapper animated fadeInRight">
+    <form id="form" class="form-horizontal m">
+        <div class="form-group">
+            <label class="col-sm-3 control-label">频道名<span class="required">*</span></label>
+            <div class="col-sm-8">
+                <input id="name" col="Name" type="text" class="form-control" placeholder="t.me/s/ 后面的部分，如 Aliyun_4K_Movies" />
+                <span class="help-block m-b-none" style="font-size:12px;color:#999;">
+                    支持直接粘贴 https://t.me/s/xxx 或 @@xxx，保存时会自动去掉前缀。
+                </span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">分组</label>
+            <div class="col-sm-8">
+                <input id="category" col="Category" type="text" class="form-control" placeholder="如 影视 / 短剧 / 综合" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">排序</label>
+            <div class="col-sm-8">
+                <input id="sort" col="Sort" type="number" class="form-control" value="0" />
+                <span class="help-block m-b-none" style="font-size:12px;color:#999;">数值越小越靠前。</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">权重</label>
+            <div class="col-sm-8">
+                <input id="weight" col="Weight" type="number" class="form-control" value="0" />
+                <span class="help-block m-b-none" style="font-size:12px;color:#999;">预留字段，暂不影响搜索。</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">状态</label>
+            <div class="col-sm-8" id="status" col="Status"></div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">备注</label>
+            <div class="col-sm-8">
+                <textarea id="remark" col="Remark" class="form-control" rows="3"></textarea>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script type="text/javascript">
+    var id = ys.request("id");
+    $(function () {
+        $("#status").ysRadioBox({ data: [{ Key: '1', Value: '启用' }, { Key: '0', Value: '停用' }] });
+
+        getForm();
+
+        $('#form').validate({});
+    });
+
+    function getForm() {
+        if (id > 0) {
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanSearchChannel/GetFormJson")' + '?id=' + id,
+                type: 'get',
+                success: function (obj) {
+                    if (obj.Tag == 1) {
+                        $('#form').setWebControls(obj.Data);
+                    }
+                }
+            });
+        }
+        else {
+            var defaultData = { Status: 1, Sort: 0, Weight: 0 };
+            $('#form').setWebControls(defaultData);
+        }
+    }
+
+    function saveForm(index) {
+        var name = $.trim($('#name').val() || '');
+        if (name === '') {
+            ys.msgWarning('请输入频道名');
+            return;
+        }
+        if ($('#form').validate().form()) {
+            var postData = $('#form').getWebControls({ Id: id });
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanSearchChannel/SaveFormJson")',
+                type: 'post',
+                data: postData,
+                success: function (obj) {
+                    if (obj.Tag == 1) {
+                        ys.msgSuccess(obj.Message);
+                        parent.searchGrid();
+                        parent.layer.close(index);
+                    }
+                    else {
+                        ys.msgError(obj.Message);
+                    }
+                }
+            });
+        }
+    }
+</script>

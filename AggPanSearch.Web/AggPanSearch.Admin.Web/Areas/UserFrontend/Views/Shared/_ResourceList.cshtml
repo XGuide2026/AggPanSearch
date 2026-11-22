@@ -1,0 +1,55 @@
+@using AggPanSearch.Admin.Web.Areas.UserFrontend.Models
+@model List<ResourceItem>
+@{
+    // 资源卡片列表：首页"资源分类"块与"资源分类"页共用，样式见 wwwroot/userfrontend/css/category.css（.uf-list/.uf-item）
+    var items = Model ?? new List<ResourceItem>();
+    string[] panNames = { "夸克", "阿里云", "百度", "UC", "迅雷", "123云盘", "115", "天翼", "移动", "磁力", "光鸭" };
+    // 榜单名次偏移：分页后第 2 页起不再标记前 3
+    var rankOffset = ViewData["RankOffset"] is int offset ? offset : 0;
+}
+<div class="uf-list">
+    @for (int i = 0; i < items.Count; i++)
+    {
+        var item = items[i];
+        var rankIndex = rankOffset + i;
+        var panName = item.IsType >= 0 && item.IsType < panNames.Length ? panNames[item.IsType] : "网盘";
+        // 资源图片可能存多张（以 ; 或 , 分隔），列表只展示第一张
+        var firstImage = string.IsNullOrWhiteSpace(item.ImageUrl)
+            ? ""
+            : (item.ImageUrl.Split(new[] { ';', ',', '|' }, StringSplitOptions.RemoveEmptyEntries)
+                           .Select(p => p.Trim())
+                           .FirstOrDefault() ?? "");
+        // 库里存的是不带前导斜杠的相对路径（如 Resource/News/...），需补 "/" 才能正确访问
+        if (firstImage.Length > 0
+            && !firstImage.StartsWith("/")
+            && !firstImage.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            && !firstImage.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            firstImage = "/" + firstImage;
+        }
+        <a class="uf-item @(rankIndex < 3 ? "top" : "")" href="/d/@(item.Id).html">
+            <div class="t">@item.Title</div>
+            @if (!string.IsNullOrWhiteSpace(item.CategoryName))
+            {
+                <div class="uf-cat">@item.CategoryName</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(item.VodContent))
+            {
+                <div class="uf-desc">@item.VodContent</div>
+            }
+            <div class="uf-thumb">
+                @if (!string.IsNullOrWhiteSpace(firstImage))
+                {
+                    <img class="uf-thumb-img" src="@firstImage" alt="@item.Title" loading="lazy" decoding="async" />
+                }
+                else
+                {
+                    <span class="uf-thumb-ph">@panName</span>
+                }
+            </div>
+            <div class="uf-item-foot">
+                <span class="act">查看</span>
+            </div>
+        </a>
+    }
+</div>

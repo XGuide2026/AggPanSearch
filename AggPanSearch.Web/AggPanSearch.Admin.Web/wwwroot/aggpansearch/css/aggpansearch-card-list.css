@@ -1,0 +1,561 @@
+/* ==========================================================================
+   卡片列表公共样式（跨页面复用）
+   使用方：PanManage/PanSourceCollect（采集资源）、PanManage/PanSource（本地资源）
+   实现方式：表格仍由 bootstrap-table 渲染（#gridTable 保留），但列只保留
+             「勾选列 + 单卡片列」，这里把 tbody 由表格布局改成瀑布流：
+             tbody 用 CSS 多列分栏，tr 即一张卡片（块级、列内不被拆分），
+             td 只作为内容容器。卡片高度由「封面原始比例 + 简介实际行数」决定，
+             因此同一行卡片高低错落，形成瀑布流效果。
+   配套脚本：aggpansearch/js/aggpansearch-card-list.js（ys.cardList 负责卡片 HTML 渲染与交互）
+   说明：类名沿用 collect-card-*，属于跨页公共类，改动前请确认两个页面都验证过。
+   ========================================================================== */
+
+/* ============================================================
+   1. 表格外壳：去掉 bootstrap-table 默认边框，让卡片成为唯一视觉主体
+   ============================================================ */
+.collect-card-table {
+    padding: 12px 14px 6px;
+}
+
+.collect-card-table .bootstrap-table,
+.collect-card-table .fixed-table-container {
+    border: 0 !important;
+    background: transparent;
+}
+
+/* 卡片高度自适应，不需要固定表头提供的内部滚动 */
+.collect-card-table .fixed-table-body {
+    overflow: visible;
+}
+
+.collect-card-table .fixed-table-pagination {
+    margin-top: 10px;
+}
+
+.collect-card-table #gridTable {
+    width: 100% !important;
+    border: 0 !important;
+    background: transparent;
+}
+
+/* ============================================================
+   2. 卡片瀑布流：CSS 多列分栏（列优先），列间距与卡片间距统一 14px
+      用多列而非 JS 砌砖：封面是懒加载图片，改为原始比例后高度要等图片
+      加载完才确定，浏览器会自动重排各列，无需脚本监听 load 事件
+   ============================================================ */
+.collect-card-table #gridTable > tbody {
+    display: block;
+    column-count: 1;
+    column-gap: 14px;
+    background: transparent;
+}
+
+.collect-card-table #gridTable > tbody > tr {
+    position: relative;
+    display: block;
+    /* 卡片不允许被拆到两列：必须配合块级 display 使用 */
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    margin: 0 0 14px;
+    background: #fff !important;
+    border: 1px solid #E5E8ED;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color .18s ease;
+}
+
+/* 悬停只做边框变色，不做位移 / 缩放 / 阴影等其它效果 */
+.collect-card-table #gridTable > tbody > tr:hover {
+    border-color: #1AB394;
+}
+
+/* 勾选中的卡片高亮描边，便于确认批量操作范围 */
+.collect-card-table #gridTable > tbody > tr.is-checked {
+    border-color: #1AB394;
+    box-shadow: 0 0 0 2px rgba(26, 179, 148, .18);
+}
+
+.collect-card-table #gridTable > tbody > tr > td {
+    display: block;
+    padding: 0;
+    border: 0 !important;
+    background: transparent !important;
+    white-space: normal;
+}
+
+/* ============================================================
+   3. 勾选列：浮到封面左上角
+      封面改为原始比例后图片亮度不可控，这里给单元格加一层半透明白底，
+      保证勾选框在浅色图片上也能看清（bootstrap-table 的 bs-checkbox 默认底色仍被清掉）
+   ============================================================ */
+.collect-card-table #gridTable > tbody > tr:not(.no-records-found) > td:first-child {
+    position: absolute;
+    left: 6px;
+    top: 6px;
+    z-index: 3;
+    width: 26px !important;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    background: rgba(255, 255, 255, .78) !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+}
+
+/* 勾选行高亮只作用于卡片边框，复选框单元格不跟随变色（底色沿用上面的浅色底） */
+.collect-card-table #gridTable > tbody > tr.selected > td.bs-checkbox,
+.collect-card-table #gridTable > tbody > tr > td.bs-checkbox {
+    background: rgba(255, 255, 255, .78) !important;
+    box-shadow: none !important;
+}
+
+.collect-card-table #gridTable > tbody > tr:not(.no-records-found) > td:first-child input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    cursor: pointer;
+    vertical-align: middle;
+    accent-color: #1AB394;
+}
+
+/* ============================================================
+   4. 空数据行：横跨整行居中显示，不套卡片外观
+   ============================================================ */
+.collect-card-table #gridTable > tbody > tr.no-records-found {
+    /* 多列布局下用 column-span 让空态提示横跨所有列 */
+    -webkit-column-span: all;
+    column-span: all;
+    width: 100%;
+    padding: 46px 0;
+    font-size: 12px;
+    color: #999;
+    text-align: center;
+    background: #FAFBFC !important;
+    border: 1px dashed #E5E8ED;
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+/* 空数据行悬停不变色，与卡片的悬停态区分开 */
+.collect-card-table #gridTable > tbody > tr.no-records-found:hover {
+    border-color: #E5E8ED;
+}
+
+.collect-card-table #gridTable > tbody > tr.no-records-found > td {
+    color: #999;
+    text-align: center;
+}
+
+/* ============================================================
+   5. 卡片内部结构
+   ============================================================ */
+.collect-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* 封面：高度按图片原始宽高比自适应（瀑布流的高低错落主要来自这里）
+   超长图最高 420px、超宽图最低 120px，超出部分居中裁切，避免卡片过长或过扁；
+   无图 / 加载失败时由 .is-empty 撑出 62% 的固定占位区，显示渐变底色 */
+.collect-card-cover {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    background: linear-gradient(135deg, #1AB394 0%, #148F77 58%, #0E6B59 100%);
+}
+
+/* 图片回到文档流，容器高度由图片自身决定；懒加载未完成时靠 min-height 保底，
+   避免卡片高度先塌陷再跳动 */
+.collect-card-cover > img {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 120px;
+    max-height: 420px;
+    object-fit: cover;
+}
+
+/* 无图 / 加载失败：用固定比例占位块，保证卡片不会塌成一条线 */
+.collect-card-cover.is-empty {
+    padding-top: 62%;
+}
+
+.collect-card-cover-ph {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, .92);
+}
+
+.collect-card-cover.is-empty .collect-card-cover-ph {
+    display: flex;
+}
+
+/* 封面右上角：图片张数，与左上角勾选框分列两侧 */
+.collect-card-cover-count {
+    position: absolute;
+    right: 6px;
+    top: 6px;
+    z-index: 3;
+    height: 20px;
+    padding: 0 7px;
+    font-size: 11px;
+    line-height: 20px;
+    color: #fff;
+    background: rgba(0, 0, 0, .55);
+    border-radius: 10px;
+    pointer-events: none;
+}
+
+.collect-card-cover-count > i {
+    margin-right: 2px;
+}
+
+/* 封面可点击（查看大图）：放大镜光标；悬停不做缩放与提示 */
+.collect-card-cover.is-clickable {
+    cursor: zoom-in;
+}
+
+.collect-card-body {
+    flex: 1 1 auto;
+    padding: 10px 12px 6px;
+}
+
+/* 标题固定两行，超出省略：单条超长标题不再撑高卡片，卡片高度差异只由封面与简介决定 */
+.collect-card-title {
+    display: -webkit-box;
+    min-height: 36px;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 18px;
+    color: #333;
+    word-break: break-all;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.collect-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+/* 状态标签统一为浅底胶囊：分类 / 网盘类型 / 状态 / 置顶等 */
+.collect-card-tag {
+    display: inline-block;
+    max-width: 100%;
+    height: 18px;
+    padding: 0 7px;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 18px;
+    color: #676A6C;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    background: #F2F4F7;
+    border-radius: 9px;
+}
+
+.collect-card-tag.is-primary {
+    color: #148F77;
+    background: rgba(26, 179, 148, .12);
+}
+
+.collect-card-tag.is-ok {
+    color: #1E8449;
+    background: rgba(39, 174, 96, .13);
+}
+
+.collect-card-tag.is-warn {
+    color: #C87F1A;
+    background: rgba(230, 162, 60, .16);
+}
+
+/* 需要立即处理的异常态（如未分类），用红色与普通信息标签区分 */
+.collect-card-tag.is-danger {
+    color: #E74C3C;
+    background: rgba(231, 76, 60, .12);
+}
+
+.collect-card-tag.is-mute {
+    color: #999;
+    background: #F2F4F7;
+}
+
+/* 副标题：单行省略，完整内容放 title 属性 */
+.collect-card-sub {
+    margin-top: 6px;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 16px;
+    color: #8A9099;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* 资源简介：位于标签行下方，行数随内容自适应（瀑布流的高度差异之一）
+   只设上限 192px（12 行 × 16px），超出部分裁剪，正文由 JS 精确截断到末行末尾，
+   再接「查看完整」，两者同行不重叠。不能再设 min-height，否则短简介也会被撑高、
+   卡片高度趋于一致，瀑布流就不成立了。
+   高度上限只能加在容器上——.collect-card-intro-text 是内联元素
+   （为与「查看完整」同处一行文字流），内联元素上的 height / max-height 不生效 */
+.collect-card-intro {
+    max-height: 192px;
+    margin-top: 8px;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 16px;
+    color: #676A6C;
+}
+
+/* 必须内联：正文与「查看完整」同处一行文字流，块级会让按钮单独占一行 */
+.collect-card-intro-text {
+    display: inline;
+    word-break: break-all;
+}
+
+.collect-card-intro.is-empty {
+    color: #bbb;
+}
+
+/* 可编辑简介：正文包一层 a（点击弹出资源介绍弹窗），外观与普通正文一致，仅悬浮变色提示可点 */
+.collect-card-intro-text a.collect-card-intro-link {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.collect-card-intro.is-editable .collect-card-intro-text a.collect-card-intro-link:hover {
+    color: #23B7E5;
+    text-decoration: underline;
+}
+
+/* 「查看完整」是正文末尾的内联元素，随文字流排在最后一行行尾 */
+.collect-card-intro-more {
+    margin-left: 2px;
+    color: #23B7E5;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.collect-card-intro-more:hover {
+    color: #148F77;
+    text-decoration: underline;
+}
+
+/* 简介全文弹窗正文：保留换行，过长时在弹层内部滚动 */
+.collect-intro-dialog {
+    max-height: 60vh;
+    padding: 14px 16px;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 22px;
+    color: #333;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* 元信息行：默认两端对齐；条目多（如本地资源的提取码 / 浏览量 / 时间）放不下时换行，不挤压成省略号 */
+.collect-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2px 8px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #999;
+}
+
+.collect-card-meta > span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.collect-card-link {
+    margin-top: 6px;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 16px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.collect-card-link a {
+    color: #23B7E5;
+}
+
+.collect-card-link a:hover {
+    text-decoration: underline;
+}
+
+/* 底部操作栏：虚线分隔，修改 / 删除平分宽度 */
+.collect-card-foot {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px 10px;
+    border-top: 1px dashed #E5E8ED;
+}
+
+.collect-card-foot .collect-btn {
+    flex: 1 1 0;
+    padding: 3px 0;
+    font-size: 12px;
+    line-height: 18px;
+    text-align: center;
+    text-decoration: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    transition: background-color .16s ease, color .16s ease, border-color .16s ease;
+}
+
+.collect-card-foot .collect-btn-edit {
+    color: #148F77;
+    background: rgba(26, 179, 148, .1);
+    border-color: rgba(26, 179, 148, .35);
+}
+
+.collect-card-foot .collect-btn-edit:hover {
+    color: #fff;
+    background: #1AB394;
+    border-color: #1AB394;
+}
+
+.collect-card-foot .collect-btn-del {
+    color: #E74C3C;
+    background: rgba(231, 76, 60, .08);
+    border-color: rgba(231, 76, 60, .3);
+}
+
+.collect-card-foot .collect-btn-del:hover {
+    color: #fff;
+    background: #E74C3C;
+    border-color: #E74C3C;
+}
+
+/* ============================================================
+   6. 工具栏「全选本页」
+   ============================================================ */
+/* 卡片页工具栏：label 与 .btn 高度、垂直中线统一，避免行内基线对齐造成的上下错位。
+   仅作用于加了 collect-toolbar 类的工具栏，其它页面的 #toolbar 不受影响 */
+.collect-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+/* 工具栏统一高度：label 与同级 .btn 均固定 30px（等同 .btn-group-sm > .btn 的实际盒高），
+   不再用 align-self: stretch 由行高推导，避免换行或内容差异导致两者高度不一致 */
+.collect-toolbar > .btn,
+.collect-toolbar .collect-check-all {
+    box-sizing: border-box;
+    align-self: center;
+    height: 30px;
+}
+
+/* 按钮原为 5px 上下内边距 + 18px 行高 = 30px；固定高度后改为 0 上下内边距 + 28px 行高
+   （28px = 30 - 上下各 1px 边框），图标与文字仍保持垂直居中 */
+.collect-toolbar > .btn {
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: 28px;
+}
+
+.collect-toolbar .collect-check-all {
+    flex: 0 0 auto;
+    margin-right: 0;
+    line-height: 1;
+}
+
+.collect-check-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 30px;
+    margin-right: 6px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #676A6C;
+    vertical-align: middle;
+    cursor: pointer;
+    background: #F5F7FA;
+    border: 1px solid #E5E8ED;
+    border-radius: 4px;
+    transition: border-color .16s ease, color .16s ease;
+}
+
+.collect-check-all:hover {
+    color: #148F77;
+    border-color: #1AB394;
+}
+
+.collect-check-all input[type="checkbox"] {
+    flex: 0 0 auto;
+    margin: 0;
+    cursor: pointer;
+    accent-color: #1AB394;
+}
+
+/* ============================================================
+   7. 后台任务进度条（本地资源「自动截图」等批量任务共用）
+   与采集页 .collect-progress-bar 结构一致，两页都引用本文件
+   ============================================================ */
+.collect-progress-bar {
+    padding: 4px 0 10px 0;
+}
+
+.collect-progress-text {
+    font-size: 12px;
+    color: #666666;
+}
+
+.collect-progress-cancel {
+    margin-left: 8px;
+}
+
+/* ============================================================
+   8. 响应式：瀑布流列数 5 / 4 / 3 / 2 / 1
+      默认（<768px）1 列，向上逐级加列；列间距仍为 14px
+   ============================================================ */
+@media (min-width: 768px) {
+    .collect-card-table #gridTable > tbody {
+        column-count: 2;
+    }
+}
+
+@media (min-width: 992px) {
+    .collect-card-table #gridTable > tbody {
+        column-count: 3;
+    }
+}
+
+@media (min-width: 1280px) {
+    .collect-card-table #gridTable > tbody {
+        column-count: 4;
+    }
+}
+
+@media (min-width: 1600px) {
+    .collect-card-table #gridTable > tbody {
+        column-count: 5;
+    }
+}
+
+@media (max-width: 768px) {
+    .collect-card-table {
+        padding: 10px 10px 4px;
+    }
+}

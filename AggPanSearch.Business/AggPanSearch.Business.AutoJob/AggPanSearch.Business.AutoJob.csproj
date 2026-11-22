@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Quartz" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\AggPanSearch.Entity\AggPanSearch.Entity\AggPanSearch.Entity.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Util\AggPanSearch.Util\AggPanSearch.Util.csproj" />
+    <ProjectReference Include="..\AggPanSearch.Business\AggPanSearch.Business.csproj" />
+    <ProjectReference Include="..\AggPanSearch.Service\AggPanSearch.Service.csproj" />
+  </ItemGroup>
+
+</Project>

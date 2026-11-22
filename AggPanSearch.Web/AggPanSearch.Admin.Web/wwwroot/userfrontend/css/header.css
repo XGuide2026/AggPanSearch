@@ -1,0 +1,426 @@
+/* 顶部导航栏（从 _Header.cshtml 内联样式整理而来，全站通用） */
+/* 顶部导航栏 - 通栏式：.top-nav 背景铺满整屏宽度，内部 .top-nav-box 限宽居中 */
+#app > .top-nav {
+    background: var(--theme-surface) !important;
+    /* 去掉左右留白，让背景真正通栏；高度由内部 .top-nav-box 撑开 */
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    border-bottom: 1px solid var(--theme-border) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+    transition: background-color 0.3s ease !important;
+}
+
+#app > .top-nav .top-nav-box {
+    /* 与页面内容区对齐：.home-container / .uf-page 是 max-width 1080 + 左右 16px 内边距，
+       内容区实际 1048px；这里宽度取 1048 且左右不做内边距，logo 与菜单边缘正好落在内容区边缘 */
+    width: 1048px !important;
+    max-width: calc(100% - 32px) !important;
+    margin: 0 auto !important;
+    /* 只保留上下内边距抬升导航栏高度（约 64px），左右不做留白 */
+    padding: 12px 0 !important;
+    min-height: 64px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    /* 背景与阴影已交给外层 .top-nav，避免出现"卡片套通栏"的双层效果 */
+    background: transparent !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    position: relative !important;
+}
+
+#app > .top-nav .top-nav-logo {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    text-decoration: none !important;
+}
+
+/* 站点 logo 图片：比占位符略大，在 64px 高的导航栏内上下各留 8px */
+#app > .top-nav .top-nav-logo .logo-img {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 10px !important;
+    object-fit: contain !important;
+    flex-shrink: 0 !important;
+}
+
+#app > .top-nav .top-nav-logo .logo-placeholder {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 8px !important;
+    flex-shrink: 0 !important;
+}
+
+#app > .top-nav .top-nav-logo .logo-placeholder {
+    background: var(--theme-primary-gradient) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #fff !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+}
+
+/* 有 logo 时隐藏占位符（placeholder 自身有 display:flex !important，必须用同优先级选择器覆盖）；
+   图片加载失败时由 onerror 移除 is-hidden，回退显示 MS 占位符 */
+#app > .top-nav .top-nav-logo .logo-placeholder.is-hidden {
+    display: none !important;
+}
+
+#app > .top-nav .top-nav-logo .logo-text {
+    display: flex !important;
+    flex-direction: column !important;
+    /* 文本块整体相对 logo 图标垂直居中，块内两行文本也垂直居中分布 */
+    align-self: center !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
+    gap: 2px !important;
+    line-height: 1.2 !important;
+}
+
+#app > .top-nav .top-nav-logo .logo-title-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+#app > .top-nav .top-nav-logo .logo-name {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: var(--theme-text) !important;
+}
+
+/* 网站网址（pan_conf.web_address），显示在站点名称下方 */
+#app > .top-nav .top-nav-logo .logo-web-address {
+    font-size: 11px !important;
+    color: var(--theme-text-secondary) !important;
+    max-width: 240px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+#app > .top-nav .top-nav-menu {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    /* 菜单右对齐：flex 中 auto margin 优先于 justify-content 分配剩余空间，
+       会把 menu 及其后的操作区（主题切换/汉堡）一起推到导航栏右侧，logo 仍靠左；
+       margin-right 保留菜单与右侧操作区之间的呼吸间距 */
+    margin-left: auto !important;
+    margin-right: 6px !important;
+}
+
+#app > .top-nav .top-nav-menu a,
+#app > .top-nav .top-nav-menu .nav-menu-item {
+    padding: 7px 18px !important;
+    font-size: 14px !important;
+    color: var(--theme-text-secondary) !important;
+    cursor: pointer !important;
+    border-radius: 18px !important;
+    transition: all 0.2s ease !important;
+    text-decoration: none !important;
+}
+
+#app > .top-nav .top-nav-menu a:hover,
+#app > .top-nav .top-nav-menu .nav-menu-item:hover,
+#app > .top-nav .top-nav-menu a.active,
+#app > .top-nav .top-nav-menu .nav-menu-item.active {
+    color: var(--theme-primary) !important;
+    background: color-mix(in srgb, var(--theme-primary) 10%, transparent) !important;
+}
+
+#app > .top-nav .top-nav-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+/* 主题切换器 */
+.theme-switcher {
+    position: relative !important;
+}
+
+.theme-switcher-btn {
+    width: 34px !important;
+    height: 34px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    color: var(--theme-text-secondary) !important;
+    background: color-mix(in srgb, var(--theme-primary) 8%, transparent) !important;
+}
+
+.theme-switcher-btn:hover {
+    color: var(--theme-primary) !important;
+    background: color-mix(in srgb, var(--theme-primary) 15%, transparent) !important;
+}
+
+.theme-dropdown {
+    position: absolute !important;
+    top: calc(100% + 8px) !important;
+    right: 0 !important;
+    z-index: 999 !important;
+    background: var(--theme-surface) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+    padding: 8px !important;
+    min-width: 140px !important;
+    border: 1px solid var(--theme-border) !important;
+}
+
+.theme-option {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    transition: background 0.2s ease !important;
+}
+
+.theme-option:hover {
+    background: color-mix(in srgb, var(--theme-primary) 8%, transparent) !important;
+}
+
+.theme-option.active {
+    background: color-mix(in srgb, var(--theme-primary) 12%, transparent) !important;
+}
+
+.theme-dot {
+    width: 16px !important;
+    height: 16px !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+}
+
+.theme-name {
+    font-size: 13px !important;
+    color: var(--theme-text) !important;
+}
+
+.nav-menu-icon {
+    width: 34px !important;
+    height: 34px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 20px !important;
+    border-radius: 50% !important;
+    cursor: pointer !important;
+    color: var(--theme-text-secondary) !important;
+    background: color-mix(in srgb, var(--theme-primary) 8%, transparent) !important;
+}
+
+/* 手机端底部导航栏：默认（桌面端）不显示，仅在 <=768px 时展开 */
+.uf-bottom-nav {
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+    #app > .top-nav .top-nav-menu { display: none !important; }
+    /* 手机端顶部菜单与汉堡按钮都隐藏，只剩 logo：让它相对整个导航栏水平垂直居中，
+       主题切换器等操作区改为绝对定位贴右，不参与 flex 居中计算 */
+    #app > .top-nav .top-nav-box {
+        justify-content: center !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        /* 手机端压缩导航栏高度：上下内边距 12px → 6px，最小高度 64px → 52px */
+        padding-top: 6px !important;
+        padding-bottom: 6px !important;
+        min-height: 52px !important;
+    }
+    #app > .top-nav .top-nav-logo {
+        margin: 0 auto !important;
+        justify-content: center !important;
+        align-self: center !important;
+    }
+    #app > .top-nav .top-nav-actions {
+        position: absolute !important;
+        right: 0 !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+    }
+    #app > .top-nav .top-nav-logo .logo-web-address { display: none !important; }
+    /* 手机端同步压缩 logo 与右侧操作按钮，避免它们把导航栏重新撑高 */
+    #app > .top-nav .top-nav-logo .logo-img {
+        width: 34px !important;
+        height: 34px !important;
+        border-radius: 8px !important;
+    }
+    #app > .top-nav .top-nav-logo .logo-placeholder {
+        width: 30px !important;
+        height: 30px !important;
+        border-radius: 8px !important;
+        font-size: 14px !important;
+    }
+    #app > .top-nav .top-nav-logo .logo-name {
+        font-size: 15px !important;
+    }
+    #app > .top-nav .top-nav-actions {
+        gap: 6px !important;
+    }
+    #app > .top-nav .top-nav-actions .theme-switcher-btn {
+        width: 30px !important;
+        height: 30px !important;
+    }
+    /* 手机端菜单入口由底部导航栏承载，顶部不再显示汉堡按钮 */
+    #app > .top-nav .nav-menu-icon { display: none !important; }
+    /* 手机端底部导航栏 */
+    .uf-bottom-nav {
+        display: flex !important;
+        position: fixed !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        z-index: 1000 !important;
+        background: var(--theme-surface) !important;
+        border-top: 1px solid var(--theme-border) !important;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06) !important;
+        padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px)) !important;
+        box-sizing: border-box !important;
+    }
+    /* 底部导航至少留出 56px，避免最后一段内容/页脚被遮住 */
+    body { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important; }
+    /* 手机端资源弹窗：左右留白，避免贴边不协调 */
+    .resource-dialog {
+        width: calc(100% - 32px) !important;
+        max-width: 420px;
+        margin-top: 12vh !important;
+    }
+    .resource-dialog .el-dialog__body { padding: 16px !important; }
+}
+@media (min-width: 769px) {
+    .nav-menu-icon { display: none !important; }
+}
+
+.uf-bottom-nav-item {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    padding: 4px 2px !important;
+    text-decoration: none !important;
+    color: var(--theme-text-secondary) !important;
+    cursor: pointer !important;
+    transition: color 0.2s ease !important;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+.uf-bottom-nav-item .uf-bottom-nav-icon {
+    font-size: 20px !important;
+    line-height: 1 !important;
+}
+
+/* 首页图标是内联 SVG（iconfont 字体里没有 home 字形），尺寸与字体图标保持一致，
+   颜色交给 stroke=currentColor，active 时自动变成主题色 */
+.uf-bottom-nav-item .uf-bottom-nav-icon-svg {
+    width: 20px !important;
+    height: 20px !important;
+    display: block !important;
+    flex-shrink: 0 !important;
+}
+
+.uf-bottom-nav-item .uf-bottom-nav-text {
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+.uf-bottom-nav-item.active {
+    color: var(--theme-primary) !important;
+}
+
+/* 手机端抽屉 */
+.nav-drawer .el-dialog__header { padding: 0 !important; }
+.nav-drawer .el-dialog__body { padding: 0 !important; }
+.nav-drawer-content { display: flex; flex-direction: column; }
+.nav-drawer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--theme-border);
+}
+.nav-drawer-title {
+    font-size: 16px; font-weight: 600; color: var(--theme-text);
+}
+.nav-drawer-close { cursor: pointer; color: var(--theme-text-secondary); }
+.nav-drawer-menu {
+    display: flex; flex-direction: column; padding: 8px;
+}
+.nav-drawer-menu a,
+.nav-drawer-menu > div {
+    padding: 12px 16px; border-radius: 8px; font-size: 14px;
+    color: var(--theme-text); text-decoration: none; cursor: pointer;
+}
+.nav-drawer-menu a:hover,
+.nav-drawer-menu a.active {
+    color: var(--theme-primary); background: color-mix(in srgb, var(--theme-primary) 10%, transparent);
+}
+
+/* 资源弹窗通用样式（资源弹窗结构来自官方皮肤） */
+.resource-dialog { border-radius: 14px; }
+.resource-dialog .el-dialog__body { padding: 20px !important; }
+.btn-primary {
+    padding: 9px 22px; border: none; border-radius: 8px; cursor: pointer;
+    background: var(--theme-primary-gradient) !important; color: #fff !important;
+    font-size: 14px; font-weight: 500; text-decoration: none; display: inline-block;
+}
+.btn-secondary {
+    padding: 9px 22px; border: 1px solid var(--theme-border); border-radius: 8px;
+    cursor: pointer; background: var(--theme-surface) !important; color: var(--theme-text) !important;
+    font-size: 14px; text-decoration: none; display: inline-block;
+}
+.resource-subtitle {
+    font-size: 17px; color: var(--theme-text); margin-top: 8px; text-align: center;
+    font-weight: 600; word-break: break-all;
+}
+.scan-tip { font-size: 15px; font-weight: 500; color: var(--theme-text); text-align: center; margin-top: 16px; }
+.scan-desc { font-size: 13px; color: var(--theme-text-secondary); text-align: center; margin-top: 4px; }
+.qrcode-wrapper {
+    display: flex; justify-content: center; margin: 16px 0;
+}
+.qrcode { padding: 10px; background: #fff; border: 1px solid var(--theme-border); border-radius: 10px; }
+.pan-name { color: var(--theme-primary); font-weight: 600; }
+.url-box { margin-top: 8px; }
+.url-label { font-size: 13px; color: var(--theme-text-secondary); }
+.url-text {
+    font-size: 13px; color: var(--theme-primary); word-break: break-all;
+    margin-top: 4px; padding: 8px; background: color-mix(in srgb, var(--theme-primary) 6%, transparent);
+    border-radius: 6px;
+}
+.expire-tip { display: none !important; }
+/* pan-name 前的网盘类型图标：与搜索框 search-icon-pan 同一套图标资源 */
+.resource-pan-icon {
+    width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px;
+}
+.dialog-actions { display: flex; justify-content: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.error-title { font-size: 16px; font-weight: 600; color: #ff4d4f; text-align: center; }
+.error-message { font-size: 14px; color: var(--theme-text-secondary); text-align: center; margin-top: 8px; }
+.loading-content { text-align: center; padding: 20px 0; }
+.loading-spinner { display: flex; justify-content: center; gap: 6px; }
+.spinner-ring {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--theme-primary-gradient);
+    animation: resourceSpin 1.2s ease-in-out infinite;
+}
+.spinner-ring:nth-child(2) { animation-delay: 0.15s; }
+.spinner-ring:nth-child(3) { animation-delay: 0.3s; }
+@keyframes resourceSpin {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+    40% { transform: scale(1); opacity: 1; }
+}
+.loading-text { font-size: 15px; color: var(--theme-text); margin-top: 14px; font-weight: 500; }
+.loading-subtext { font-size: 13px; color: var(--theme-text-secondary); margin-top: 4px; }

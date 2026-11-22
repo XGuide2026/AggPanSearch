@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>preview</LangVersion>
+    <RootNamespace>AggPanSearch.CollectSite</RootNamespace>
+    <PackageId>AggPanSearch.CollectSite</PackageId>
+    <Description>网盘资源站点采集类库：页面抓取（含 SSRF 防护）、站点解析器注册与通用兜底、网盘链接识别与标准化、分页/全站采集编排。仅依赖 HtmlAgilityPack，不引用 AggPanSearch。</Description>
+    <Authors>AggPanSearch</Authors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- HAP 版解析器用；正则版解析器不依赖该包，版本统一在 Directory.Packages.props -->
+    <PackageReference Include="HtmlAgilityPack" />
+  </ItemGroup>
+
+</Project>

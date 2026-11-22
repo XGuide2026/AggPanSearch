@@ -1,0 +1,93 @@
+@using AggPanSearch.Admin.Web.Areas.UserFrontend.Models
+@model BannedWordsPageModel
+@{
+    var Config = (SiteConfig)(ViewData["Config"] ?? new SiteConfig());
+    int total = Model.Words.Count;
+    ViewData["SeoTitle"] = "屏蔽词列表 - " + Config.AppName;
+    ViewData["SeoKeywords"] = "屏蔽词,搜索过滤,版权保护,内容合规";
+    ViewData["SeoDescription"] = "本站当前共屏蔽 " + total + " 个关键词，涉及版权保护与内容合规要求。";
+    ViewData["Keyword"] = "";
+}
+@section Head {
+    <link rel="stylesheet" href="/userfrontend/css/banned-words.css?v=20261109b" />
+}
+
+<div class="bw-page">
+
+    <section class="bw-hero">
+        <span class="bw-badge">内容合规</span>
+        <h1>屏蔽词列表</h1>
+        <p>
+            本站仅提供网盘资源的搜索与索引服务，不存储、不制作、不传播任何资源文件。
+            下列关键词因版权保护或内容合规要求，已不再返回搜索结果；如对某条关键词有异议，
+            可通过页脚「版权声明 · 侵权投诉」提交说明。
+        </p>
+        <div class="bw-stats">
+            <span class="bw-stat">共 <b>@total</b> 个关键词</span>
+        </div>
+    </section>
+
+    <section class="bw-panel">
+        @if (total == 0)
+        {
+            <div class="bw-empty">暂无屏蔽关键词</div>
+        }
+        else
+        {
+            <div class="bw-toolbar">
+                <div class="bw-search">
+                    <input type="search" id="bwSearch" placeholder="输入关键词筛选…" autocomplete="off" aria-label="筛选屏蔽词" />
+                    <button type="button" id="bwClear" class="bw-clear" title="清空">×</button>
+                </div>
+            </div>
+
+            <div class="bw-tags" id="bwTags">
+                @foreach (string word in Model.Words)
+                {
+                    <span class="bw-tag" data-word="@word.ToLowerInvariant()" title="@word">@word</span>
+                }
+            </div>
+
+            <div class="bw-empty" id="bwNoMatch" hidden>没有匹配的关键词</div>
+        }
+    </section>
+</div>
+
+@section Scripts {
+    <script type="text/javascript">
+        (function () {
+            var input = document.getElementById('bwSearch');
+            var clearBtn = document.getElementById('bwClear');
+            var noMatch = document.getElementById('bwNoMatch');
+            if (!input) return;
+
+            var tags = Array.prototype.slice.call(document.querySelectorAll('.bw-tag'));
+
+            function apply() {
+                var keyword = (input.value || '').trim().toLowerCase();
+                var visible = 0;
+                tags.forEach(function (tag) {
+                    var show = keyword === '' || (tag.getAttribute('data-word') || '').indexOf(keyword) > -1;
+                    tag.hidden = !show;
+                    if (show) visible++;
+                });
+                if (noMatch) noMatch.hidden = visible > 0;
+                if (clearBtn) clearBtn.style.display = keyword === '' ? 'none' : 'block';
+            }
+
+            input.addEventListener('input', apply);
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') { input.value = ''; apply(); }
+            });
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    input.value = '';
+                    apply();
+                    input.focus();
+                });
+            }
+
+            apply();
+        })();
+    </script>
+}

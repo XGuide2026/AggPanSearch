@@ -1,0 +1,242 @@
+@using AggPanSearch.Admin.Web.Areas.UserFrontend.Models
+@using Newtonsoft.Json
+@using AggPanSearch.Models
+
+@model SearchPageModel
+@{
+    var Config = (SiteConfig)(ViewData["Config"] ?? new SiteConfig());
+    ViewData["SeoTitle"] = (string.IsNullOrEmpty(Model.Keyword) ? "" : Model.Keyword + " - ") + Config.AppName;
+    ViewData["SeoKeywords"] = Model.Keyword;
+    ViewData["SeoDescription"] = $"搜索 {Model.Keyword} 的网盘资源 - " + Config.AppName;
+    ViewData["Keyword"] = Model.Keyword;
+    ViewData["CategoryId"] = Model.CategoryId > 0 ? Model.CategoryId.ToString() : "";
+    ViewData["FirstKey"] = Model.FirstKey;
+    // 网盘类型标签：与首页同源，取站点配置的 panTypeDict
+    // （key 为 is_type，已按后台「搜索设置 - 网盘类型」启用的类型过滤）
+    var panTypeDict = new Dictionary<string, string>();
+    try { panTypeDict = JsonConvert.DeserializeObject<Dictionary<string, string>>(Config.PanTypeJson) ?? new Dictionary<string, string>(); } catch { }
+
+    // is_type -> 图标名：与首页一致，直接使用 AggPanSearch 的网盘类型常量 CloudTypes，
+    // 图标文件为 /userfrontend/images/pan/{CloudTypes 值}.png|svg
+    Func<string, string> panIconName = isType => isType switch
+    {
+        "0" => CloudTypes.Quark,
+        "1" => CloudTypes.Aliyun,
+        "2" => CloudTypes.Baidu,
+        "3" => CloudTypes.Uc,
+        "4" => CloudTypes.Xunlei,
+        "5" => CloudTypes.Pan123,
+        "6" => CloudTypes.Pan115,
+        "7" => CloudTypes.Tianyi,
+        "8" => CloudTypes.Mobile,
+        "9" => CloudTypes.Magnet,
+        "10" => CloudTypes.Guangya,
+        "11" => CloudTypes.Pikpak,
+        "12" => CloudTypes.Ed2k,
+        "13" => CloudTypes.Others,
+        _ => "",
+    };
+}
+<link rel="stylesheet" href="/userfrontend/css/search.css?v=20261122d" />
+
+<div class="home-container">
+    <!-- 搜索区 -->
+    <div class="search-section">
+        <div class="search-input-box">
+            @* 左侧图标：默认放大镜；选中网盘类型后由 yfs.runtime.js 的 updateSearchPanIcon 换成对应网盘图标
+               （图标文件名取自 CloudTypes，如 quark.png / tianyi.png，缺失时自动回退放大镜）
+               v-pre：该节点由原生 JS 控制，避免被 Vue 重新 patch *@
+            <span class="input-search-icon" id="searchInputIcon" v-pre>
+                <img class="search-icon-pan" src="/userfrontend/images/search.svg" alt="" />
+            </span>
+            <input type="text" v-model="keyword" placeholder="输入关键字进行全网搜索" onkeyup="if(event.key==='Enter')doSearch()"
+                confirm-type="search" onconfirm="doSearch()">
+            <button class="search-btn" onclick="doSearch()">
+                <i class="iconfont icon-sousuo"></i> 搜索
+            </button>
+        </div>
+        <!-- 网盘类型筛选 -->
+        <div id="sourceTabs" class="pan-type-tabs">
+            @foreach (var kv in panTypeDict)
+            {
+                <a href="javascript:;" class="pan-type-tab" data-type="@kv.Key" data-pan-icon="@panIconName(kv.Key)" onclick="switchPanType(this)">@kv.Value</a>
+            }
+        </div>
+    </div>
+
+    <!-- 全网搜结果（AggPanSearch，由 yfs.runtime.js 渲染） -->
+    <div class="search-list-wrap">
+        <div id="searchResultSection" class="search-result-section show" style="position:static;margin:0;">
+            <div class="search-result-header">
+                <div class="search-result-title">
+                    <div class="search-result-title-left">
+                        <span class="search-result-title-icon">🔍</span>
+                        <span class="search-result-summary">搜索结果共有 <b class="search-result-hl" id="searchResultCount">0</b> 条记录，耗时 <span id="searchDuration" class="search-result-hl">0.00</span> 秒</span>
+                    </div>
+                </div>
+            </div>
+            <div id="searchResultContent">
+                @if (!string.IsNullOrEmpty(Model.Keyword))
+                {
+                    <div class="search-result-loading">
+                        <div class="loading-wrapper">
+                            <div class="loading-pulse"></div>
+                            <div class="loading-pulse"></div>
+                            <div class="loading-pulse"></div>
+                            <i class="iconfont icon-jiazai"></i>
+                        </div>
+                        <div class="loading-text">正在全网搜索</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="search-result-empty">输入关键词，搜索全网网盘资源</div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    window.__UF_KEYWORD__ = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model.Keyword));
+
+    function safeJump(url, target = '_blank') {
+        const a = document.createElement('a');
+        a.href = url;
+        a.rel = 'noreferrer';
+        a.target = target;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    function showUrlFun(item) {
+        app.dialogItem = item;
+        app.dialogUrl = true;
+        if (item.showUrl) {
+            setTimeout(() => {
+                var el = document.getElementById('qrcode');
+                if (el) {
+                    el.innerHTML = '';
+                    var canvas = qrcanvas.qrcanvas({ data: item.showUrl, size: 120 });
+                    el.appendChild(canvas);
+                }
+            }, 200);
+        }
+    }
+
+    // 初始化当前网盘类型（用于展示）
+    try { app.is_type = '@Model.FirstKey'; } catch(e) {}
+
+    // 解析搜索入口：优先 yfs.runtime.js 暴露的 __yfsSearchBtn / __yfsKeyword，
+    // 其次兼容 window.app 上挂载的 searchBtn / keyword（Vue 挂载与暴露时序不确定）
+    function resolveSearchEntry() {
+        var host = window.app || {};
+        var trigger = window.__yfsSearchBtn || (typeof host.searchBtn === 'function' ? host.searchBtn : null);
+        var kwRef = window.__yfsKeyword || host.keyword || null;
+        return { trigger: typeof trigger === 'function' ? trigger : null, kwRef: kwRef || null };
+    }
+
+    // 用指定关键词触发一次搜索；入口未就绪时返回 false
+    function triggerSearch(kw, requireKwRef) {
+        var entry = resolveSearchEntry();
+        if (!entry.trigger || (requireKwRef && !entry.kwRef)) return false;
+        try {
+            // 将输入值写入 keyword ref（v-model 可能未同步时仍能正确搜索）
+            if (entry.kwRef) entry.kwRef.value = String(kw).trim();
+        } catch (e) {}
+        try { entry.trigger(); return true; } catch (e) { return false; }
+    }
+
+    // 自包含兜底搜索：主链路不可用（Vue 挂载/暴露异常）时直接请求 /api/other/web_search，
+    // 复用 window 上的全局渲染函数，保证点搜索必定发请求
+    window.fallbackSearch = function (kw) {
+        if (window.fallbackSearchRunning) return;
+        window.fallbackSearchRunning = true;
+        kw = String(kw || '').trim();
+        var sContent = document.getElementById('searchResultContent');
+        var loadingHtml = '<div class="search-result-loading"><div class="loading-wrapper"><div class="loading-pulse"></div><div class="loading-pulse"></div><div class="loading-pulse"></div><i class="iconfont icon-jiazai"></i></div><div class="loading-text">正在全网搜索</div></div>';
+        if (sContent) sContent.innerHTML = loadingHtml;
+        // 实时耗时：重置显示并开始计时，周期性刷新
+        var durElFb = document.getElementById('searchDuration');
+        if (durElFb) durElFb.textContent = '0.00';
+        try { if (window.startSearchTimer) window.startSearchTimer(); } catch (e) {}
+        var done = function() { window.fallbackSearchRunning = false; };
+        axios.get('/api/other/web_search', { params: { title: kw } }).then(function (r) {
+            var data = r.data && r.data.data;
+            var m = (data && data.merged_by_type) || {};
+            var list = [];
+            Object.keys(m).forEach(function (t) {
+                var items = m[t];
+                if (Array.isArray(items)) items.forEach(function (it) {
+                    if (it && it.url) list.push(Object.assign({}, it, { title: it.note || it.title || '未知资源' }));
+                });
+            });
+            window.__searchByTypeData = m;
+            window.currentSearchData = list;
+            // 降级搜索渲染"全部"结果：总记录数与当前网盘条数均取全网总数
+            try { if (window.setResultCount) window.setResultCount(list.length, list.length); } catch (e) {}
+            try {
+                if (window.renderSearchResults) { window.renderSearchResults(list); }
+                else if (sContent) { sContent.innerHTML = list.length ? '<div class="search-result-list">共 ' + list.length + ' 条结果</div>' : '<div class="search-result-empty">未找到相关资源</div>'; }
+            } catch (e) { if (sContent) sContent.innerHTML = '渲染出错：' + e.message; }
+            // 搜索完成：停止实时计时，耗时停在最终值
+            try { if (window.stopSearchTimer) window.stopSearchTimer(); } catch (e) {}
+            done();
+        }).catch(function (e) {
+            if (sContent) sContent.innerHTML = '<div class="search-result-empty">搜索出错，请稍后重试</div>';
+            try { if (window.console) console.error('[fallbackSearch] web_search 请求失败：', e); } catch (err) {}
+            // 搜索出错：同样停止实时计时
+            try { if (window.stopSearchTimer) window.stopSearchTimer(); } catch (e) {}
+            done();
+        });
+    };
+
+    // 搜索入口：优先复用 yfs.runtime.js 暴露的搜索方法，失败则降级 fallbackSearch
+    // 从输入框原生 DOM 取值，避免依赖 window.app.keyword 的 ref/解包形态与初始化时序
+    window.doSearch = function () {
+        var inp = document.querySelector('.search-input-box input');
+        var kw = inp ? inp.value : '';
+        // 兜底：输入框取不到时用 window.app.keyword
+        try {
+            if (!kw && window.app && window.app.keyword && typeof window.app.keyword.value !== 'undefined') {
+                kw = window.app.keyword.value;
+            }
+        } catch (e) {}
+        if (!kw || !String(kw).trim()) {
+            if (window.showMessage) window.showMessage('请输入你要搜索的内容~', 'error');
+            return;
+        }
+        if (triggerSearch(kw)) return;
+        // 入口通常应在页面加载完成时就绪：这里只做约 0.4 秒的短暂重试，失败立即降级，避免点击后长时间无请求
+        var n = 0;
+        var t = setInterval(function() {
+            if (triggerSearch(kw)) { clearInterval(t); return; }
+            if (++n >= 3) {
+                clearInterval(t);
+                try { if (window.console) console.warn('[doSearch] 未获取到搜索入口，降级为 fallbackSearch；window.app=', window.app, 'axios=', typeof axios); } catch (e) {}
+                window.fallbackSearch(kw);
+            }
+        }, 150);
+    };
+
+    // 页面加载时若带有关键词，自动触发全网搜
+    (function() {
+        var initKeyword = window.__UF_KEYWORD__ || '';
+        if (!initKeyword) return;
+        if (triggerSearch(initKeyword, true)) return;
+        var fallbackFired = false;
+        var t = setInterval(function() {
+            if (triggerSearch(initKeyword, true)) { clearInterval(t); return; }
+            // 主链路不可用时自动降级，保证带关键词的页面加载后也能尽快发起请求
+            if (!fallbackFired) {
+                fallbackFired = true;
+                try { if (window.console) console.warn('[autosearch] 主链路不可用，降级 fallbackSearch；window.app=', window.app); } catch (e) {}
+                window.fallbackSearch(initKeyword);
+            }
+        }, 200);
+        setTimeout(function() { clearInterval(t); }, 4000);
+    })();
+</script>
+}

@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AcceptNPOIOSMFLicense>true</AcceptNPOIOSMFLicense>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" />
+    <PackageReference Include="Microsoft.Windows.Compatibility" Condition="'$(TargetFramework)' == 'net10.0'" />
+    <PackageReference Include="NLog.Web.AspNetCore" />
+    <PackageReference Include="NPOI" />
+    <PackageReference Include="System.Drawing.Common" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\AggPanSearch.Entity\AggPanSearch.Enum\AggPanSearch.Enum.csproj" />
+  </ItemGroup>
+  
+</Project>

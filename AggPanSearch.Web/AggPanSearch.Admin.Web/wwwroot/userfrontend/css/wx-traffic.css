@@ -1,0 +1,232 @@
+/* ==========================================================================
+   公众号引流弹窗（后台：网盘管理 - 引流设置）
+   前台由 js/wx-traffic.js 动态创建，后台「引流设置」tab 的预览复用同一份样式。
+   主题色走 --theme-primary 等 CSS 变量，后台无变量时使用括号内默认值。
+   ========================================================================== */
+
+/* 弹窗容器：全屏遮罩 + 居中 */
+#wx-traffic-popup {
+    position: fixed;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wx-traffic-mask {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, .6);
+}
+
+.wx-traffic-dialog {
+    position: relative;
+    width: 92%;
+    max-width: 460px;
+    box-sizing: border-box;
+    padding: 22px 22px 20px;
+    text-align: center;
+    background: var(--theme-surface, #fff);
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+    z-index: 1;
+    animation: wxTrafficIn .22s ease;
+}
+
+@keyframes wxTrafficIn {
+    from {
+        transform: scale(.9);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* 后台预览标记 */
+.wx-traffic-badge {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 2px 10px;
+    font-size: 12px;
+    line-height: 18px;
+    color: #fff;
+    background: #2d8cf0;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.wx-traffic-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--theme-text, #222);
+    margin-bottom: 8px;
+    text-align: left;
+}
+
+/* 二维码上方的提示文案：居中，每段独立一行 */
+.wx-traffic-notice {
+    margin-bottom: 14px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--theme-text-secondary, #888);
+}
+
+.wx-traffic-notice p {
+    margin: 0 0 12px;
+    text-align: center;
+}
+
+.wx-traffic-notice p:last-child {
+    margin-bottom: 0;
+}
+
+/* 二维码下方的操作步骤：左对齐，每步独立一行 */
+.wx-traffic-steps {
+    margin: 0 0 14px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--theme-text-secondary, #888);
+    text-align: left;
+}
+
+.wx-traffic-steps p {
+    margin: 0 0 12px;
+    text-align: left;
+    word-break: break-word;
+}
+
+.wx-traffic-steps p:last-child {
+    margin-bottom: 0;
+}
+
+/* 步骤里的关键内容（公众号名称 / 验证码）高亮 */
+.wx-traffic-dialog code {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, .06);
+    color: var(--theme-primary, #ff6b6b);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.wx-traffic-qr {
+    width: 180px;
+    max-width: 62%;
+    margin: 0 auto 14px;
+}
+
+.wx-traffic-qr img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+}
+
+/* 未配置二维码时的占位 */
+.wx-traffic-qr-empty {
+    box-sizing: border-box;
+    height: 180px;
+    line-height: 180px;
+    border: 1px dashed #ccc;
+    border-radius: 10px;
+    color: #999;
+    font-size: 13px;
+    background: #fafafa;
+}
+
+.wx-traffic-input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 46px;
+    padding: 0 12px;
+    border: 1px solid var(--theme-border, #e5e5e5);
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-align: center;
+    outline: none;
+}
+
+.wx-traffic-input:focus {
+    border-color: var(--theme-primary, #ff6b6b);
+}
+
+.wx-traffic-tip {
+    min-height: 18px;
+    line-height: 18px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #ff4d4f;
+}
+
+.wx-traffic-tip.is-ok {
+    color: #19be6b;
+}
+
+/* 主按钮：对齐前台「获取资源」按钮（.search-result-btn.get / .btn-primary）的样式 */
+.wx-traffic-btn {
+    /* 宽度减半并水平居中 */
+    width: 50%;
+    margin: 12px auto 0;
+    box-sizing: border-box;
+    padding: 11px 22px;
+    border: none;
+    background: var(--theme-primary-gradient, linear-gradient(135deg, #ff6b6b, #ff8e53));
+    color: #fff;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    cursor: pointer;
+    transition: filter .2s ease;
+}
+
+.wx-traffic-btn:hover {
+    filter: brightness(1.06);
+}
+
+/* 后台「引流设置」tab 末尾的预览工具条 */
+.wx-traffic-preview-bar {
+    /* 与上一个 form 的距离用外边距（clear 后不会与浮动的缩略图重叠） */
+    clear: both;
+    margin: 42px 0 0;
+    padding: 14px 0 0;
+    border-top: 1px dashed #e5e6e8;
+    text-align: center;
+    /* 按钮与说明文字整体水平居中，窄屏时自动换行也不跑偏 */
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.wx-traffic-preview-bar .btn {
+    margin: 0;
+}
+
+.wx-traffic-preview-bar span {
+    /* 覆盖行内 margin-left，居中时左右对称 */
+    margin-left: 0 !important;
+}
+
+/* 配置项里的上传控件内部缩略图是 float，清一下浮动，父级高度才准 */
+#confTabContent .img-box[data-upload="1"]::after {
+    content: '';
+    display: block;
+    clear: both;
+}

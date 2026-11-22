@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Database\OracleDatabase.cs" />
+    <Compile Remove="DbContext\OracleDbContext.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" />
+    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\AggPanSearch.Util\AggPanSearch.Util\AggPanSearch.Util.csproj" />
+    <ProjectReference Include="..\AggPanSearch.Data\AggPanSearch.Data.csproj" />
+  </ItemGroup>
+  
+</Project>

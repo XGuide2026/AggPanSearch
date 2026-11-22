@@ -1,0 +1,389 @@
+@using AggPanSearch.Util
+@{
+    Layout = "~/Views/Shared/_FormWhite.cshtml";
+}
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostingEnvironment
+@section header{
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/lib/imageupload/1.0/css/imgup.min.css"))
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/lib/imageupload/1.0/js/imgup.min.js"))
+    <style type="text/css">
+        .image-preview-box {
+            display: none;
+            margin-top: 8px;
+        }
+
+        .image-preview-box img {
+            width: 64px;
+            height: 64px;
+            object-fit: cover;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            margin: 0 6px 6px 0;
+        }
+
+        /* 单张预览容器：正常时显示图片，加载失败时显示「无法显示」占位样式 */
+        .image-preview-item {
+            position: relative;
+            display: inline-block;
+            width: 64px;
+            height: 64px;
+            margin: 0 6px 6px 0;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            background: #fafafa;
+            overflow: hidden;
+            vertical-align: top;
+        }
+
+        .image-preview-item img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            border: 0;
+            border-radius: 0;
+            object-fit: cover;
+        }
+
+        .image-preview-item.is-broken {
+            border-style: dashed;
+            border-color: #d9534f;
+            background: #fff6f6;
+        }
+
+        .image-preview-item.is-broken img {
+            display: none;
+        }
+
+        .image-preview-item .image-preview-failed {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #d9534f;
+            font-size: 10px;
+            line-height: 1.2;
+            text-align: center;
+        }
+
+        .image-preview-item.is-broken .image-preview-failed {
+            display: flex;
+        }
+
+        .image-preview-item .image-preview-failed i {
+            margin-bottom: 2px;
+            font-size: 18px;
+            line-height: 18px;
+        }
+
+        /* 多图片链接输入框：一行一个链接，高度固定为 5 行文本（5 * 20px 行高 + 12px 上下内边距 + 2px 边框） */
+        .link-lines {
+            height: 114px;
+            padding: 6px 12px;
+            font-family: Consolas, Menlo, Monaco, "Courier New", monospace;
+            font-size: 12px;
+            line-height: 20px;
+            overflow-y: auto;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+    </style>
+}
+
+<div class="wrapper animated fadeInRight">
+    <form id="form" class="form-horizontal m">
+        <div class="form-group">
+            <label class="col-sm-3 control-label">采集来源</label>
+            <div class="col-sm-8">
+                <input id="collect_source" col="CollectSource" type="text" class="form-control" maxlength="100" placeholder="如 TG 频道名、站点名称" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">采集源链接</label>
+            <div class="col-sm-8">
+                <input id="collect_source_url" col="CollectSourceUrl" type="text" class="form-control" maxlength="1000" placeholder="采集页面的地址，需以 http:// 或 https:// 开头" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">分类</label>
+            <div class="col-sm-8" id="source_category_id" col="SourceCategoryId"></div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label"><span class="text-danger">*</span>资源名称</label>
+            <div class="col-sm-8">
+                <input id="resource_name" col="ResourceName" type="text" class="form-control" maxlength="500" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label"><span class="text-danger">*</span>资源链接</label>
+            <div class="col-sm-8">
+                <input id="resource_url" col="ResourceUrl" type="text" class="form-control" maxlength="1000" placeholder="网盘分享地址" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">资源简介</label>
+            <div class="col-sm-8">
+                <textarea id="resource_intro" col="ResourceIntro" class="form-control" rows="4" maxlength="2000" placeholder="选填，采集到的资源描述"></textarea>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">链接是否有效</label>
+            <div class="col-sm-8" id="is_link_valid" col="IsLinkValid"></div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">原图片链接</label>
+            <div class="col-sm-8">
+                <textarea id="collect_image_url" col="CollectImageUrl" class="form-control link-lines" rows="5" maxlength="1000"
+                          placeholder="采集到的远端图片，一行一个链接，最多 5 张"></textarea>
+                <div id="collectImagePreview" class="image-preview-box"></div>
+                <span class="help-block m-b-none" style="font-size:12px;color:#999;">
+                    原图片由采集任务写入；一行一个链接，最多 5 张，保存时会校验地址格式。
+                </span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">本地图片</label>
+            <div class="col-sm-8">
+                <textarea id="image_url" col="ImageUrl" class="form-control link-lines" rows="5" maxlength="1000"
+                          placeholder="由补图任务从原图片下载生成，一行一个链接，也可在下方上传"></textarea>
+                <div id="collectImageUpload" style="margin-top:8px;"></div>
+                <div id="imagePreview" class="image-preview-box"></div>
+                <span class="help-block m-b-none" style="font-size:12px;color:#999;">
+                    本地图片由「补图」任务下载到本机；一行一个链接，上传的图片会追加到本地图片列表。
+                </span>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script type="text/javascript">
+    var id = ys.request("id");
+    // detail=1 表示只读查看详情
+    var isDetail = ys.request("detail") == '1';
+
+    $(function () {
+        $("#is_link_valid").ysRadioBox({ data: [{ Key: '1', Value: '有效' }, { Key: '0', Value: '无效' }] });
+        // 分类：指向「分类资源」表（pan_source_category），保存 Id；留空表示未分类
+        $("#source_category_id").ysComboBox({
+            url: '@Url.Content("~/PanManage/PanSourceCollect/GetSourceCategoryOptionJson")',
+            key: 'Id',
+            value: 'Name',
+            class: 'form-control'
+        });
+
+        $("#collectImageUpload").imageUpload({
+            uploadImage: 'uploadCollectImage',
+            limit: 1,
+            context: ctx
+        });
+
+        // 手工修改图片链接时同步刷新预览
+        $('#collect_image_url').on('input change', function () {
+            renderCollectPreview();
+        });
+        $('#image_url').on('input change', function () {
+            renderLocalPreview();
+        });
+
+        getForm();
+
+        $('#form').validate({
+            rules: {
+                resource_name: { required: true, maxlength: 500 },
+                resource_url: { required: true, maxlength: 1000 },
+                collect_source: { maxlength: 100 },
+                collect_source_url: { maxlength: 1000, url2: true },
+                resource_intro: { maxlength: 2000 },
+                collect_image_url: { maxlength: 1000, images: true },
+                image_url: { maxlength: 1000 }
+            },
+            messages: {
+                resource_name: { required: '请输入资源名称', maxlength: '资源名称不能超过 500 个字符' },
+                resource_url: { required: '请输入资源链接', maxlength: '资源链接不能超过 1000 个字符' },
+                collect_source: { maxlength: '采集来源不能超过 100 个字符' },
+                collect_source_url: { maxlength: '采集源链接不能超过 1000 个字符' },
+                resource_intro: { maxlength: '资源简介不能超过 2000 个字符' },
+                collect_image_url: { maxlength: '原图片地址不能超过 1000 个字符' },
+                image_url: { maxlength: '本地图片地址不能超过 1000 个字符' }
+            }
+        });
+    });
+
+    // 采集源链接为选填：填写了才校验 http(s) 前缀
+    $.validator.addMethod('url2', function (value, element) {
+        if (this.optional(element) || $.trim(value) === '') {
+            return true;
+        }
+        return /^https?:\/\//i.test($.trim(value));
+    }, '采集源链接需以 http:// 或 https:// 开头');
+
+    // 原图片为选填：填写了则最多 5 张，且每张必须是 http(s) 地址
+    $.validator.addMethod('images', function (value, element) {
+        if (this.optional(element) || $.trim(value) === '') {
+            return true;
+        }
+        var images = splitImages(value);
+        if (images.length > 5) {
+            return false;
+        }
+        for (var i = 0; i < images.length; i++) {
+            if (!/^https?:\/\//i.test(images[i])) {
+                return false;
+            }
+        }
+        return true;
+    }, '原图片最多 5 张，地址需以 http:// 或 https:// 开头，一行一个链接');
+
+    function getForm() {
+        if (id > 0) {
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanSourceCollect/GetFormJson")' + '?id=' + id,
+                type: 'get',
+                success: function (obj) {
+                    if (obj.Tag != 1 || !obj.Data) {
+                        ys.msgError(obj.Message || '采集资源不存在');
+                        return;
+                    }
+                    $('#form').setWebControls(obj.Data);
+                    // 库里多图以英文分号分隔，回填时转成一行一个链接
+                    $('#collect_image_url').val(toLines(obj.Data.CollectImageUrl));
+                    $('#image_url').val(toLines(obj.Data.ImageUrl));
+                    renderCollectPreview();
+                    renderLocalPreview();
+                    if (isDetail) {
+                        applyDetailMode();
+                    }
+                }
+            });
+        }
+        else {
+            $('#form').setWebControls({ IsLinkValid: '1' });
+            if (isDetail) {
+                applyDetailMode();
+            }
+        }
+    }
+
+    // 拆分多图串：兼容「一行一个」(换行) 与历史数据(英文分号)，去空、去重
+    function splitImages(value) {
+        var result = [];
+        $.each(String(value || '').split(/[\r\n;]+/), function (index, item) {
+            var url = $.trim(item);
+            if (url !== '' && $.inArray(url, result) < 0) {
+                result.push(url);
+            }
+        });
+        return result;
+    }
+
+    // 多图串在输入框中按「一行一个链接」展示
+    function toLines(value) {
+        return splitImages(value).join('\n');
+    }
+
+    // 原图片预览：远端地址直接使用
+    function renderCollectPreview() {
+        renderImageBox($('#collectImagePreview'), splitImages($('#collect_image_url').val()), false);
+    }
+
+    // 本地图片预览：本站相对路径补 ctx 前缀
+    function renderLocalPreview() {
+        renderImageBox($('#imagePreview'), splitImages($('#image_url').val()), true);
+    }
+
+    function renderImageBox(box, images, withContext) {
+        box.empty();
+        if (images.length === 0) {
+            box.hide();
+            return;
+        }
+        $.each(images, function (index, url) {
+            var src = withContext && !/^https?:\/\//i.test(url) ? ctx + ys.trimStart(url, '/') : url;
+            // 图片加载失败（地址失效/无权限/不是图片）时显示占位样式，而不是浏览器默认的破图标
+            var item = $('<span />').addClass('image-preview-item').attr('title', url);
+            var failed = $('<span />').addClass('image-preview-failed')
+                .append($('<i />').addClass('fa fa-picture-o'))
+                .append($('<span />').text('无法显示'));
+            var img = $('<img />')
+                .attr({ title: url, alt: '图片预览' })
+                .on('load', function () {
+                    item.removeClass('is-broken');
+                })
+                .on('error', function () {
+                    item.addClass('is-broken');
+                });
+            item.append(img).append(failed);
+            box.append(item);
+            img.attr('src', src);
+        });
+        box.show();
+    }
+
+    // 详情模式：表单整体只读（分类下拉是 select2，需同步禁用）
+    function applyDetailMode() {
+        $('#form').find('input, textarea, select').prop('disabled', true);
+        $('#is_link_valid').find('input[type="radio"]').prop('disabled', true);
+        $('#source_category_id').find('select').each(function () {
+            if ($(this).data('select2')) {
+                $(this).select2('enable', false);
+            }
+        });
+    }
+
+    // 上传回调：走本站 File/UploadFile 接口，成功后回填图片链接
+    function uploadCollectImage(file, callback) {
+        var formdata = new FormData();
+        formdata.append("fileList", file);
+        ys.ajaxUploadFile({
+            url: '@Url.Content("~/File/UploadFile")?fileModule=@((int)AggPanSearch.Enum.UploadFileType.News)',
+            data: formdata,
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    var path = ys.trimStart(obj.Data, '/');
+                    // 上传的是本机图片，追加到本地图片列表，最多保留 5 张
+                    var images = splitImages($('#image_url').val());
+                    if ($.inArray(path, images) < 0) {
+                        images.push(path);
+                    }
+                    if (images.length > 5) {
+                        images = images.slice(0, 5);
+                    }
+                    $('#image_url').val(images.join('\n'));
+                    renderLocalPreview();
+                    if (callback) {
+                        callback(ctx + path);
+                    }
+                }
+                else {
+                    ys.msgError(obj.Message);
+                }
+            }
+        });
+    }
+
+    function saveForm(index) {
+        if (!$('#form').validate().form()) {
+            return;
+        }
+        var postData = $('#form').getWebControls({ Id: id });
+        postData.CollectImageUrl = splitImages($('#collect_image_url').val()).join(';');
+        postData.ImageUrl = splitImages($('#image_url').val()).join(';');
+        ys.ajax({
+            url: '@Url.Content("~/PanManage/PanSourceCollect/SaveFormJson")',
+            type: 'post',
+            data: postData,
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    ys.msgSuccess(obj.Message);
+                    parent.searchGrid();
+                    parent.layer.close(index);
+                }
+                else {
+                    ys.msgError(obj.Message);
+                }
+            }
+        });
+    }
+</script>

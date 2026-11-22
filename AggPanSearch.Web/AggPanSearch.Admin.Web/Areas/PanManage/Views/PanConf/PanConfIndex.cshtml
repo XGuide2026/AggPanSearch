@@ -1,0 +1,819 @@
+﻿@using AggPanSearch.Util
+@{
+    Layout = "~/Views/Shared/_Index.cshtml";
+}
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostingEnvironment
+@section header{
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/lib/imageupload/1.0/css/imgup.min.css"))
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/lib/imageupload/1.0/js/imgup.min.js"))
+    <!-- 公众号引流弹窗预览：与前台共用同一份样式 / 脚本，改弹窗样式无需重编译 -->
+    <link rel="stylesheet" href='@Url.Content("~/userfrontend/css/wx-traffic.css")?v=20261109m' />
+    <script src='@Url.Content("~/userfrontend/js/wx-traffic.js")?v=20261109h'></script>
+    <style>
+        /* 配置项状态为「隐藏」（conf_status=0）：参数名加删除线，控件区禁用 */
+        .conf-label-hidden {
+            text-decoration: line-through;
+            color: #999 !important;
+        }
+
+        .conf-item-disabled .col-sm-7 {
+            opacity: .6;
+            pointer-events: none;
+        }
+
+        .conf-item-disabled input,
+        .conf-item-disabled textarea,
+        .conf-item-disabled select {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+    </style>
+}
+<div class="container-div">
+    <div class="row">
+        <!-- 配置分类 Tab 选项卡（参考开源项目基础设置页面：按 conf_type 分组展示配置项表单） -->
+        <div class="col-sm-12">
+            <div class="tabs-container m-b-sm">
+                <div class="ibox-title" style="display:flex; align-items:center; justify-content:space-between;">
+                    <h5 style="margin:0;">基础设置</h5>
+                    <div class="ibox-tools" style="position:static; margin:0; align-items:center; display:flex;">
+                        <a id="btnSaveCurrent" class="btn btn-primary btn-sm" style="vertical-align:middle;" onclick="saveCurrentTab()">
+                            <i class="fa fa-check"></i>&nbsp;保存当前分类
+                        </a>
+                    </div>
+                </div>
+                <div class="ibox-content">
+                    <ul class="nav nav-tabs" id="confTypeTabs">
+                        <!-- 分类 Tab 由 JS 按 conf_type 动态生成 -->
+                    </ul>
+                    <div class="tab-content m-t-md" id="confTabContent">
+                        <!-- 配置项表单面板，切换 Tab 时由 JS 动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    // conf_type 分类对应的中文名称（可按实际业务数据补充）
+    // 二维码设置 = 10、引流设置 = 11、广告设置 = 12、联系方式 = 13（数据库 conf_type 字段真实取值）
+    var confTypeMap = {
+        0: '基础设置',
+        1: '搜索设置',
+        2: '上传设置',
+        3: '前端设置',
+        4: '网盘Cookie设置',
+        9: 'SEO设置',
+        10: '二维码设置',
+        11: '引流设置',
+        12: '广告设置',
+        13: '联系方式',
+        14: 'AI设置'
+    };
+
+    // 全量配置键值缓存（conf_key 小写 → conf_value），预览公众号弹窗时用于读取当前站点主题
+    var allConfValues = {};
+
+    // 历史数据兼容：conf_type 缺失（或仍是旧值）时，按 conf_key 前缀兜底归类
+    // 判断是否广告配置项：conf_key 以 ad_ / ad- 开头（如 ad_home_top、ad_popup_enable）
+    // 注意不能用“包含 ad”判断，否则 upload_* 这类键会被误判
+    function isAdConfKey(confKey) {
+        return /^ad[_-]/i.test(String(confKey || ''));
+    }
+
+    // 判断是否引流配置项：conf_key 以 traffic_ / traffic- 开头（如 traffic_popup、traffic_float）
+    function isTrafficConfKey(confKey) {
+        return /^traffic[_-]/i.test(String(confKey || ''));
+    }
+
+    // 判断是否二维码配置项：conf_key 以 qr_ / qr- / qrcode_ 开头（如 qr_group、qrcode_bg）
+    function isQrConfKey(confKey) {
+        return /^(qr|qrcode)[_-]/i.test(String(confKey || ''));
+    }
+
+    // “搜索设置”已拆分为独立页面（网盘管理 - 搜索设置，PanSearchConf），本页不再展示这些配置项。
+    // conf_type=1 即搜索设置分类；下列 conf_key 为历史数据中归在其它分类、但实际属于搜索的配置项。
+    // 注意：与 PanSearchConfController.SearchConfKeys 保持一致。
+    var SEARCH_CONF_KEYS = ['search_tips', 'search_bg', 'pc_type', 'is_quan'];
+
+    function isSearchConf(item) {
+        if (!item) {
+            return false;
+        }
+        if (String(item.ConfType) === '1') {
+            return true;
+        }
+        var key = String(item.ConfKey || '').toLowerCase();
+        return SEARCH_CONF_KEYS.indexOf(key) > -1;
+    }
+
+    // 配置项显示位置微调：key = 需要移动的 conf_key，value = 目标 conf_key（移动到它下面）
+    // 例：网站网址（web_address）显示在网站LOGO（logo）下面
+    var confKeyAfterMap = {
+        web_address: 'logo'
+    };
+
+    // 按 confKeyAfterMap 调整同一分类内的显示顺序，未配置的项保持原有顺序
+    function reorderConfItems(list) {
+        var arr = (list || []).slice();
+        Object.keys(confKeyAfterMap).forEach(function (key) {
+            var from = indexOfConfKey(arr, key);
+            if (from === -1) {
+                return;
+            }
+            var item = arr.splice(from, 1)[0];
+            var to = indexOfConfKey(arr, confKeyAfterMap[key]);
+            // 目标项不存在时放回原位置，避免配置项被吞掉
+            arr.splice(to === -1 ? from : to + 1, 0, item);
+        });
+        return arr;
+    }
+
+    function indexOfConfKey(list, confKey) {
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].ConfKey === confKey) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // 根据 conf_type 值转中文名（未匹配则显示“类型X”）
+    function confTypeName(type) {
+        if (type === '' || type === null || type === undefined) {
+            return '全部';
+        }
+        return confTypeMap[type] || ('类型' + type);
+    }
+
+    // 页面初始化：一次性加载全部配置，前端按 conf_type 分组渲染所有 Tab（切换 Tab 不再请求后端）
+    $(function () {
+        ys.ajax({
+            url: '@Url.Content("~/PanManage/PanConf/GetListJson")',
+            type: 'get',
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    buildFromAllData(obj.Data || []);
+                }
+            }
+        });
+    });
+
+    // 将全量配置按 conf_type 分组，生成 Tab 和各个表单面板
+    function buildFromAllData(allData) {
+        // 先算出「二维码设置」里已上传的图片，供 conf_spec=5「选择二维码」控件使用
+        buildQrcodeOptionsFromData(allData);
+        // 缓存全量配置键值：预览弹窗需要 theme / home_theme 等其它 Tab 的配置，未点开对应 Tab 也能取到
+        allConfValues = {};
+        for (var ci = 0; ci < allData.length; ci++) {
+            var cacheItem = allData[ci];
+            if (cacheItem && cacheItem.ConfKey) {
+                allConfValues[String(cacheItem.ConfKey).toLowerCase()] = cacheItem.ConfValue == null ? '' : String(cacheItem.ConfValue);
+            }
+        }
+        var groupMap = {};   // type字符串 -> []items
+        var typeOrder = [];  // 有序的分类key
+        for (var i = 0; i < allData.length; i++) {
+            var item = allData[i];
+            // 搜索设置已迁移到独立页面，这里直接跳过，避免两处都能改
+            if (isSearchConf(item)) {
+                continue;
+            }
+            // 分类优先取数据库 conf_type（二维码设置=10、引流设置=11、广告设置=12）
+            // conf_type 为空或不是上述分类时，按 conf_key 前缀兜底归类，兼容旧数据
+            var confType = (item.ConfType === null || item.ConfType === undefined || item.ConfType === '')
+                ? '' : String(item.ConfType);
+            var type = confType;
+            if (confType === '10' || confType === '11' || confType === '12') {
+                type = confType;
+            }
+            else if (isAdConfKey(item.ConfKey)) {
+                type = '12';
+            }
+            else if (isTrafficConfKey(item.ConfKey)) {
+                type = '11';
+            }
+            else if (isQrConfKey(item.ConfKey)) {
+                type = '10';
+            }
+            else if (confType === '') {
+                type = '未分类';
+            }
+            if (!groupMap[type]) {
+                groupMap[type] = [];
+                typeOrder.push(type);
+            }
+            groupMap[type].push(item);
+        }
+
+        // 分类 Tab 显示顺序：基础设置、联系方式、广告设置、引流设置、二维码设置、前端设置、SEO设置、网盘Cookie设置、上传设置
+        // 未在顺序表中的分类排在末尾（保持原出现顺序），未分类放最后
+        // 搜索设置（conf_type=1）已迁移到独立页面，不在此列
+        // 广告设置=12、引流设置=11、二维码设置=10、联系方式=13
+        var confTypeOrder = ['0', '13', '12', '11', '10', '3', '14', '9', '2', '4'];
+        // 固定 Tab：暂无配置项时也展示，后续新增配置项设置了对应 conf_type 会自动归入
+        // 4=网盘Cookie设置（夸克 Cookie 等网盘凭据）、13=联系方式（字段由「配置项管理」按需新增）、
+        // 14=AI设置（AI 接口地址/Key/模型等，由 PanConfBLL.DefaultConfValues 自动补齐），未配置时也要能进入新增
+        ['11', '10', '4', '13', '14'].forEach(function (type) {
+            if (typeOrder.indexOf(type) === -1) {
+                typeOrder.push(type);
+                groupMap[type] = [];
+            }
+        });
+        typeOrder.sort(function (a, b) {
+            if (a === '未分类') return 1;
+            if (b === '未分类') return -1;
+            var ia = confTypeOrder.indexOf(a);
+            var ib = confTypeOrder.indexOf(b);
+            if (ia === -1 && ib === -1) return 0;
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+        });
+
+        var tabs = $('#confTypeTabs').empty();
+        var content = $('#confTabContent').empty();
+
+        // 生成 Tab 与面板
+        typeOrder.forEach(function (key, index) {
+            var isFirst = index === 0;
+            var displayName = (key === '未分类') ? '未分类' : confTypeName(key);
+            tabs.append('<li class="tab-item' + (isFirst ? ' active' : '') + '">' +
+                '<a href="javascript:;" data-type="' + escHtml(key) + '" onclick="switchConfType(this)">' + escHtml(displayName) + '</a></li>');
+
+            var items = reorderConfItems(groupMap[key]);
+            var panelHtml = items.length > 0
+                ? renderConfForm(items)
+                : '<div class="form-group"><div class="text-muted" style="padding:20px;">该分类暂无配置项</div></div>';
+            // 引流设置：配置项之后提供「预览公众号弹窗」，按面板当前值渲染（未保存也能看效果）
+            if (key === '11') {
+                panelHtml = panelHtml + renderWxTrafficPreviewBar();
+            }
+            content.append('<div class="tab-pane' + (isFirst ? ' active in' : '') + '" id="panel-' + key + '">' + panelHtml + '</div>');
+        });
+
+        // 渲染完成后初始化 conf_spec=3 下拉（ysComboBox）与 conf_spec=4 上传图片控件
+        initConfSelects('#confTabContent');
+        initImageUploadControls();
+    }
+
+    // 切换配置分类 Tab（纯前端显示切换，不再向后端请求）
+    function switchConfType(el) {
+        var type = el.getAttribute('data-type') || '';
+        $('#confTypeTabs li').removeClass('active');
+        $(el).parent('li').addClass('active');
+        $('#confTabContent .tab-pane').removeClass('active in');
+        $('#panel-' + type).addClass('active in');
+    }
+
+    // 渲染配置项表单 HTML
+    function renderConfForm(list) {
+        var html = '<form class="form-horizontal m">';
+        for (var i = 0; i < list.length; i++) {
+            var item = list[i];
+            var confId = item.id || item.Id || '';
+            var val = item.ConfValue == null ? '' : item.ConfValue;
+            var spec = item.ConfSpec == null ? 1 : item.ConfSpec;
+            // conf_status=0 表示「隐藏」：参数名加删除线、控件禁用（值仍随保存提交，前台读取逻辑不变）
+            var isHidden = String(item.ConfStatus) === '0';
+            html += '<div class="form-group' + (isHidden ? ' conf-item-disabled' : '') + '" data-conf-id="' + confId + '" data-conf-spec="' + spec + '">';
+            html += '<label class="col-sm-3 control-label' + (isHidden ? ' conf-label-hidden' : '') + '" title="' + escHtml(item.ConfKey || '') + '">' + escHtml(item.ConfTitle || item.ConfKey || '') + '</label>';
+            html += '<div class="col-sm-7">' + renderControl(spec, val, item.ConfContent || '', confId, isHidden);
+            if (item.ConfDesc) {
+                html += '<span class="help-block m-b-none" style="font-size:12px;color:#999;">' + escHtml(item.ConfDesc) + '</span>';
+            }
+            html += '</div>';
+            if (item.ConfSystem == 1) {
+                html += '<div class="col-sm-2"><span class="label label-warning">系统</span></div>';
+            }
+            html += '</div>';
+        }
+        return html + '</form>';
+    }
+
+    // 根据 conf_spec 渲染控件：1=多行文本，2=单选框，3=下拉，4=上传图片，5=选择二维码，其它=单行文本
+    function renderControl(spec, val, content, confId, disabled) {
+        var name = 'conf_' + confId;
+        var options = parseOptions(content);
+        var disabledAttr = disabled ? ' disabled' : '';
+        switch (Number(spec)) {
+            case 1:
+                return '<textarea id="' + name + '" name="' + name + '" class="form-control" rows="4"' + disabledAttr + '>' + escHtml(val) + '</textarea>';
+            case 3:
+                return renderSelect(name, val, options, disabled);
+            case 2:
+                return renderRadioGroup(name, val, options, disabled);
+            case 4:
+                return '<div id="' + name + '" class="img-box" data-upload="1" data-value="' + escHtml(val) + '"></div>';
+            case 5:
+                return renderQrcodeSelect(name, val, disabled);
+            default:
+                return '<input id="' + name + '" name="' + name + '" type="text" class="form-control" value="' + escHtml(val) + '"' + disabledAttr + ' />';
+        }
+    }
+
+    // 解析 conf_content 选项：换行或逗号分隔，去空去前后空格
+    function parseOptions(content) {
+        return String(content || '')
+            .split(/\r?\n|,/)
+            .map(function (s) { return $.trim(s); })
+            .filter(function (s) { return s !== ''; });
+    }
+
+    // 拆分单个选项为 { value, text }：radio 用“文字=>值”，select 用“值=显示值”，无分隔符时两者相同
+    function splitOption(opt, textFirst) {
+        var sep = textFirst ? '=>' : '=';
+        var index = opt.indexOf(sep);
+        if (index === -1) {
+            return { value: opt, text: opt };
+        }
+        var left = $.trim(opt.substring(0, index));
+        var right = $.trim(opt.substring(index + sep.length));
+        return textFirst ? { value: right, text: left } : { value: left, text: right };
+    }
+
+    // 下拉框（选项格式：值=显示值）：统一用 ysComboBox 渲染，选项与当前值放在 data 属性里
+    function renderSelect(name, val, options, disabled) {
+        var items = options.map(function (opt) {
+            var option = splitOption(opt, false);
+            return { Key: option.value, Value: option.text };
+        });
+        return '<div id="' + name + '" class="conf-select" data-disabled="' + (disabled ? '1' : '0') +
+            '" data-value="' + escHtml(val) + '" data-options="' + escHtml(JSON.stringify(items)) + '"></div>';
+    }
+
+    // 配置项下拉初始化：统一用 ysComboBox 渲染，且不启用下拉搜索输入框
+    function initConfSelects(container) {
+        $(container).find('.conf-select').each(function () {
+            var $box = $(this);
+            if ($box.attr('data-inited')) {
+                return;
+            }
+            $box.attr('data-inited', '1');
+            var items = [];
+            try {
+                items = JSON.parse($box.attr('data-options') || '[]');
+            } catch (e) {
+                items = [];
+            }
+            var isQrcode = $box.hasClass('qrcode-select');
+            var val = $box.attr('data-value') || '';
+            // 当前值不在候选里时补一项，避免打开页面保存时被清空
+            var matched = val === '';
+            for (var i = 0; i < items.length; i++) {
+                if (String(items[i].Key) === String(val)) {
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                items.push({ Key: val, Value: '当前值（未在二维码设置中）' });
+            }
+            if (items.length === 0 && !isQrcode) {
+                $box.html('<div class="text-muted" style="padding-top:7px;">（无选项，请到编辑页配置 conf_content）</div>');
+                return;
+            }
+            var setting = {
+                data: items,
+                class: 'form-control',
+                search: false,
+                // 二维码下拉保留「不设置」空项；普通下拉不生成空项，默认选中第一项
+                placeholder: isQrcode ? '（不设置 / 不显示）' : false
+            };
+            $box.ysComboBox(setting);
+            if (val !== '') {
+                $box.ysComboBox('setValue', val);
+            }
+            if (isQrcode) {
+                // 用委托绑定，select2 被重建后预览联动依然有效
+                $box.off('change.qrcode').on('change.qrcode', 'select', function () {
+                    previewQrcode(this);
+                });
+            }
+            if ($box.attr('data-disabled') === '1') {
+                $box.find('select').prop('disabled', true);
+            }
+        });
+    }
+
+    // 单选框（选项格式：文字=>值，如“开启=>1，关闭=>0”）
+    function renderRadioGroup(name, val, options, disabled) {
+        if (options.length === 0) {
+            return '<div class="text-muted" style="padding-top:7px;">（无选项，请到编辑页配置 conf_content）</div>';
+        }
+        var html = '';
+        options.forEach(function (opt) {
+            var option = splitOption(opt, true);
+            html += '<label class="radio-inline" style="padding-top:7px;">' +
+                '<input type="radio" name="' + name + '" value="' + escHtml(option.value) + '"' +
+                (String(val) === String(option.value) ? ' checked' : '') +
+                (disabled ? ' disabled' : '') + ' /> ' + escHtml(option.text) + '</label>';
+        });
+        return html;
+    }
+
+    // 二维码候选列表：value=二维码设置的 conf_key（保存到配置项的值），text=标题，path=图片地址
+    var qrcodeOptions = [];
+
+    // 从全量配置里筛出「二维码设置」（conf_type=10）中已上传图片的项
+    function buildQrcodeOptionsFromData(allData) {
+        qrcodeOptions = [];
+        (allData || []).forEach(function (item) {
+            if (!isQrConfItem(item) || !item.ConfKey) {
+                return;
+            }
+            var path = $.trim(item.ConfValue == null ? '' : item.ConfValue);
+            if (path === '') {
+                return;
+            }
+            qrcodeOptions.push({
+                value: String(item.ConfKey),
+                text: String(item.ConfTitle || item.ConfKey),
+                path: path
+            });
+        });
+    }
+
+    // 是否「二维码设置」里的配置项（与 buildFromAllData 的分类归类规则保持一致）
+    function isQrConfItem(item) {
+        if (!item) {
+            return false;
+        }
+        var type = (item.ConfType === null || item.ConfType === undefined) ? '' : String(item.ConfType);
+        if (type !== '') {
+            return type === '10';
+        }
+        return isQrConfKey(item.ConfKey);
+    }
+
+    // 「选择二维码」存的是二维码 key，这里解析成实际图片地址（兼容历史数据直接存图片路径的情况）
+    function resolveQrcodePath(value) {
+        var v = $.trim(value == null ? '' : value);
+        if (v === '') {
+            return '';
+        }
+        for (var i = 0; i < qrcodeOptions.length; i++) {
+            if (String(qrcodeOptions[i].value) === v) {
+                return $.trim(qrcodeOptions[i].path || '');
+            }
+        }
+        return v;
+    }
+
+    // 预览图地址：后台存的是不带前导斜杠的相对路径，补 ctx 后浏览器才能加载
+    function qrcodePreviewUrl(value) {
+        var path = resolveQrcodePath(value);
+        if (path === '') {
+            return '';
+        }
+        if (path.indexOf('http') === 0 || path.indexOf('data:') === 0 || path.indexOf('/') === 0) {
+            return path;
+        }
+        return ctx + path;
+    }
+
+    // 「选择二维码」的候选项（首项「不设置」由 ysComboBox 的 placeholder 提供）
+    function qrcodeSelectItems() {
+        return qrcodeOptions.map(function (opt) {
+            return { Key: opt.value, Value: opt.text };
+        });
+    }
+
+    // 「选择二维码」控件：ysComboBox 下拉选择二维码设置里的图片，右侧实时预览
+    function renderQrcodeSelect(name, val, disabled) {
+        var url = qrcodePreviewUrl(val);
+        var html = '<div class="qrcode-select-wrap" style="display:flex;align-items:center;gap:10px;">';
+        html += '<div id="' + name + '" class="conf-select qrcode-select" style="flex:1;" data-disabled="' + (disabled ? '1' : '0') +
+            '" data-value="' + escHtml(val) + '" data-options="' + escHtml(JSON.stringify(qrcodeSelectItems())) + '"></div>';
+        html += '<img class="qrcode-preview" alt="" src="' + escHtml(url) + '" style="width:44px;height:44px;object-fit:contain;border:1px solid #e5e6e8;border-radius:4px;background:#fff;' + (url === '' ? 'display:none;' : '') + '" />';
+        html += '</div>';
+        if (qrcodeOptions.length === 0) {
+            html += '<span class="help-block m-b-none" style="font-size:12px;color:#999;">「二维码设置」中暂无图片，请先上传</span>';
+        }
+        return html;
+    }
+
+    // 切换二维码后刷新预览图
+    function previewQrcode(el) {
+        var $select = $(el);
+        var $wrap = $select.closest('.qrcode-select-wrap');
+        var $img = ($wrap.length > 0 ? $wrap : $select.parent()).find('.qrcode-preview').first();
+        if ($img.length === 0) {
+            return;
+        }
+        var url = qrcodePreviewUrl($select.val());
+        if (url === '') {
+            $img.removeAttr('src').hide();
+        }
+        else {
+            $img.attr('src', url).show();
+        }
+    }
+
+    // 二维码设置保存后：用面板里的最新图片刷新候选，并同步所有「选择二维码」下拉（保留已选值）
+    function refreshQrcodeOptions() {
+        var list = [];
+        $('#panel-10 .form-group[data-conf-id]').each(function () {
+            var $group = $(this);
+            var $upload = $group.find('.img-box[data-upload="1"]').first();
+            if ($upload.length === 0) {
+                return;
+            }
+            var path = '';
+            try {
+                path = $upload.imageUpload('getImageUrl') || '';
+            } catch (e) {
+                path = '';
+            }
+            if (path.indexOf(ctx) === 0) {
+                path = path.substring(ctx.length);
+            }
+            var $label = $group.find('label.control-label').first();
+            var key = $label.attr('title') || '';
+            if (!key || $.trim(path) === '') {
+                return;
+            }
+            list.push({ value: key, text: $label.text() || key, path: $.trim(path) });
+        });
+        qrcodeOptions = list;
+        var items = qrcodeSelectItems();
+        $('#confTabContent .form-group[data-conf-spec="5"]').each(function () {
+            var $group = $(this);
+            var $box = $group.find('.qrcode-select').first();
+            if ($box.length === 0) {
+                return;
+            }
+            var current = $box.find('select').val();
+            current = current == null ? '' : current;
+            // 候选图片变了：先销毁旧 select2 实例，再用新候选重新渲染（保留已选值）
+            $box.find('select').each(function () {
+                try {
+                    $(this).select2('destroy');
+                } catch (e) {
+                }
+            });
+            $box.html('').removeAttr('data-inited')
+                .attr('data-value', current)
+                .attr('data-options', JSON.stringify(items));
+            initConfSelects($group);
+            var url = qrcodePreviewUrl(current);
+            var $img = $group.find('.qrcode-preview').first();
+            if (url === '') {
+                $img.removeAttr('src').hide();
+            }
+            else {
+                $img.attr('src', url).show();
+            }
+        });
+    }
+
+    // 初始化 conf_spec=4 的上传图片控件（参考编辑文章页面的缩略图上传）
+    function initImageUploadControls() {
+        $('#confTabContent .img-box[data-upload="1"]').each(function () {
+            var $box = $(this);
+            if ($box.attr('data-inited')) {
+                return;
+            }
+            $box.attr('data-inited', '1');
+            $box.imageUpload({
+                uploadImage: 'uploadPanConfImage',
+                limit: 1,
+                context: ctx
+            });
+            var val = $box.attr('data-value');
+            if (val) {
+                $box.imageUpload('setImageUrl', val);
+            }
+        });
+    }
+
+    // conf_spec=4 上传图片回调：走本站 File/UploadFile 接口
+    function uploadPanConfImage(file, callback) {
+        var formdata = new FormData();
+        formdata.append("fileList", file);
+        ys.ajaxUploadFile({
+            url: '@Url.Content("~/File/UploadFile")?fileModule=@((int)AggPanSearch.Enum.UploadFileType.News)',
+            data: formdata,
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    if (callback) {
+                        callback(ctx + ys.trimStart(obj.Data, '/'));
+                    }
+                }
+                else {
+                    ys.msgError(obj.Message);
+                }
+            }
+        })
+    }
+
+    // 引流设置 Tab：公众号弹窗预览工具条（追加在配置项最后）
+    function renderWxTrafficPreviewBar() {
+        var html = '<div class="wx-traffic-preview-bar">';
+        html += '<a class="btn btn-info btn-sm" onclick="previewWxTrafficPopup()"><i class="fa fa-eye"></i>&nbsp;预览公众号弹窗</a>';
+        html += '<span class="text-muted" style="margin-left:10px;font-size:12px;">公众号图片取「二维码设置 - qr_wxchannel」，公众号名称与验证码取本页配置，未保存也能预览</span>';
+        html += '</div>';
+        return html;
+    }
+
+    // 预览公众号弹窗：直接调用前台同一份 wx-traffic.js，样式与真实弹窗完全一致
+    function previewWxTrafficPopup() {
+        if (!window.WxTraffic || typeof window.WxTraffic.preview !== 'function') {
+            ys.msgError('弹窗预览脚本未加载，请刷新页面后重试');
+            return;
+        }
+        var panel = $('#panel-11');
+        window.WxTraffic.preview({
+            // 公众号图片固定取「二维码设置」tab 的 qr_wxchannel（支持未保存的最新值）；没有设置就传空，弹窗里不显示图片
+            qr: wxTrafficPreviewQrUrl(readQrConfImage('qr_wxchannel')),
+            // 公众号名称取本页配置 traffic_wxchannel_name（未保存也能预览）
+            channel: readPanelConfValue(panel, 'traffic_wxchannel_name') || getConfValue('traffic_wxchannel_name'),
+            code: readPanelConfValue(panel, 'traffic_wxchannel_code'),
+            // 后台页面没有前台的 --theme-* 变量，按当前站点主题现算一份传给弹窗
+            theme: wxTrafficThemeVars()
+        });
+    }
+
+    // 读取全量配置值（conf_key 不区分大小写；配置项在其它 Tab 也能取到）
+    function getConfValue(confKey) {
+        var v = allConfValues[String(confKey || '').toLowerCase()];
+        return v == null ? '' : String(v).trim();
+    }
+
+    // 预览弹窗的主题变量：与前台 Areas/UserFrontend/Views/Shared/_Layout.cshtml 的 --theme-* 体系保持一致
+    // 暖红主题（默认）取后台「基础设置-颜色风格」的配置色，其余主题用各自内置配色
+    function wxTrafficThemeVars() {
+        var theme = (getConfValue('theme') || 'red').toLowerCase();
+        var homeTheme = getConfValue('home_theme') || '#ff6b6b';
+        var homeColor = getConfValue('home_color') || '#3e3e3e';
+        var otherBackground = getConfValue('other_background') || '#ffffff';
+        var primary = homeTheme;
+        var light = homeTheme;
+        var surface = otherBackground;
+        var text = homeColor;
+        var secondary = homeColor;
+        var border = '#f0f0f0';
+        if (theme === 'blue') {
+            primary = '#4a90e2'; light = '#5fa3f0'; surface = '#ffffff';
+            text = '#2c3e50'; secondary = '#5a6c7d'; border = '#e1e8ed';
+        } else if (theme === 'green') {
+            primary = '#27ae60'; light = '#2ecc71'; surface = '#ffffff';
+            text = '#1e3a2f'; secondary = '#4a6356'; border = '#d4e6dc';
+        } else if (theme === 'dark') {
+            primary = '#6366f1'; light = '#8b5cf6'; surface = '#1a1a2e';
+            text = '#f0f0f5'; secondary = '#a0a0b0'; border = '#3a3a4a';
+        }
+        return {
+            'theme-primary': primary,
+            'theme-primary-light': light,
+            'theme-primary-gradient': 'linear-gradient(135deg, ' + primary + ' 0%, ' + light + ' 100%)',
+            'theme-surface': surface,
+            'theme-text': text,
+            'theme-text-secondary': secondary,
+            'theme-border': border
+        };
+    }
+
+    // 读取面板中指定 conf_key 控件的当前值（单选框取选中值，其余取最后一个文本 / 下拉控件）
+    function readPanelConfValue(panel, confKey) {
+        var $group = panel.find('.form-group[data-conf-id]').filter(function () {
+            var key = $(this).find('label.control-label').first().attr('title') || '';
+            return key === confKey;
+        }).first();
+        if ($group.length === 0) {
+            return '';
+        }
+        var $radio = $group.find('input[type="radio"]:checked');
+        if ($radio.length > 0) {
+            return $radio.val() || '';
+        }
+        return $group.find('input[type="text"], textarea, select').last().val() || '';
+    }
+
+    // 读取「二维码设置」tab 里指定 conf_key 的图片地址（优先取控件当前值，支持未保存的改动；取不到再退回已加载的全量配置）
+    function readQrConfImage(confKey) {
+        var key = String(confKey || '').toLowerCase();
+        var $group = $('#panel-10 .form-group[data-conf-id]').filter(function () {
+            var title = $(this).find('label.control-label').first().attr('title') || '';
+            return title.toLowerCase() === key;
+        }).first();
+        if ($group.length > 0) {
+            var $upload = $group.find('.img-box[data-upload="1"]').first();
+            if ($upload.length > 0) {
+                var url = '';
+                try {
+                    url = $upload.imageUpload('getImageUrl') || '';
+                } catch (e) {
+                    url = '';
+                }
+                url = $.trim(url);
+                if (url.indexOf(ctx) === 0) {
+                    url = url.substring(ctx.length);
+                }
+                if (url !== '') {
+                    return url;
+                }
+            }
+            var val = $.trim($group.find('input[type="text"], textarea, select').last().val() || '');
+            if (val !== '') {
+                return val;
+            }
+        }
+        return getConfValue(confKey);
+    }
+
+    // 二维码预览地址：配置值可能是「二维码设置」里的 key，需先解析成图片地址，再补站点根路径
+    function wxTrafficPreviewQrUrl(value) {
+        var path = resolveQrcodePath(value);
+        if (path === '') {
+            return '';
+        }
+        if (/^(https?:|data:|\/)/i.test(path)) {
+            return path;
+        }
+        return '@Url.Content("~/")' + path;
+    }
+
+    // 保存当前分类下所有配置项
+    function saveCurrentTab() {
+        var panel = $('#confTabContent .tab-pane.active').first();
+        if (panel.length === 0) {
+            return;
+        }
+        var entities = [];
+        panel.find('.form-group[data-conf-id]').each(function () {
+            var $group = $(this);
+            var confId = $group.attr('data-conf-id');
+            if (!confId) {
+                return;
+            }
+            var spec = $group.attr('data-conf-spec') || '';
+            var value;
+            if (spec == '4') {
+                // 上传图片：取已上传图片地址并去掉 ctx 前缀（imgup 回显时会自动拼接 ctx）
+                var $upload = $group.find('.img-box[data-upload="1"]').first();
+                value = $upload.length ? $upload.imageUpload('getImageUrl') : '';
+                if (value && value.indexOf(ctx) === 0) {
+                    value = value.substring(ctx.length);
+                }
+            }
+            else {
+                // 单选框优先取选中值，其余取文本 / 下拉控件的值
+                var $radio = $group.find('input[type="radio"]:checked');
+                value = $radio.length > 0
+                    ? $radio.val()
+                    : $group.find('input[type="text"], textarea, select').last().val();
+            }
+            entities.push({ Id: confId, ConfValue: value == null ? '' : value });
+        });
+        if (entities.length === 0) {
+            ys.msgInfo('没有可保存的配置项');
+            return;
+        }
+        $.ajax({
+            url: '@Url.Content("~/PanManage/PanConf/SaveBatchJson")',
+            type: 'post',
+            dataType: 'json',
+            contentType: 'application/json',
+            data: JSON.stringify(entities),
+            beforeSend: function (xhr) {
+                ys.showLoading('正在处理中...');
+            },
+            complete: function (xhr, status) {
+                ys.closeLoading();
+            },
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    ys.msgSuccess('保存成功');
+                    // 二维码设置里的图片变了：同步「选择二维码」下拉的候选图片（其它分类的图片选择立即可用）
+                    if (panel.attr('id') === 'panel-10') {
+                        refreshQrcodeOptions();
+                    }
+                }
+                else {
+                    ys.msgError(obj.Message || '保存失败');
+                }
+            },
+            error: function (xhr) {
+                var msg = '保存失败';
+                try {
+                    if (xhr.responseJSON && xhr.responseJSON.Message) {
+                        msg = xhr.responseJSON.Message;
+                    }
+                } catch (e) { }
+                ys.alertError(msg);
+            }
+        });
+    }
+
+    // HTML 文本 / 属性值转义（属性统一用双引号包裹，转义 " 后即可安全复用）
+    function escHtml(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+</script>

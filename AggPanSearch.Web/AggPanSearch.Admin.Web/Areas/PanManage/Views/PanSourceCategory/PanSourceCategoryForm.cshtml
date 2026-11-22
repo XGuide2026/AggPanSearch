@@ -1,0 +1,90 @@
+﻿@{
+    Layout = "~/Views/Shared/_FormWhite.cshtml";
+}
+
+<div class="wrapper animated fadeInRight">
+    <form id="form" class="form-horizontal m">
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">是否不可删除</label>
+            <div class="col-sm-8" id="is_sys" col="IsSys"></div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">是否展示本地</label>
+            <div class="col-sm-8" id="is_type" col="IsType"></div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">是否每日更新</label>
+            <div class="col-sm-8" id="is_update" col="IsUpdate"></div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">分类名称</label>
+            <div class="col-sm-8">
+                <input id="name" col="Name" type="text" class="form-control" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">排序</label>
+            <div class="col-sm-8">
+                <input id="sort" col="Sort" type="text" class="form-control" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label ">是否前台显示</label>
+            <div class="col-sm-8" id="status" col="Status"></div>
+        </div>
+    </form>
+</div>
+
+<script type="text/javascript">
+    var id = ys.request("id");
+    $(function () {
+        $("#is_sys").ysRadioBox({ data: [{ Key: '0', Value: '否' }, { Key: '1', Value: '是' }] });
+        $("#is_type").ysRadioBox({ data: [{ Key: '0', Value: '网络' }, { Key: '1', Value: '本地' }] });
+        $("#is_update").ysRadioBox({ data: [{ Key: '0', Value: '不更新' }, { Key: '1', Value: '更新' }] });
+        $("#status").ysRadioBox({ data: [{ Key: '0', Value: '不显示' }, { Key: '1', Value: '显示' }] });
+
+        getForm();
+
+        $('#form').validate({});
+    });
+
+    function getForm() {
+        if (id > 0) {
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanSourceCategory/GetFormJson")' + '?id=' + id,
+                type: 'get',
+                success: function (obj) {
+                    if (obj.Tag == 1) {
+                        $('#form').setWebControls(obj.Data);
+                    }
+                }
+            });
+        }
+        else {
+            var defaultData = {};
+            $('#form').setWebControls(defaultData);
+        }
+    }
+
+    function saveForm(index) {
+        if ($('#form').validate().form()) {
+            var postData = $('#form').getWebControls({ Id: id });
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanSourceCategory/SaveFormJson")',
+                type: 'post',
+                data: postData,
+                success: function (obj) {
+                    if (obj.Tag == 1) {
+                        ys.msgSuccess(obj.Message);
+                        parent.searchGrid();
+                        parent.layer.close(index);
+                    }
+                    else {
+                        ys.msgError(obj.Message);
+                    }
+                }
+            });
+        }
+    }
+</script>
+

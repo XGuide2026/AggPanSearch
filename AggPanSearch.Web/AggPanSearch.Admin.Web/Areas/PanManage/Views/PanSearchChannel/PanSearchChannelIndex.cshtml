@@ -1,0 +1,192 @@
+@{
+    Layout = "~/Views/Shared/_Index.cshtml";
+}
+<div class="container-div">
+    <div class="row">
+        <div id="searchDiv" class="col-sm-12 search-collapse">
+            <div class="select-list">
+                <ul>
+                    <li>
+                        <label>频道名：</label>
+                        <input id="name" col="name" type="text" placeholder="t.me/s/ 后面的部分" />
+                    </li>
+                    <li>
+                        <label>分组：</label>
+                        <input id="category" col="category" type="text" placeholder="如 影视 / 短剧" />
+                    </li>
+                    <li>
+                        <label>状态：</label>
+                        <div id="status" col="status" class="select-wrap"></div>
+                    </li>
+                    <li>
+                        <a id="btnSearch" class="btn btn-primary btn-sm" onclick="searchGrid()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="btn-group-sm hidden-xs" id="toolbar">
+            <a id="btnAdd" class="btn btn-success" onclick="showSaveForm(true)"><i class="fa fa-plus"></i> 新增</a>
+            <a id="btnEdit" class="btn btn-primary disabled" onclick="showSaveForm(false)"><i class="fa fa-edit"></i> 修改</a>
+            <a id="btnDelete" class="btn btn-danger disabled" onclick="deleteForm()"><i class="fa fa-remove"></i> 删除</a>
+            <a id="btnEnable" class="btn btn-info" onclick="setStatus(1)"><i class="fa fa-check-circle"></i> 启用</a>
+            <a id="btnDisable" class="btn btn-warning" onclick="setStatus(0)"><i class="fa fa-ban"></i> 停用</a>
+            <a id="btnResetDefault" class="btn btn-default" onclick="resetDefaultChannels()"><i class="fa fa-refresh"></i> 重置系统默认频道</a>
+        </div>
+        <div class="col-sm-12 select-table table-striped">
+            <table id="gridTable" data-mobile-responsive="true"></table>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(function () {
+        initGrid();
+        // 状态：不启用下拉搜索输入框；选「全部」时提交空值，后端不做筛选
+        $("#status").ysComboBox({
+            data: [{ Key: '1', Value: '启用' }, { Key: '0', Value: '停用' }],
+            search: false
+        });
+    });
+
+    var statusTextMap = {
+        Status: { '1': '启用', '0': '停用' },
+        IsSys: { '1': '内置', '0': '自定义' }
+    };
+
+    function renderStatusBadge(value, row, index, field) {
+        if (ys.isNullOrEmpty(value)) {
+            return '';
+        }
+        var key = String(value);
+        var texts = statusTextMap[field] || {};
+        var text = texts[key] || key;
+        var cls = (key === '1') ? 'badge badge-primary' : 'badge badge-warning';
+        return '<span class="' + cls + '">' + text + '</span>';
+    }
+
+    function renderTime(value) {
+        if (ys.isNullOrEmpty(value)) {
+            return '';
+        }
+        return String(value).replace('T', ' ').substring(0, 19);
+    }
+
+    function initGrid() {
+        var queryUrl = '@Url.Content("~/PanManage/PanSearchChannel/GetPageListJson")';
+        $('#gridTable').ysTable({
+            url: queryUrl,
+            sortName: 'sort',
+            sortOrder: 'asc',
+            columns: [
+                { checkbox: true, visible: true },
+                { field: 'Id', title: 'Id', visible: false },
+                { field: 'Name', title: '频道名' },
+                { field: 'Category', title: '分组' },
+                { field: 'Sort', title: '排序', width: 70 },
+                { field: 'Weight', title: '权重', width: 70 },
+                { field: 'Status', title: '状态', formatter: renderStatusBadge, width: 80 },
+                { field: 'IsSys', title: '来源', formatter: renderStatusBadge, width: 80 },
+                { field: 'Remark', title: '备注',visible: false },
+                { field: 'LastUpdate', title: '最近资源时间', formatter: renderTime, width: 170 },
+                { field: 'BaseModifyTime', title: '更新时间', formatter: renderTime, width: 160 },
+            ],
+            queryParams: function (params) {
+                var pagination = $('#gridTable').ysTable('getPagination', params);
+                var queryString = $('#searchDiv').getWebControls(pagination);
+                return queryString;
+            }
+        });
+    }
+
+    function searchGrid() {
+        $('#gridTable').ysTable('search');
+        resetToolbarStatus();
+    }
+
+    function showSaveForm(bAdd) {
+        var id = 0;
+        if (!bAdd) {
+            var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+            if (!ys.checkRowEdit(selectedRow)) {
+                return;
+            }
+            else {
+                id = selectedRow[0].Id;
+            }
+        }
+        ys.openDialog({
+            title: id > 0 ? '编辑频道' : '新增频道',
+            content: '@Url.Content("~/PanManage/PanSearchChannel/PanSearchChannelForm")' + '?id=' + id,
+            width: '768px',
+            height: '520px',
+            callback: function (index, layero) {
+                var iframeWin = window[layero.find('iframe')[0]['name']];
+                iframeWin.saveForm(index);
+            }
+        });
+    }
+
+    function deleteForm() {
+        var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+        if (ys.checkRowDelete(selectedRow)) {
+            ys.confirm('确认要删除选中的' + selectedRow.length + '个频道吗？', function () {
+                var ids = ys.getIds(selectedRow);
+                ys.ajax({
+                    url: '@Url.Content("~/PanManage/PanSearchChannel/DeleteFormJson")' + '?ids=' + ids,
+                    type: 'post',
+                    success: function (obj) {
+                        if (obj.Tag == 1) {
+                            ys.msgSuccess(obj.Message);
+                            searchGrid();
+                        }
+                        else {
+                            ys.msgError(obj.Message);
+                        }
+                    }
+                });
+            });
+        }
+    }
+
+    // 重置系统默认频道：清空当前表数据，再重新写入系统默认频道（全部启用）
+    function resetDefaultChannels() {
+        ys.confirm('将清空当前全部频道，并重置为系统默认频道（全部启用），此操作不可撤销，确定继续？', function () {
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanSearchChannel/ResetDefaultJson")',
+                type: 'post',
+                success: function (obj) {
+                    if (obj.Tag == 1) {
+                        ys.msgSuccess(obj.Message);
+                        searchGrid();
+                    }
+                    else {
+                        ys.msgError(obj.Message);
+                    }
+                }
+            });
+        });
+    }
+
+    // 批量启用/停用：status=1 启用，0 停用
+    function setStatus(status) {
+        var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+        if (selectedRow == null || selectedRow.length == 0) {
+            ys.msgWarning('请先选择频道');
+            return;
+        }
+        var ids = ys.getIds(selectedRow);
+        ys.ajax({
+            url: '@Url.Content("~/PanManage/PanSearchChannel/SetStatusJson")' + '?ids=' + ids + '&status=' + status,
+            type: 'post',
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    ys.msgSuccess(obj.Message);
+                    searchGrid();
+                }
+                else {
+                    ys.msgError(obj.Message);
+                }
+            }
+        });
+    }
+</script>

@@ -1,0 +1,234 @@
+/* ==========================================================================
+   屏蔽词列表页样式（前台 /banned_words）
+   仅使用站点主题变量（--theme-*），与版权声明页保持同一套视觉
+   ========================================================================== */
+.bw-page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 20px 16px 48px;
+}
+
+/* ---------- 头部 ---------- */
+.bw-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    padding: 34px 28px;
+    background: var(--theme-surface, #fff);
+    border: 1px solid var(--theme-border, #f0f0f0);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .05);
+}
+
+.bw-hero::after {
+    content: "";
+    position: absolute;
+    right: -80px;
+    top: -110px;
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    background: var(--theme-primary-gradient, linear-gradient(135deg, #ff6b6b, #ff8e53));
+    opacity: .12;
+    filter: blur(6px);
+    pointer-events: none;
+}
+
+.bw-hero .bw-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    letter-spacing: .5px;
+    color: var(--theme-primary, #ff6b6b);
+    background: rgba(255, 107, 107, .1);
+    border-radius: 20px;
+    padding: 4px 12px;
+    margin-bottom: 12px;
+}
+
+.bw-hero h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--theme-text, #222);
+    margin: 0 0 10px;
+    line-height: 1.4;
+}
+
+.bw-hero p {
+    font-size: 14px;
+    line-height: 1.9;
+    color: var(--theme-text-secondary, #666);
+    margin: 0;
+    max-width: 680px;
+}
+
+.bw-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.bw-stat {
+    font-size: 13px;
+    color: var(--theme-text-secondary, #666);
+    background: var(--theme-background, #fafafa);
+    border: 1px solid var(--theme-border, #f0f0f0);
+    border-radius: 20px;
+    padding: 5px 14px;
+}
+
+.bw-stat b {
+    color: var(--theme-primary, #ff6b6b);
+    font-weight: 600;
+    margin: 0 2px;
+}
+
+/* ---------- 主体面板 ---------- */
+.bw-panel {
+    margin-top: 16px;
+    background: var(--theme-surface, #fff);
+    border: 1px solid var(--theme-border, #f0f0f0);
+    border-radius: 18px;
+    padding: 20px 22px 24px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .04);
+}
+
+.bw-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px dashed var(--theme-border, #f0f0f0);
+}
+
+.bw-search {
+    position: relative;
+    flex: 1 1 260px;
+    max-width: 320px;
+}
+
+.bw-search input {
+    width: 100%;
+    height: 38px;
+    padding: 0 34px 0 14px;
+    font-size: 14px;
+    color: var(--theme-text, #222);
+    background: var(--theme-background, #fafafa);
+    border: 1px solid var(--theme-border, #f0f0f0);
+    border-radius: 20px;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color .2s ease, background-color .2s ease;
+}
+
+.bw-search input:focus {
+    border-color: var(--theme-primary, #ff6b6b);
+    background: var(--theme-surface, #fff);
+}
+
+.bw-search input::placeholder {
+    color: var(--theme-text-secondary, #aaa);
+}
+
+.bw-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+    width: 22px;
+    height: 22px;
+    line-height: 20px;
+    text-align: center;
+    font-size: 16px;
+    color: var(--theme-text-secondary, #999);
+    background: transparent;
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    padding: 0;
+}
+
+.bw-clear:hover {
+    color: var(--theme-primary, #ff6b6b);
+}
+
+/* ---------- 标签 ---------- */
+.bw-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+.bw-tag {
+    display: inline-block;
+    max-width: 100%;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--theme-text-secondary, #555);
+    background: var(--theme-background, #fafafa);
+    border: 1px solid var(--theme-border, #f0f0f0);
+    border-radius: 8px;
+    padding: 5px 12px;
+    word-break: break-all;
+    transition: all .18s ease;
+}
+
+.bw-tag:hover {
+    color: var(--theme-primary, #ff6b6b);
+    border-color: var(--theme-primary, #ff6b6b);
+    background: var(--theme-surface, #fff);
+}
+
+/* ---------- 空状态 ---------- */
+.bw-empty {
+    padding: 60px 16px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--theme-text-secondary, #999);
+}
+
+/* 显式 display 会覆盖浏览器对 [hidden] 的默认样式，这里统一兜底 */
+.bw-tag[hidden],
+.bw-empty[hidden] {
+    display: none !important;
+}
+
+/* ---------- 移动端 ---------- */
+@media (max-width: 640px) {
+    .bw-page {
+        padding: 12px 12px 36px;
+    }
+
+    .bw-hero {
+        border-radius: 14px;
+        padding: 22px 18px;
+    }
+
+    .bw-hero h1 {
+        font-size: 20px;
+    }
+
+    .bw-hero p {
+        font-size: 13px;
+        line-height: 1.8;
+    }
+
+    .bw-panel {
+        border-radius: 14px;
+        padding: 16px 14px 20px;
+    }
+
+    .bw-search {
+        max-width: none;
+        flex-basis: 100%;
+    }
+
+    .bw-tag {
+        font-size: 12px;
+        padding: 4px 10px;
+    }
+}

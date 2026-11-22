@@ -1,0 +1,56 @@
+# ===== .NET 构建产物 =====
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ===== 发布/部署产物 =====
+Publish/
+dist/
+publish-*.bat
+
+# ===== 配置（含敏感信息的线上版本不提交） =====
+appsettings.Production.json
+
+# ===== 运行数据 =====
+DataProtection/
+cache/
+*.cache
+_ChannelProbe/
+
+# ===== 日志 =====
+*.log
+logs/
+
+# ===== IDE =====
+.vs/
+.idea/
+*.swp
+*.swo
+
+# ===== 前端资源缓存/压缩 =====
+*.br
+*.gz
+
+# ===== 本机工具数据 =====
+.codebuddy/
+
+# ===== 临时/参考文件 =====
+_tmp*
+_*.ps1
+_verify.ps1
+_dbg.ps1
+_repack*.ps1
+_extract_test.ps1
+_final_check.ps1
+_diag.ps1
+_slim_*.ps1
+_toolkit*.ps1
+_probe_test.ps1
+.tmptest/
+.playwright-cli/
+_xinyue_ref/

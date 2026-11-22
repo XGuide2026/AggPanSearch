@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="磁力链接">
+  <rect width="64" height="64" rx="14" fill="#343a46"/>
+  <path d="M22 18v14a10 10 0 0 0 20 0V18h-7v14a3 3 0 0 1-6 0V18h-7z" fill="#ffffff"/>
+  <rect x="22" y="18" width="7" height="5" rx="2" fill="#ff6b6b"/>
+  <rect x="35" y="18" width="7" height="5" rx="2" fill="#ff6b6b"/>
+</svg>

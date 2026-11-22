@@ -1,0 +1,63 @@
+@using AggPanSearch.Util
+@{
+    Layout = "~/Views/Shared/_FormWhite.cshtml";
+}
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostingEnvironment
+@section header{
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/pansou/css/pan-source-collect.min.css"))
+}
+
+<div class="wrapper animated fadeInRight" id="siteCategoryPage">
+    @* 站点信息条：让用户确认正在配置哪个站点 *@
+    <div class="category-site-bar">
+        <div class="category-site-name" id="categorySiteName">-</div>
+        <a id="categorySiteUrl" class="category-site-url" href="javascript:void(0)" target="_blank" rel="noopener">-</a>
+    </div>
+
+    @* 工具条：自动抓取 / 手工添加 + 统计 *@
+    <div class="category-toolbar">
+        <div class="category-toolbar-left">
+            <a id="btnFetchCategories" class="btn btn-primary btn-sm" onclick="PanSourceSiteCategory.fetchCategories()">
+                <i class="fa fa-cloud-download"></i>&nbsp;自动抓取分类
+            </a>
+            <a class="btn btn-default btn-sm" onclick="PanSourceSiteCategory.addRow()">
+                <i class="fa fa-plus"></i>&nbsp;手工添加
+            </a>
+        </div>
+        <div class="category-stats" id="categoryStats">共 0 项，已绑定 0 项</div>
+    </div>
+
+    <div class="category-tip" id="categoryTip" style="display:none;"></div>
+
+    <div class="category-table-wrap">
+        <table class="category-table">
+            <thead>
+                <tr>
+                    <th style="width:15%;">站点分类</th>
+                    <th style="width:25%;">对应分类资源</th>
+                    <th style="width:48%;">分类地址</th>
+                    <th style="width:12%;" class="text-center">操作</th>
+                </tr>
+            </thead>
+            <tbody id="categoryTableBody"></tbody>
+        </table>
+        <div class="category-empty" id="categoryEmpty">暂无分类，点击「自动抓取分类」识别站点分类，或「手工添加」自行录入</div>
+    </div>
+</div>
+
+@section footer{
+    <script type="text/javascript">
+        // 接口地址由 Razor 输出，静态 js 只读取该对象
+        window.PanSourceSiteCategoryApi = {
+            siteList: '@Url.Content("~/PanManage/PanSourceCollect/GetSiteListJson")',
+            fetchSiteCategories: '@Url.Content("~/PanManage/PanSourceCollect/FetchSiteCategoriesJson")',
+            saveSiteCategories: '@Url.Content("~/PanManage/PanSourceCollect/SaveSiteCategoriesJson")',
+            categoryOptions: '@Url.Content("~/PanManage/PanSourceCollect/GetSourceCategoryOptionJson")'
+        };
+        // 视图内的内联 onclick 依赖全局对象
+        $(function () {
+            PanSourceSiteCategory.init();
+        });
+    </script>
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/pansou/js/pan-source-collect.min.js"))
+}

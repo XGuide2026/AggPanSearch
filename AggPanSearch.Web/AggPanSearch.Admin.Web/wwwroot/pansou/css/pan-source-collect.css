@@ -1,0 +1,530 @@
+/* ==========================================================================
+   站点采集页面样式（PanManage/PanSourceCollect）
+   分区：1 布局 · 2 左栏站点面板 · 3 站点卡片 · 4 采集参数弹窗 · 5 采集进度
+   说明：资源卡片的样式是跨页公共的，已抽到 aggpansearch/css/aggpansearch-card-list.css，
+        本文件只保留采集页专属布局（左栏站点面板、进度条等）。
+   ========================================================================== */
+
+/* 1. 布局：左侧站点面板 + 右侧资源表格（左 3 : 右 7） */
+.collect-layout {
+    display: flex;
+    align-items: flex-start;
+}
+
+/* 宽度比 左 3 : 右 7：左栏固定 30%，右栏 .collect-main 用 flex:1 吃掉剩余 70% */
+.collect-side {
+    width: 30%;
+    min-width: 300px;
+    box-sizing: border-box;
+    padding: 12px;
+    background: #F5F7FA;
+    border: 1px solid #E5E8ED;
+    border-radius: 4px;
+}
+
+.collect-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-left: 12px;
+    box-sizing: border-box;
+}
+
+/* 右侧内容被左栏挤占后，避免 bootstrap row 的负边距产生横向滚动条 */
+.collect-main > .row {
+    margin-right: 0;
+    margin-left: 0;
+}
+
+/* 2. 左栏站点面板 */
+.side-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.side-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333333;
+}
+
+.side-count {
+    padding: 0 7px;
+    font-size: 12px;
+    line-height: 18px;
+    color: #FFFFFF;
+    background: #1AB394;
+    border-radius: 10px;
+}
+
+.btn-add-site {
+    width: 100%;
+    margin-bottom: 4px;
+}
+
+.site-card-list {
+    max-height: calc(100vh - 320px);
+    margin-top: 8px;
+    overflow-y: auto;
+}
+
+/* 3. 站点卡片：名称与维护入口 / 站点链接 / 采集按钮（采集地址在采集弹窗中填写） */
+.site-card {
+    padding: 10px;
+    margin-bottom: 10px;
+    background: #FFFFFF;
+    border: 1px solid #E5E8ED;
+    border-radius: 4px;
+    transition: all 0.15s;
+}
+
+.site-card:hover {
+    box-shadow: 0 2px 8px rgba(26, 179, 148, 0.12);
+    transform: translateY(-1px);
+}
+
+/* 站点名称与「编辑 / 删除」同一行，操作固定右上角 */
+.site-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.site-card-head .site-card-title {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.site-card-title {
+    margin-bottom: 6px;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333333;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* 站点链接：单行省略，点击新窗口打开 */
+.site-card-url {
+    display: block;
+    margin-top: 4px;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 18px;
+    color: #1AB394;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.site-card-url:hover {
+    color: #148F77;
+    text-decoration: underline;
+}
+
+.site-card-url.empty {
+    color: #BBBBBB;
+}
+
+/* 步骤化操作区：① 配置分类 → ② 采集，两按钮居中同排 */
+.site-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding-top: 8px;
+    margin-top: 8px;
+    border-top: 1px dashed #EEEEEE;
+}
+
+.site-card-actions .site-step-arrow {
+    font-size: 12px;
+    color: #CCCCCC;
+}
+
+.site-card-actions .site-step-no {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 4px;
+    font-size: 10px;
+    line-height: 14px;
+    text-align: center;
+    color: #FFFFFF;
+    background: #1AB394;
+    border-radius: 50%;
+}
+
+.site-card-actions .btn-default .site-step-no {
+    background: #B7C3C0;
+}
+
+.site-card-actions .btn-collect[data-blocked="1"] {
+    opacity: 0.55;
+    filter: grayscale(0.3);
+    cursor: not-allowed;
+}
+
+.site-card-actions .btn-collect[data-blocked="1"]:hover {
+    background-color: #1AB394;
+    border-color: #1AB394;
+}
+
+/* 次要操作（编辑、删除）成组右对齐 */
+.site-card-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.site-card-actions .btn {
+    padding: 2px 10px;
+    font-size: 12px;
+}
+
+/* 编辑/删除链接位于卡片右上角，样式按卡片作用域生效 */
+.site-card .link {
+    font-size: 12px;
+    color: #23B7E5;
+    cursor: pointer;
+}
+
+.site-card .link.danger {
+    color: #E74C3C;
+}
+
+.site-empty {
+    padding: 18px 0;
+    font-size: 12px;
+    color: #BBBBBB;
+    text-align: center;
+}
+
+/* 4. 采集参数页：采集方式 tab + 表单行 */
+.collect-form .radio-inline {
+    margin-right: 14px;
+}
+
+.param-form .help-block {
+    margin-top: 4px;
+    margin-bottom: 0;
+    font-size: 12px;
+    color: #999999;
+}
+
+/* 采集方式 tab：三等分按钮组，当前项高亮 */
+.collect-mode-tabs {
+    display: flex;
+    gap: 8px;
+}
+
+.collect-mode-tab {
+    flex: 1 1 0;
+    padding: 6px 4px;
+    border: 1px solid #E5E6E7;
+    border-radius: 3px;
+    background: #FFFFFF;
+    color: #676A6C;
+    font-size: 13px;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.collect-mode-tab:hover {
+    border-color: #1AB394;
+    color: #1AB394;
+}
+
+.collect-mode-tab.active {
+    border-color: #1AB394;
+    background: #1AB394;
+    color: #FFFFFF;
+}
+
+/* 5. 采集进度条 */
+.collect-progress-bar {
+    padding: 4px 0 10px 0;
+}
+
+.collect-progress-text {
+    font-size: 12px;
+    color: #666666;
+}
+
+.collect-progress-cancel {
+    margin-left: 8px;
+}
+
+/* 6. 搜索区下拉（ysComboBox）：选项是固定枚举，去掉下拉面板里的搜索输入框 */
+.select2-container--open .select2-search--dropdown {
+    display: none;
+}
+
+/* 7. 搜索区采集时间：沿用框架 laydate 日期控件，宽度比框架默认 133px 收窄 */
+.search-collapse .select-list li.collect-time {
+    line-height: 30px;
+}
+
+.search-collapse .select-list li.collect-time .time-input {
+    display: inline-block;
+    width: 108px;
+    padding-left: 6px;
+    margin-right: 2px;
+    vertical-align: middle;
+    box-sizing: border-box;
+}
+
+.search-collapse .select-list li.collect-time .time-sep {
+    display: inline-block;
+    margin: 0 3px;
+    vertical-align: middle;
+}
+
+/* 8. 站点卡片分类状态：已配置为绿色，未配置为提示色 */
+.site-card-category {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.site-card-category.ok {
+    color: #1AB394;
+}
+
+.site-card-category.empty {
+    color: #F39C12;
+}
+
+/* 9. 配置分类弹窗页 */
+#siteCategoryPage {
+    padding: 14px 16px 8px 16px;
+}
+
+.category-site-bar {
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    background: #F7F9FA;
+    border: 1px solid #EEF1F2;
+    border-radius: 6px;
+}
+
+.category-site-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333333;
+}
+
+.category-site-url {
+    display: block;
+    margin-top: 2px;
+    overflow: hidden;
+    font-size: 12px;
+    color: #1AB394;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.category-site-url.empty {
+    color: #BBBBBB;
+}
+
+.category-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.category-toolbar-left .btn {
+    margin-right: 6px;
+}
+
+.category-stats {
+    font-size: 12px;
+    color: #999999;
+}
+
+.category-tip {
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    border-radius: 4px;
+}
+
+.category-tip.tip-info {
+    color: #31708F;
+    background: #EAF4FB;
+    border: 1px solid #CFE8F6;
+}
+
+.category-tip.tip-success {
+    color: #1AB394;
+    background: #EAFAF6;
+    border: 1px solid #C8EEE6;
+}
+
+.category-tip.tip-error {
+    color: #C0392B;
+    background: #FDEDEB;
+    border: 1px solid #F8D4CF;
+}
+
+.category-table-wrap {
+    /* 尽量占满弹窗剩余高度：100vh 约为弹窗内容区高度，减去上方站点条/工具栏/表头占位 */
+    max-height: calc(100vh - 170px);
+    overflow-y: auto;
+    border: 1px solid #EEF1F2;
+    border-radius: 6px;
+}
+
+.category-table {
+    width: 100%;
+    margin-bottom: 0;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+.category-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #666666;
+    background: #F7F9FA;
+    border-bottom: 1px solid #EEF1F2;
+}
+
+.category-table tbody td {
+    padding: 6px 10px;
+    font-size: 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #F4F6F7;
+}
+
+.category-table tbody tr:hover {
+    background: #F3FBF9;
+}
+
+.category-table .cat-name,
+.category-table .cat-source {
+    height: 28px;
+    padding: 2px 6px;
+    font-size: 12px;
+}
+
+/* 已有分类名只读展示：去掉输入框外观，视觉等同纯文本 */
+.category-table .cat-name-readonly {
+    height: 26px;
+    padding: 0;
+    color: #676A6C;
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    cursor: default;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.category-table .cat-name-readonly:focus {
+    border-color: transparent;
+    box-shadow: none;
+    outline: none;
+}
+
+/* 分类资源下拉（select2）：紧凑化并与 input-sm 高度对齐 */
+.category-table .select2-container {
+    vertical-align: middle;
+}
+
+.category-table .select2-container--default .select2-selection--single {
+    height: 28px;
+    border-color: #E5E6E7;
+    border-radius: 2px;
+}
+
+.category-table .select2-container--default .select2-selection--single .select2-selection__rendered {
+    padding-left: 6px;
+    padding-right: 18px;
+    font-size: 12px;
+    line-height: 26px;
+    color: #676A6C;
+}
+
+.category-table .select2-container--default .select2-selection--single .select2-selection__arrow {
+    top: 1px;
+    right: 2px;
+    width: 16px;
+    height: 26px;
+}
+
+.category-url-cell {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.category-url {
+    color: #23B7E5;
+}
+
+.category-url-empty {
+    color: #BBBBBB;
+}
+
+.category-remove {
+    color: #E74C3C;
+    cursor: pointer;
+}
+
+.category-remove:hover {
+    text-decoration: underline;
+}
+
+.category-empty {
+    padding: 26px 0;
+    font-size: 12px;
+    color: #BBBBBB;
+    text-align: center;
+}
+
+/* 10. 资源列表：表格已改为卡片化展示（列定义收敛为「勾选列 + 单卡片列」），
+   卡片与网格样式见公共文件 aggpansearch/css/aggpansearch-card-list.css，此处不再定义列样式 */
+
+/* 11. 图片列占位：无图时占位块与 44×44 缩略图（含 1px 边框）同尺寸，行高保持一致 */
+.grid-img-placeholder {
+    display: inline-block;
+    box-sizing: border-box;
+    width: 46px;
+    height: 46px;
+    padding: 0 1px;
+    overflow: hidden;
+    font-size: 10px;
+    line-height: 44px;
+    color: #BBBBBB;
+    text-align: center;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    background-color: #FAFBFC;
+    border: 1px dashed #E4E7EA;
+    border-radius: 4px;
+}
+
+/* 「未下载」提示沿用原来的橙色 */
+.grid-img-placeholder.is-warn {
+    color: #E6A23C;
+}
+
+/* 12. 采集资源卡片
+   卡片样式已抽为跨页公共文件 aggpansearch/css/aggpansearch-card-list.css（含 min），
+   采集资源页与本地资源页共用，这里不再重复定义。
+   卡片 HTML 由 aggpansearch/js/aggpansearch-card-list.js 的 ys.cardList 负责渲染。 */
+

@@ -1,0 +1,236 @@
+@{
+    Layout = "~/Views/Shared/_Index.cshtml";
+}
+<div class="container-div">
+    <div class="row">
+        <div id="searchDiv" class="col-sm-12 search-collapse">
+            <div class="select-list">
+                <ul>
+                    <li>
+                        <label>作品名称：</label>
+                        <input id="title" col="title" type="text" placeholder="支持模糊查询" />
+                    </li>
+                    <li>
+                        <label>联系方式：</label>
+                        <input id="contact" col="contact" type="text" placeholder="手机 / 邮箱" />
+                    </li>
+                    <li>
+                        <label>状态：</label>
+                        <div id="status" col="status" class="select-wrap"></div>
+                    </li>
+                    <li>
+                        <label>提交 IP：</label>
+                        <input id="complaintIp" col="complaint_ip" type="text" placeholder="支持模糊查询" />
+                    </li>
+                    <li class="select-time">
+                        <label>提交时间：</label>
+                        <input id="startTime" col="startTime" type="text" class="time-input" placeholder="开始时间" />
+                        <span>-</span>
+                        <input id="endTime" col="endTime" type="text" class="time-input" placeholder="结束时间" />
+                    </li>
+                    <li>
+                        <a id="btnSearch" class="btn btn-primary btn-sm" onclick="searchGrid()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="btn-group-sm hidden-xs" id="toolbar">
+            <a id="btnView" class="btn btn-info disabled" onclick="showDetail()"><i class="fa fa-eye"></i> 查看详情</a>
+            <a id="btnPass" class="btn btn-success disabled" onclick="quickAudit(1)"><i class="fa fa-check"></i> 审核通过</a>
+            <a id="btnReject" class="btn btn-warning disabled" onclick="quickAudit(2)"><i class="fa fa-ban"></i> 驳回</a>
+            <a id="btnDelete" class="btn btn-danger disabled" onclick="deleteForm()"><i class="fa fa-remove"></i> 删除</a>
+        </div>
+        <div class="col-sm-12 select-table table-striped">
+            <table id="gridTable" data-mobile-responsive="true"></table>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(function () {
+        initGrid();
+
+        // 状态：不启用下拉搜索输入框；选「全部」时提交空值，后端不做筛选
+        $("#status").ysComboBox({
+            data: [
+                { Key: '0', Value: '待处理' },
+                { Key: '1', Value: '已通过' },
+                { Key: '2', Value: '已驳回' }
+            ],
+            search: false
+        });
+
+        // 提交时间：仅按天筛选，后端按 [开始日 00:00, 结束日次日 00:00) 过滤
+        laydate.render({ elem: '#startTime', format: 'yyyy-MM-dd' });
+        laydate.render({ elem: '#endTime', format: 'yyyy-MM-dd' });
+    });
+
+    // 投诉内容为用户提交，统一转义后再拼接到单元格，避免 XSS
+    function esc(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function renderStatus(value) {
+        if (value === null || value === undefined || value === '') {
+            return '';
+        }
+        var key = String(value);
+        if (key === '0') {
+            return '<span class="badge" style="background-color:#f39c12;">待处理</span>';
+        }
+        if (key === '1') {
+            return '<span class="badge badge-primary" style="background-color:#27ae60;">已通过</span>';
+        }
+        if (key === '2') {
+            return '<span class="badge badge-default" style="background-color:#95a5a6;">已驳回</span>';
+        }
+        return key;
+    }
+
+    function renderTime(value) {
+        if (ys.isNullOrEmpty(value)) {
+            return '';
+        }
+        return String(value).replace('T', ' ').substring(0, 19);
+    }
+
+    // 链接过长时截断显示，完整地址放在 title 中，避免表格被撑开
+    function renderUrl(value) {
+        if (ys.isNullOrEmpty(value)) {
+            return '';
+        }
+        var text = String(value);
+        var shortText = text.length > 46 ? text.substring(0, 46) + '...' : text;
+        return '<span title="' + esc(text) + '">' + esc(shortText) + '</span>';
+    }
+
+    function renderText(value, row, index, field) {
+        if (ys.isNullOrEmpty(value)) {
+            return '';
+        }
+        return esc(String(value));
+    }
+
+    function initGrid() {
+        var queryUrl = '@Url.Content("~/PanManage/PanCopyrightComplaint/GetPageListJson")';
+        $('#gridTable').ysTable({
+            url: queryUrl,
+            sortName: 'BaseCreateTime',
+            sortOrder: 'desc',
+            columns: [
+                { checkbox: true, visible: true },
+                { field: 'Id', title: 'Id', visible: false },
+                { field: 'Title', title: '作品名称', width: 180, formatter: renderText },
+                { field: 'InfringingUrl', title: '侵权链接', width: 300, formatter: renderUrl },
+                { field: 'Complainant', title: '投诉人', width: 110, formatter: renderText },
+                { field: 'Contact', title: '联系方式', width: 150, formatter: renderText },
+                { field: 'Status', title: '状态', width: 90, formatter: renderStatus },
+                { field: 'ComplaintIp', title: '提交IP', width: 130, formatter: renderText },
+                { field: 'BaseCreateTime', title: '提交时间', width: 160, formatter: renderTime },
+                { field: 'AuditTime', title: '审核时间', width: 160, formatter: renderTime, visible: false },
+                { field: 'AuditRemark', title: '处理备注', visible: false },
+            ],
+            queryParams: function (params) {
+                var pagination = $('#gridTable').ysTable('getPagination', params);
+                var queryString = $('#searchDiv').getWebControls(pagination);
+                return queryString;
+            }
+        });
+
+        // 选中行变化时切换工具栏按钮可用状态
+        // 注意：不能命名为 resetToolbarStatus，aggpansearch-init.min.js 有同名全局函数会覆盖本页实现
+        $('#gridTable').on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table load-success.bs.table', function () {
+            updateToolbarStatus();
+        });
+    }
+
+    function updateToolbarStatus() {
+        var rows = $('#gridTable').bootstrapTable('getSelections');
+        var count = rows ? rows.length : 0;
+        // 查看详情仅支持单选；审核、删除支持批量
+        $('#btnView').toggleClass('disabled', count !== 1);
+        $('#btnPass, #btnReject, #btnDelete').toggleClass('disabled', count === 0);
+    }
+
+    function searchGrid() {
+        $('#gridTable').ysTable('search');
+        updateToolbarStatus();
+    }
+
+    function showDetail() {
+        var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+        if (!ys.checkRowEdit(selectedRow)) {
+            return;
+        }
+        ys.openDialog({
+            title: '投诉详情与审核',
+            content: '@Url.Content("~/PanManage/PanCopyrightComplaint/PanCopyrightComplaintForm")' + '?id=' + selectedRow[0].Id,
+            width: '880px',
+            height: '92%',
+            btn: null
+        });
+    }
+
+    // 批量审核：layer.prompt 收集处理备注（必填），备注会写入每条投诉
+    function quickAudit(status) {
+        var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+        if (selectedRow == null || selectedRow.length == 0) {
+            ys.msgWarning('请先选择要处理的投诉');
+            return;
+        }
+        var ids = ys.getIds(selectedRow);
+        var actionText = status == 1 ? '审核通过' : '驳回';
+        layer.prompt({
+            title: '请填写' + actionText + '的处理备注（必填，将记录在投诉台账中）',
+            formType: 2,
+            maxlength: 1000
+        }, function (remark, index) {
+            if (!remark || $.trim(remark) === '') {
+                ys.msgWarning('请填写处理备注');
+                return;
+            }
+            ys.ajax({
+                url: '@Url.Content("~/PanManage/PanCopyrightComplaint/AuditJson")',
+                type: 'post',
+                data: { ids: ids, status: status, remark: $.trim(remark) },
+                success: function (obj) {
+                    if (obj.Tag == 1) {
+                        ys.msgSuccess(obj.Message);
+                        layer.close(index);
+                        searchGrid();
+                    }
+                    else {
+                        ys.msgError(obj.Message);
+                    }
+                }
+            });
+        });
+    }
+
+    function deleteForm() {
+        var selectedRow = $('#gridTable').bootstrapTable('getSelections');
+        if (ys.checkRowDelete(selectedRow)) {
+            ys.confirm('删除后该投诉的版权关键词将同步移除，确认删除选中的' + selectedRow.length + '条记录吗？', function () {
+                var ids = ys.getIds(selectedRow);
+                ys.ajax({
+                    url: '@Url.Content("~/PanManage/PanCopyrightComplaint/DeleteFormJson")' + '?ids=' + ids,
+                    type: 'post',
+                    success: function (obj) {
+                        if (obj.Tag == 1) {
+                            ys.msgSuccess(obj.Message);
+                            searchGrid();
+                        }
+                        else {
+                            ys.msgError(obj.Message);
+                        }
+                    }
+                });
+            });
+        }
+    }
+</script>

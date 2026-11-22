@@ -1,0 +1,201 @@
+@using AggPanSearch.Util
+@{
+    Layout = "~/Views/Shared/_Index.cshtml";
+}
+<style type="text/css">
+    .theme-list {
+        display: flex;
+        flex-wrap: wrap;
+        margin: 0 -8px;
+    }
+
+    .theme-card {
+        width: 210px;
+        margin: 8px;
+        padding: 14px;
+        border: 2px solid #e5e6e7;
+        border-radius: 8px;
+        background: #fff;
+        cursor: pointer;
+        transition: all .2s;
+        position: relative;
+    }
+
+        .theme-card:hover {
+            border-color: #b9d4f5;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
+        }
+
+        .theme-card.active {
+            border-color: #1ab394;
+            box-shadow: 0 2px 12px rgba(26, 179, 148, .25);
+        }
+
+            .theme-card.active::after {
+                content: "\f00c";
+                font-family: FontAwesome;
+                position: absolute;
+                top: 8px;
+                right: 10px;
+                color: #1ab394;
+                font-size: 14px;
+            }
+
+    .theme-card-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 10px;
+    }
+
+    .theme-card-colors {
+        display: flex;
+        height: 34px;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+
+        .theme-card-colors span {
+            flex: 1;
+        }
+
+    .theme-card-desc {
+        font-size: 12px;
+        color: #999;
+        line-height: 18px;
+        min-height: 36px;
+    }
+</style>
+
+<div class="container-div">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="ibox float-e-margins">
+                <div class="ibox-title">
+                    <h5>切换主题</h5>
+                </div>
+                <div class="ibox-content">
+                    <div class="alert alert-info" style="font-size:13px;">
+                        主题由后台统一控制，保存后<b>用户前端所有页面</b>（首页 / 搜索 / 资源分类 / 详情）都会生效。
+                        暖红主题的主色取自「基础设置」中的主题色配置，其余主题为内置配色。
+                    </div>
+
+                    <div class="theme-list" id="themeList">
+                        <!-- 主题卡片由脚本按配置渲染 -->
+                    </div>
+
+                    <div class="m-t-md">
+                        <label style="font-weight:normal; cursor:pointer;">
+                            <input type="checkbox" id="themeSwitch" style="margin-right:6px; vertical-align:middle;" />
+                            允许访客在用户前端导航栏自行切换主题（关闭后前台不再显示切换入口）
+                        </label>
+                    </div>
+
+                    <div class="m-t-md">
+                        <a class="btn btn-primary" onclick="saveTheme()"><i class="fa fa-check"></i>&nbsp;保存</a>
+                        <span class="text-muted m-l-sm" style="font-size:12px;">保存后访客刷新页面即可看到新主题</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    // 与用户前端 _Layout.cshtml 中 [data-theme] 的取值一一对应
+    var themeList = [
+        {
+            name: 'red', title: '暖红',
+            colors: ['#ff6b6b', '#ffb3b3', '#fff5f5'],
+            desc: '默认主题，主色跟随「基础设置」中的主题色，暖色氛围强。'
+        },
+        {
+            name: 'blue', title: '海洋蓝',
+            colors: ['#409eff', '#a0cfff', '#f0f7ff'],
+            desc: '清爽的蓝色调，适合信息密度较高的内容页面。'
+        },
+        {
+            name: 'green', title: '森林绿',
+            colors: ['#0ea47a', '#8fd8c4', '#f0fbf7'],
+            desc: '自然护眼的绿色调，长时间浏览更舒适。'
+        },
+        {
+            name: 'dark', title: '暗夜黑',
+            colors: ['#1f2430', '#4a5265', '#000000'],
+            desc: '深色模式，夜间浏览不刺眼，适合暗光环境。'
+        }
+    ];
+
+    var currentTheme = 'red';
+
+    $(function () {
+        loadTheme();
+    });
+
+    function loadTheme() {
+        $.ajax({
+            url: '@Url.Content("~/PanManage/PanConfTheme/GetThemeJson")',
+            type: 'get',
+            dataType: 'json',
+            success: function (obj) {
+                if (obj.Tag == 1 && obj.Data) {
+                    currentTheme = obj.Data.theme || 'red';
+                    $('#themeSwitch').prop('checked', obj.Data.themeSwitch == 1);
+                }
+                renderThemeList();
+            },
+            error: function () {
+                ys.msgError('主题配置加载失败');
+                renderThemeList();
+            }
+        });
+    }
+
+    function renderThemeList() {
+        var html = '';
+        for (var i = 0; i < themeList.length; i++) {
+            var item = themeList[i];
+            html += '<div class="theme-card' + (item.name == currentTheme ? ' active' : '') + '" data-theme="' + item.name + '">';
+            html += '<div class="theme-card-title">' + item.title + '</div>';
+            html += '<div class="theme-card-colors">';
+            for (var j = 0; j < item.colors.length; j++) {
+                html += '<span style="background:' + item.colors[j] + ';"></span>';
+            }
+            html += '</div>';
+            html += '<div class="theme-card-desc">' + item.desc + '</div>';
+            html += '</div>';
+        }
+        $('#themeList').html(html);
+    }
+
+    $(document).on('click', '.theme-card', function () {
+        currentTheme = $(this).attr('data-theme');
+        $('.theme-card').removeClass('active');
+        $(this).addClass('active');
+    });
+
+    function saveTheme() {
+        var param = {
+            theme: currentTheme,
+            themeSwitch: $('#themeSwitch').is(':checked') ? 1 : 0
+        };
+        $.ajax({
+            url: '@Url.Content("~/PanManage/PanConfTheme/SaveThemeJson")',
+            type: 'post',
+            contentType: 'application/json; charset=utf-8',
+            dataType: 'json',
+            data: JSON.stringify(param),
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    ys.msgSuccess(obj.Message);
+                } else {
+                    ys.msgError(obj.Message);
+                }
+            },
+            error: function () {
+                ys.msgError('保存失败，请稍后重试');
+            }
+        });
+    }
+</script>

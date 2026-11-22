@@ -1,0 +1,60 @@
+@using AggPanSearch.Admin.Web.Areas.UserFrontend.Models
+@{
+    var config = ViewData["Config"] as SiteConfig ?? new SiteConfig();
+}
+<style>
+    #app .footerBox {
+        background: var(--theme-surface) !important;
+        padding: 28px 16px 30px !important;
+        margin-top: 24px !important;
+        border-top: 1px solid var(--theme-border) !important;
+        transition: background-color 0.3s ease;
+    }
+    #app .footerBox .box {
+        max-width: 1080px;
+        margin: 0 auto;
+        text-align: center;
+        font-size: 13px;
+    }
+    #app .footerBox p {
+        margin: 6px 0;
+        color: var(--theme-text-secondary);
+        line-height: 1.8;
+    }
+    #app .footerBox a {
+        color: var(--theme-primary);
+        text-decoration: none;
+    }
+    #app .footerBox a:hover { opacity: 0.8; }
+</style>
+@if (!string.IsNullOrEmpty(config.AdFooter))
+{
+    <div class="ad-box">@Html.Raw(config.AdFooter)</div>
+}
+<div class="footerBox">
+    <div class="box">
+        <p>@Html.Raw(config.FooterDec)</p>
+        <p>
+            @Html.Raw(config.FooterCopyright)
+            <a href="/sitemap" target="_blank">网站地图</a>
+            ·
+            <a href="/copyright">版权声明 · 侵权投诉</a>
+            ·
+            <a href="/banned_words">屏蔽词列表</a>
+            @if (!string.IsNullOrEmpty(config.AppName))
+            {
+                <text> · @config.AppName</text>
+            }
+        </p>
+        @if (!string.IsNullOrEmpty(config.WebAddress))
+        {
+            <p>
+                网站网址：<a href="@config.WebAddress" target="_blank" rel="noopener">@config.WebAddress</a>
+            </p>
+        }
+        @if (!string.IsNullOrEmpty(config.SeoStatistics))
+        {
+            @Html.Raw(config.SeoStatistics)
+        }
+    </div>
+</div>

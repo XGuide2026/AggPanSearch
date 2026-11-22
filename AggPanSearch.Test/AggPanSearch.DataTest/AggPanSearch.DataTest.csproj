@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="nunit" />
+    <PackageReference Include="NUnit3TestAdapter">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\AggPanSearch.Business\AggPanSearch.Service\AggPanSearch.Service.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Data\AggPanSearch.Data.EF\AggPanSearch.Data.EF.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Data\AggPanSearch.Data.Repository\AggPanSearch.Data.Repository.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Data\AggPanSearch.Data\AggPanSearch.Data.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Entity\AggPanSearch.Model\AggPanSearch.Model.csproj" />
+  </ItemGroup>
+
+</Project>

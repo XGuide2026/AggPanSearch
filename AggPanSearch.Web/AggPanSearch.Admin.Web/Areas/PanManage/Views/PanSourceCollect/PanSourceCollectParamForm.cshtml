@@ -1,0 +1,195 @@
+@using AggPanSearch.Util
+@{
+    Layout = "~/Views/Shared/_FormWhite.cshtml";
+}
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostingEnvironment
+@section header{
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/pansou/css/pan-source-collect.min.css"))
+}
+
+<div class="wrapper animated fadeInRight">
+    <form id="form" class="form-horizontal m param-form">
+        @* 采集方式：三个 tab 直接切换，按模式只显示用得到的地址项 *@
+        <div class="form-group">
+            <div class="col-sm-12">
+                <div id="collectModeTabs" class="collect-mode-tabs">
+                    <a class="collect-mode-tab" data-mode="0" onclick="setMode(0)">详情页采集</a>
+                    <a class="collect-mode-tab" data-mode="1" onclick="setMode(1)">单个列表页采集</a>
+                    <a class="collect-mode-tab" data-mode="2" onclick="setMode(2)">分页列表采集</a>
+                </div>
+                <p id="collectModeHint" class="help-block"></p>
+            </div>
+        </div>
+        <div id="collectDetailUrlGroup" class="form-group">
+            <label class="col-sm-3 control-label">详情页地址</label>
+            <div class="col-sm-8">
+                <input id="collectDetailUrl" type="text" class="form-control" maxlength="1000" placeholder="详情页采集时填写单条资源地址" />
+                <p id="collectDetailHint" class="help-block"></p>
+            </div>
+        </div>
+        <div id="collectListUrlGroup" class="form-group">
+            <label class="col-sm-3 control-label">列表页地址</label>
+            <div class="col-sm-8">
+                <input id="collectListUrl" type="text" class="form-control" maxlength="1000" placeholder="要采集的列表页地址，如 https://www.duoduoziyuanku.com/" />
+                <p id="collectListUrlHint" class="help-block"></p>
+            </div>
+        </div>
+        <div id="collectPageTemplateGroup" class="form-group">
+            <label class="col-sm-3 control-label">分页链接模板</label>
+            <div class="col-sm-8">
+                <input id="collectPageTemplate" type="text" class="form-control" maxlength="1000" placeholder="含 {page}，如 https://www.duoduoziyuanku.com/page/{page}/" />
+                <p id="collectPageTemplateHint" class="help-block"></p>
+            </div>
+        </div>
+        @* 最大页数仅「分页列表采集」需要，另两个模式走引擎默认上限 *@
+        <div id="collectMaxPagesGroup" class="form-group">
+            <label class="col-sm-3 control-label">最大页数</label>
+            <div class="col-sm-8">
+                <input id="collectMaxPages" type="number" min="1" max="100" class="form-control" value="40" />
+                <p id="collectPagesHint" class="help-block"></p>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script type="text/javascript">
+    var siteId = ys.request("siteId") || '';
+    // 采集模式：0 详情页采集 / 1 单个列表页采集 / 2 分页列表采集
+    var MODE_HINTS = {
+        0: '详情页采集：只抓取「详情页地址」这一条资源，不进入列表页。',
+        1: '单个列表页采集：抓取「列表页地址」这一页，并进入该页所有详情页取链接，默认最多跟进 30 个详情页。',
+        2: '分页列表采集：按「分页链接」的 {page} 占位符逐页采集，从「列表页地址」对应的页码开始。'
+    };
+
+    $(function () {
+        setMode(readSavedMode());
+    });
+
+    // 默认选中上次使用的模式（由父页面 PanSourceCollect.state.mode 提供）
+    function readSavedMode() {
+        var mode = 1;
+        try {
+            mode = parent.PanSourceCollect.state.mode;
+        } catch (e) {
+            mode = 1;
+        }
+        return (mode === 0 || mode === 1 || mode === 2) ? mode : 1;
+    }
+
+    function currentMode() {
+        var mode = parseInt($('#collectModeTabs .collect-mode-tab.active').attr('data-mode'), 10);
+        return (mode === 0 || mode === 1 || mode === 2) ? mode : 1;
+    }
+
+    // 切换模式：高亮 tab，只显示当前模式用得到的地址项
+    function setMode(mode) {
+        if (mode !== 0 && mode !== 1 && mode !== 2) {
+            mode = currentMode();
+        }
+        $('#collectModeTabs .collect-mode-tab').removeClass('active');
+        $('#collectModeTabs .collect-mode-tab[data-mode="' + mode + '"]').addClass('active');
+
+        var isDetailMode = mode === 0;
+        var useListUrl = mode === 1 || mode === 2;
+        var useTemplate = mode === 2;
+
+        $('#collectModeHint').text(MODE_HINTS[mode]);
+        $('#collectDetailUrlGroup').toggle(isDetailMode);
+        $('#collectListUrlGroup').toggle(useListUrl);
+        $('#collectPageTemplateGroup').toggle(useTemplate);
+        // 最大页数只对分页列表采集有意义，另两个模式隐藏该字段并走引擎默认上限
+        $('#collectMaxPagesGroup').toggle(useTemplate);
+
+        $('#collectListUrlHint').text(mode === 2
+            ? '填写分页列表中的任意一页地址（如第 5 页），将从该页的页码开始采集（必填）'
+            : '要采集的列表页地址（必填）');
+        $('#collectPagesHint').text('从「列表页地址」所在页开始计数，限制本次采集的列表页数，默认 40');
+    }
+
+    // 地址与分页模板的前端预检，与服务端 SiteCollectUrlRules 同口径
+    function checkHttpUrl(url) {
+        return /^https?:\/\/\S+$/i.test($.trim(url || ''));
+    }
+
+    function checkPageTemplate(template) {
+        var value = $.trim(template || '');
+        if (value === '') {
+            return '分页链接为空，无法进行分页列表采集';
+        }
+        if (!/\{page\}/i.test(value)) {
+            return '分页链接需包含 {page} 占位符，如 https://example.com/page/{page}';
+        }
+        if (!/^https?:\/\//i.test(value.replace(/\{page\}/gi, '1'))) {
+            return '分页链接需以 http:// 或 https:// 开头';
+        }
+        return '';
+    }
+
+    // 读取并校验表单参数，返回 { mode, detailUrl, listUrl, pageTemplate, maxPages, error }
+    function readArgs() {
+        var mode = currentMode();
+        var args = {
+            mode: mode,
+            detailUrl: $.trim($('#collectDetailUrl').val()),
+            listUrl: $.trim($('#collectListUrl').val()),
+            pageTemplate: $.trim($('#collectPageTemplate').val()),
+            maxPages: 0,
+            error: ''
+        };
+
+        if (mode === 0) {
+            if (args.detailUrl === '') {
+                args.error = '请输入详情页地址';
+                return args;
+            }
+            if (!checkHttpUrl(args.detailUrl)) {
+                args.error = '详情页地址需以 http:// 或 https:// 开头';
+                return args;
+            }
+        } else {
+            if (args.listUrl === '') {
+                args.error = '请输入列表页地址';
+                return args;
+            }
+            if (!checkHttpUrl(args.listUrl)) {
+                args.error = '列表页地址需以 http:// 或 https:// 开头';
+                return args;
+            }
+            if (mode === 2) {
+                args.error = checkPageTemplate(args.pageTemplate);
+                if (args.error !== '') {
+                    return args;
+                }
+            }
+        }
+
+        // 仅分页列表采集需要页数；详情页采集只抓一条资源，单个列表页采集走引擎默认上限
+        if (mode === 2) {
+            var pagesText = $.trim($('#collectMaxPages').val());
+            if (!/^\d+$/.test(pagesText)) {
+                args.error = '最大页数需为 1-100 的整数';
+                return args;
+            }
+            var maxPages = parseInt(pagesText, 10);
+            if (isNaN(maxPages) || maxPages < 1 || maxPages > 100) {
+                args.error = '最大页数需为 1-100 的整数';
+                return args;
+            }
+            args.maxPages = maxPages;
+        }
+
+        return args;
+    }
+
+    // 由父页面弹窗的按钮回调调用：校验通过则提交采集任务并关闭弹窗
+    function submitForm(index) {
+        var args = readArgs();
+        if (args.error !== '') {
+            ys.msgWarning(args.error);
+            return false;
+        }
+        parent.PanSourceCollect.collect.start(siteId, args);
+        parent.layer.close(index);
+        return false;
+    }
+</script>

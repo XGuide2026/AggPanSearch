@@ -1,0 +1,61 @@
+@using AggPanSearch.Admin.Web.Areas.UserFrontend.Models
+
+@model CategoryPageModel
+@{
+    var Config = (SiteConfig)(ViewData["Config"] ?? new SiteConfig());
+    ViewData["SeoTitle"] = "资源分类 - " + Config.AppName;
+    ViewData["SeoKeywords"] = "资源分类,网盘资源,资源列表";
+    var totalPages = Model.PageSize > 0 ? (int)Math.Ceiling((double)Model.TotalResult / Model.PageSize) : 0;
+    var currentName = string.IsNullOrWhiteSpace(Model.CurrentCategoryName) ? "全部资源" : Model.CurrentCategoryName;
+    var catQuery = Model.CurrentCategoryId > 0 ? "&categoryId=" + Model.CurrentCategoryId : "";
+
+    // 资源分类导航（_CategoryNav 局部视图）：分类页用竖排列表样式
+    ViewData["CategoryLinkClass"] = "uf-cat-item";
+    // 分类项右侧显示该分类的资源数量标签
+    ViewData["CategoryShowCount"] = true;
+    ViewData["ActiveCategoryId"] = Model.CurrentCategoryId;
+    // 列表局部视图的前 3 名标记按当前页偏移
+    ViewData["RankOffset"] = (Model.PageNo - 1) * Model.PageSize;
+}
+@section Head {
+    <link rel="stylesheet" href="/userfrontend/css/category.css?v=20261118b" />
+}
+
+<div class="uf-page">
+    <div class="uf-body">
+        <aside class="uf-side">
+            <div class="uf-side-head">资源分类</div>
+            <nav class="uf-cat-list">
+                @await Html.PartialAsync("_CategoryNav", Model.Categories)
+            </nav>
+        </aside>
+
+        <div class="uf-content">
+            <div class="uf-content-head">@currentName</div>
+
+            @if (Model.Items == null || Model.Items.Count == 0)
+            {
+                <div class="uf-empty">暂无数据</div>
+            }
+            else
+            {
+                @await Html.PartialAsync("_ResourceList", Model.Items)
+
+                @if (totalPages > 1)
+                {
+                    <div class="uf-pager">
+                        @if (Model.PageNo > 1)
+                        {
+                            <a href="/category?page=@(Model.PageNo - 1)@catQuery">上一页</a>
+                        }
+                        <span>@Model.PageNo / @totalPages</span>
+                        @if (Model.PageNo < totalPages)
+                        {
+                            <a href="/category?page=@(Model.PageNo + 1)@catQuery">下一页</a>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>

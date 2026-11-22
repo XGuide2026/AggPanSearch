@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\AggPanSearch.Business\AggPanSearch.Business.Cache\AggPanSearch.Business.Cache.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Data\AggPanSearch.Data.Repository\AggPanSearch.Data.Repository.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Entity\AggPanSearch.Entity\AggPanSearch.Entity.csproj" />
+    <ProjectReference Include="..\AggPanSearch.Util\AggPanSearch.Util.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,303 @@
+/*
+ * 通用图片查看器（灯箱）样式
+ * 用法：与 aggpansearch-image-viewer.js 配套，类名统一使用 .ys-imgv- 前缀，避免与页面样式冲突。
+ * 结构：遮罩 → 面板（顶部标题栏 / 舞台大图 / 底部计数与指示点）
+ */
+
+.ys-imgv {
+    position: fixed;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: none;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ys-imgv.is-open {
+    display: block;
+}
+
+/* 半透明遮罩：透出底层页面，同时保证图片与文字可读 */
+.ys-imgv-mask {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(8, 11, 15, .7);
+    animation: ys-imgv-mask-in .2s ease-out;
+}
+
+.ys-imgv-panel {
+    position: relative;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+    height: 100%;
+    animation: ys-imgv-panel-in .22s ease-out;
+}
+
+/* 顶部：标题 + 关闭 */
+.ys-imgv-bar {
+    -webkit-flex: 0 0 auto;
+    flex: 0 0 auto;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    align-items: center;
+    -webkit-box-pack: justify;
+    -webkit-justify-content: space-between;
+    justify-content: space-between;
+    padding: 14px 20px;
+}
+
+.ys-imgv-title {
+    overflow: hidden;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 22px;
+    color: #fff;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ys-imgv-close {
+    -webkit-flex: 0 0 auto;
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    margin-left: 12px;
+    font-size: 15px;
+    line-height: 34px;
+    color: #A7B0BC;
+    text-align: center;
+    text-decoration: none;
+    background: rgba(255, 255, 255, .08);
+    border-radius: 50%;
+    -webkit-transition: background-color .2s, color .2s;
+    transition: background-color .2s, color .2s;
+}
+
+.ys-imgv-close:hover,
+.ys-imgv-close:focus {
+    color: #fff;
+    text-decoration: none;
+    background: #1AB394;
+}
+
+/* 舞台：图片按比例完整显示，四周留白 */
+.ys-imgv-stage {
+    position: relative;
+    -webkit-flex: 1 1 auto;
+    flex: 1 1 auto;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+    min-height: 0;
+    padding: 0 76px;
+}
+
+.ys-imgv-img {
+    max-width: 100%;
+    max-height: 100%;
+    opacity: 0;
+    border-radius: 4px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, .5);
+    -o-object-fit: contain;
+    object-fit: contain;
+    -webkit-transition: opacity .18s ease-out;
+    transition: opacity .18s ease-out;
+}
+
+.ys-imgv-state-loaded .ys-imgv-img {
+    opacity: 1;
+}
+
+/* 加载中 / 加载失败：舞台正中的轻提示，不遮挡切换控件 */
+.ys-imgv-tip {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: none;
+    font-size: 13px;
+    line-height: 20px;
+    color: #A7B0BC;
+    white-space: nowrap;
+    -webkit-transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);
+}
+
+.ys-imgv-tip > i {
+    margin-right: 4px;
+}
+
+.ys-imgv-state-loading .ys-imgv-loading,
+.ys-imgv-state-error .ys-imgv-error {
+    display: block;
+}
+
+.ys-imgv-state-error .ys-imgv-tip.ys-imgv-error {
+    color: #FF6B6B;
+}
+
+/* 左右切换：圆形半透明按钮，悬停点亮主题绿 */
+.ys-imgv-arrow {
+    position: absolute;
+    top: 50%;
+    width: 48px;
+    height: 48px;
+    margin-top: -24px;
+    font-size: 26px;
+    line-height: 48px;
+    color: #fff;
+    text-align: center;
+    text-decoration: none;
+    background: rgba(0, 0, 0, .45);
+    border-radius: 50%;
+    -webkit-transition: background-color .2s, opacity .2s;
+    transition: background-color .2s, opacity .2s;
+}
+
+.ys-imgv-arrow:hover,
+.ys-imgv-arrow:focus {
+    color: #fff;
+    text-decoration: none;
+    background: #1AB394;
+}
+
+.ys-imgv-arrow.is-prev {
+    left: 14px;
+}
+
+.ys-imgv-arrow.is-next {
+    right: 14px;
+}
+
+/* 底部：计数 + 指示点 */
+.ys-imgv-foot {
+    -webkit-flex: 0 0 auto;
+    flex: 0 0 auto;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+    height: 58px;
+}
+
+.ys-imgv-count {
+    margin-right: 12px;
+    font-size: 12px;
+    line-height: 18px;
+    color: #A7B0BC;
+    letter-spacing: 1px;
+}
+
+.ys-imgv-dots {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    align-items: center;
+}
+
+.ys-imgv-dot {
+    display: block;
+    width: 8px;
+    height: 8px;
+    margin: 0 4px;
+    background: rgba(255, 255, 255, .35);
+    border-radius: 4px;
+    -webkit-transition: width .2s, background-color .2s;
+    transition: width .2s, background-color .2s;
+}
+
+.ys-imgv-dot:hover {
+    background: rgba(255, 255, 255, .65);
+}
+
+.ys-imgv-dot.is-active {
+    width: 20px;
+    background: #1AB394;
+}
+
+.ys-imgv .is-hidden {
+    display: none !important;
+}
+
+@keyframes ys-imgv-mask-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes ys-imgv-panel-in {
+    from {
+        opacity: 0;
+        -webkit-transform: scale(.96);
+        transform: scale(.96);
+    }
+
+    to {
+        opacity: 1;
+        -webkit-transform: scale(1);
+        transform: scale(1);
+    }
+}
+
+/* 窄屏：收窄留白、缩小控件，保证大图占比 */
+@media (max-width: 768px) {
+    .ys-imgv-bar {
+        padding: 10px 12px;
+    }
+
+    .ys-imgv-title {
+        font-size: 14px;
+    }
+
+    .ys-imgv-stage {
+        padding: 0 46px;
+    }
+
+    .ys-imgv-arrow {
+        width: 36px;
+        height: 36px;
+        margin-top: -18px;
+        font-size: 20px;
+        line-height: 36px;
+    }
+
+    .ys-imgv-arrow.is-prev {
+        left: 6px;
+    }
+
+    .ys-imgv-arrow.is-next {
+        right: 6px;
+    }
+
+    .ys-imgv-foot {
+        height: 46px;
+    }
+}

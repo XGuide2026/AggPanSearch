@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="ToolManage\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\AggPanSearch.Util\AggPanSearch.IdGenerator\AggPanSearch.IdGenerator.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Util\AggPanSearch.Util\AggPanSearch.Util.csproj" />
+    <ProjectReference Include="..\..\AggPanSearch.Web\AggPanSearch.Web.Code\AggPanSearch.Web.Code.csproj" />
+  </ItemGroup>
+
+</Project>

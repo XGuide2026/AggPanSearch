@@ -1,0 +1,17 @@
+@using AggPanSearch.Admin.Web.Areas.UserFrontend.Models
+@{
+    var Config = (SiteConfig)(ViewData["Config"] ?? new SiteConfig());
+}
+<style>
+    .uf-err { text-align: center; padding: 120px 20px; max-width: 600px; margin: 0 auto; }
+    .uf-err .code { font-size: 72px; font-weight: 700; color: var(--theme-primary, #ff6b6b); }
+    .uf-err .msg { font-size: 16px; color: var(--theme-text, #222); margin: 16px 0 8px; }
+    .uf-err .tip { font-size: 13px; color: var(--theme-text-secondary, #999); margin-bottom: 24px; }
+    .uf-err a { display: inline-block; padding: 8px 24px; border-radius: 6px; color: #fff; background: var(--theme-primary-gradient, linear-gradient(135deg,#ff6b6b,#ff8e53)); text-decoration: none; }
+</style>
+<div class="uf-err">
+    <div class="code">404</div>
+    <div class="msg">页面不存在或已失效</div>
+    <div class="tip">您访问的页面可能已被删除、更名或暂时不可用</div>
+    <a href="/UserFrontend">返回首页</a>
+</div>

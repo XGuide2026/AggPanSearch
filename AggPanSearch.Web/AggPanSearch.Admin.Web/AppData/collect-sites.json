@@ -1,0 +1,65 @@
+[
+  {
+    "Id": "6e98f9f567fd4eab97331e5614b7c696",
+    "SiteName": "多多资源库",
+    "SiteUrl": "http://www.duoduoziyuanku.com/",
+    "Categories": [
+      {
+        "Name": "其他资源",
+        "Url": "http://www.duoduoziyuanku.com/category/10/",
+        "SourceCategoryId": 0,
+        "SourceCategoryName": ""
+      },
+      {
+        "Name": "副业项目",
+        "Url": "http://www.duoduoziyuanku.com/category/2/",
+        "SourceCategoryId": 17,
+        "SourceCategoryName": "赚钱副业"
+      },
+      {
+        "Name": "图片资源",
+        "Url": "http://www.duoduoziyuanku.com/category/7/",
+        "SourceCategoryId": 4,
+        "SourceCategoryName": "图库壁纸"
+      },
+      {
+        "Name": "学习资料",
+        "Url": "http://www.duoduoziyuanku.com/category/6/",
+        "SourceCategoryId": 13,
+        "SourceCategoryName": "教育资料"
+      },
+      {
+        "Name": "学科资料",
+        "Url": "http://www.duoduoziyuanku.com/category/8/",
+        "SourceCategoryId": 13,
+        "SourceCategoryName": "教育资料"
+      },
+      {
+        "Name": "影视资源",
+        "Url": "http://www.duoduoziyuanku.com/category/4/",
+        "SourceCategoryId": 16,
+        "SourceCategoryName": "影视剧集"
+      },
+      {
+        "Name": "电子书",
+        "Url": "http://www.duoduoziyuanku.com/category/9/",
+        "SourceCategoryId": 15,
+        "SourceCategoryName": "电子书"
+      },
+      {
+        "Name": "软件工具",
+        "Url": "http://www.duoduoziyuanku.com/category/5/",
+        "SourceCategoryId": 14,
+        "SourceCategoryName": "软件工具"
+      },
+      {
+        "Name": "音乐资源",
+        "Url": "http://www.duoduoziyuanku.com/category/3/",
+        "SourceCategoryId": 1,
+        "SourceCategoryName": "音乐歌曲"
+      }
+    ],
+    "CreateTime": "2026-11-10 02:13:52",
+    "UpdateTime": "2026-11-11 16:45:12"
+  }
+]

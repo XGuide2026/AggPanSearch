@@ -1,0 +1,441 @@
+@using AggPanSearch.Admin.Web.Areas.UserFrontend.Models
+@using Newtonsoft.Json
+
+@model DetailPageModel
+@{
+    var Config = (SiteConfig)(ViewData["Config"] ?? new SiteConfig());
+    var d = Model.Detail;
+    ViewData["SeoTitle"] = d.Title + " - " + Config.AppName;
+    ViewData["SeoKeywords"] = d.Title;
+    ViewData["SeoDescription"] = d.VodContent;
+    ViewData["Keyword"] = "";
+    string[] panNames = { "夸克", "阿里云", "百度", "UC", "迅雷", "123", "115", "天翼", "移动", "磁力", "光鸭" };
+    // 详情页引流（pan_conf：traffic_wxchannel_viewsource=2）：资源地址默认隐藏，点「查看资源」并完成公众号验证后才显示
+    var lockSource = Config.TrafficWxchannelViewsource == 2;
+}
+@section Head {
+    <link rel="stylesheet" href="/userfrontend/css/detail.css?v=20261118b" />
+}
+
+<div class="home-container">
+    <!-- 面包屑导航 -->
+    <nav class="detail-crumb" aria-label="面包屑导航">
+        <a href="/UserFrontend">首页</a>
+        <span class="detail-crumb-sep">/</span>
+        <a href="/category">资源分类</a>
+        @if (!string.IsNullOrWhiteSpace(d.CategoryName))
+        {
+            <span class="detail-crumb-sep">/</span>
+            @if (d.SourceCategoryId.HasValue && d.SourceCategoryId.Value > 0)
+            {
+                <a href="/category?categoryId=@d.SourceCategoryId">@d.CategoryName</a>
+            }
+            else
+            {
+                <span>@d.CategoryName</span>
+            }
+        }
+        <span class="detail-crumb-sep">/</span>
+        <span class="detail-crumb-cur" title="@d.Title">@d.Title</span>
+    </nav>
+
+    <!-- 详情主体 -->
+    <div class="detail-main">
+        <div class="detail-head">
+            <div class="detail-info">
+                <div class="detail-title">@d.Title</div>
+                @if (!string.IsNullOrWhiteSpace(d.Description))
+                {
+                    <div class="detail-sub">@d.Description</div>
+                }
+                <div class="detail-tags">
+                    @if (!string.IsNullOrEmpty(d.CategoryName))
+                    {
+                        <span class="detail-tag">@d.CategoryName</span>
+                    }
+                    <span class="detail-tag">@(d.IsType >= 0 && d.IsType < panNames.Length ? panNames[d.IsType] : "网盘")</span>
+                    @if (d.PageViews > 0)
+                    {
+                        <span class="detail-tag">浏览 @d.PageViews 次</span>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(d.Times))
+                    {
+                        <span class="detail-tag">@d.Times</span>
+                    }
+                </div>
+                <div class="detail-desc">
+                    @if (!string.IsNullOrEmpty(d.VodContent))
+                    {
+                        @d.VodContent
+                    }
+                    else
+                    {
+                        <text>本资源为聚合索引结果，点击下方按钮可直接访问网盘或复制链接保存。</text>
+                    }
+                </div>
+
+                @* 资源预览图：位于资源介绍下方，多图轮播（与后台编辑页 imageUpload 一致，vod_pic 多图） *@
+                @if (d.VodPics.Count > 0)
+                {
+                    <div class="detail-poster" id="detail_pic_carousel">
+                        <div class="detail-poster-viewport">
+                            <img id="detail_pic_preview" src="@d.VodPics[0]" alt="@d.Title" decoding="async" />
+                            <span class="detail-poster-tip">图片无法加载</span>
+                        </div>
+                        <a href="javascript:void(0)" class="detail-poster-prev" aria-label="上一张">‹</a>
+                        <a href="javascript:void(0)" class="detail-poster-next" aria-label="下一张">›</a>
+                        <div class="detail-poster-dots" id="detail_pic_dots"></div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(d.Code))
+                {
+                    <div class="detail-desc detail-code">提取码：@d.Code</div>
+                }
+
+                @if (!string.IsNullOrEmpty(d.Url))
+                {
+                    <div class="detail-desc detail-desc-ellipsis @(lockSource ? "detail-source-locked" : "")" id="detailSourceLine" v-show="pc_type!=2">
+                        资源地址：<a class="detail-link" href="@d.Url" target="_blank" rel="noreferrer noopener">@d.Url</a>
+                    </div>
+                }
+
+                <div class="detail-actions @(lockSource ? "detail-source-locked" : "")" id="detailActions">
+                    <div class="detail-btn detail-btn-primary" onclick="copyLink()">
+                        <i class="iconfont icon-fuzhi"></i> 复制链接
+                    </div>
+                    <a class="detail-btn detail-btn-primary" href="javascript:;" onclick="linkBtn()">
+                        <i class="iconfont icon-yun_o"></i> 立即访问
+                    </a>
+                </div>
+
+                @if (lockSource)
+                {
+                    <div class="detail-actions" id="detailSourceLock">
+                        <div class="detail-btn detail-btn-primary" onclick="unlockDetailSource()">
+                            <i class="iconfont icon-yun_o"></i> 查看资源
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- 相关资源 -->
+    @if (d.SameList.Count > 0)
+    {
+        <div class="related-card related-card-offset">
+            <div class="related-title">相关资源</div>
+            <div class="related-list">
+                @for (var i = 0; i < d.SameList.Count; i++)
+                {
+                    var vo = d.SameList[i];
+                    <a href="/d/@(vo.Id).html" class="related-item">
+                        <span class="related-num @(i < 3 ? "top3" : "")">@(i + 1)</span>
+                        <span class="related-name">@vo.Title</span>
+                    </a>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script>
+    var DETAIL = @Html.Raw(JsonConvert.SerializeObject(d));
+
+    // ---------- 资源图片轮播：默认展示第一张，左右按钮/指示点切换，自动播放 ----------
+    // 与后台编辑页 PanSourceForm.cshtml 的 vodPic 轮播保持一致：单视口 img + 左右切换 + load/error 兜底
+    var VOD_PICS = @Html.Raw(JsonConvert.SerializeObject(d.VodPics));
+    var VOD_PIC_INTERVAL = 5000;      // 自动播放间隔（ms）
+    var vodPicSelectedSrc = null;     // 当前选中展示的图片（默认第一张）
+    var vodPicLoadedSrc = null;       // 已成功加载的图片地址（缓存命中不会再次触发 load）
+    var vodPicErrorSrc = null;        // 加载失败的图片地址
+    var vodPicTimer = null;
+
+    function bindVodPicPreview() {
+        var box = document.getElementById('detail_pic_carousel');
+        if (!box) return;
+        var img = box.querySelector('#detail_pic_preview');
+        var tip = box.querySelector('.detail-poster-tip');
+        if (!img || !tip) return;
+
+        img.addEventListener('load', function () {
+            var src = this.getAttribute('src');
+            if (src === getVodPicTargetSrc()) {
+                vodPicLoadedSrc = src;
+                vodPicErrorSrc = null;
+                tip.style.display = 'none';
+                img.style.display = '';
+            }
+        });
+        img.addEventListener('error', function () {
+            var src = this.getAttribute('src');
+            if (src === getVodPicTargetSrc()) {
+                vodPicLoadedSrc = null;
+                vodPicErrorSrc = src;
+                img.style.display = 'none';
+                tip.style.display = '';
+            }
+        });
+
+        // 初始图可能已加载完成（不会再次触发 load）
+        var initSrc = img.getAttribute('src');
+        if (initSrc && img.complete && img.naturalWidth > 0) {
+            vodPicLoadedSrc = initSrc;
+        }
+
+        // 左右按钮切换（首尾循环）
+        var prev = box.querySelector('.detail-poster-prev');
+        var next = box.querySelector('.detail-poster-next');
+        if (prev) prev.addEventListener('click', function () { stepVodPic(-1); restartVodPicTimer(); });
+        if (next) next.addEventListener('click', function () { stepVodPic(1); restartVodPicTimer(); });
+
+        // 鼠标悬浮 / 触摸时暂停自动播放
+        box.addEventListener('mouseenter', stopVodPicTimer);
+        box.addEventListener('mouseleave', startVodPicTimer);
+        box.addEventListener('touchstart', stopVodPicTimer, { passive: true });
+
+        renderVodPicDots();
+        refreshVodPicPreview();
+        startVodPicTimer();
+    }
+
+    function getVodPicTargetSrc() {
+        return vodPicSelectedSrc;
+    }
+
+    function getVodPicList() {
+        return VOD_PICS || [];
+    }
+
+    // 刷新预览：默认展示列表第一张，已选中的图片仍存在则保持
+    function refreshVodPicPreview() {
+        var list = getVodPicList();
+        if (list.length === 0) {
+            vodPicSelectedSrc = null;
+        } else if (list.indexOf(vodPicSelectedSrc) === -1) {
+            vodPicSelectedSrc = list[0];
+        }
+        toggleVodPicNav(list.length > 1);
+        showVodPic(vodPicSelectedSrc);
+        updateVodPicDots();
+    }
+
+    // 左右按钮 / 指示点：图片多于一张时显示
+    function toggleVodPicNav(show) {
+        var box = document.getElementById('detail_pic_carousel');
+        if (!box) return;
+        var navs = box.querySelectorAll('.detail-poster-prev, .detail-poster-next');
+        for (var i = 0; i < navs.length; i++) {
+            navs[i].style.display = show ? 'block' : 'none';
+        }
+        var dots = document.getElementById('detail_pic_dots');
+        if (dots) dots.style.display = show ? '' : 'none';
+    }
+
+    // 左右切换预览图（首尾循环）
+    function stepVodPic(step) {
+        var list = getVodPicList();
+        if (list.length === 0) return;
+        var index = list.indexOf(vodPicSelectedSrc);
+        if (index === -1) index = 0;
+        index = (index + step + list.length) % list.length;
+        vodPicSelectedSrc = list[index];
+        showVodPic(vodPicSelectedSrc);
+        updateVodPicDots();
+    }
+
+    function showVodPic(src) {
+        var box = document.getElementById('detail_pic_carousel');
+        if (!box) return;
+        var img = box.querySelector('#detail_pic_preview');
+        var tip = box.querySelector('.detail-poster-tip');
+        if (!img || !tip) return;
+
+        if (!src) {
+            vodPicLoadedSrc = null;
+            vodPicErrorSrc = null;
+            img.style.display = 'none';
+            img.removeAttribute('src');
+            tip.style.display = 'none';
+            return;
+        }
+        if (src === vodPicLoadedSrc) {
+            tip.style.display = 'none';
+            img.style.display = '';
+            return;
+        }
+        if (src === vodPicErrorSrc) {
+            img.style.display = 'none';
+            tip.style.display = '';
+            return;
+        }
+        vodPicLoadedSrc = null;
+        vodPicErrorSrc = null;
+        tip.style.display = 'none';
+        img.style.display = '';
+        img.setAttribute('src', src);
+    }
+
+    // 指示点
+    function renderVodPicDots() {
+        var dots = document.getElementById('detail_pic_dots');
+        if (!dots) return;
+        dots.innerHTML = '';
+        var list = getVodPicList();
+        for (var i = 0; i < list.length; i++) {
+            var dot = document.createElement('span');
+            dot.className = 'detail-poster-dot';
+            dot.setAttribute('data-index', i);
+            dot.addEventListener('click', function () {
+                var idx = parseInt(this.getAttribute('data-index'), 10) || 0;
+                vodPicSelectedSrc = getVodPicList()[idx];
+                showVodPic(vodPicSelectedSrc);
+                updateVodPicDots();
+                restartVodPicTimer();
+            });
+            dots.appendChild(dot);
+        }
+        updateVodPicDots();
+    }
+
+    function updateVodPicDots() {
+        var dots = document.getElementById('detail_pic_dots');
+        if (!dots) return;
+        var index = getVodPicList().indexOf(vodPicSelectedSrc);
+        var items = dots.querySelectorAll('.detail-poster-dot');
+        for (var i = 0; i < items.length; i++) {
+            items[i].className = 'detail-poster-dot' + (i === index ? ' active' : '');
+        }
+    }
+
+    // 自动播放
+    function startVodPicTimer() {
+        stopVodPicTimer();
+        if (getVodPicList().length < 2) return;
+        vodPicTimer = setInterval(function () { stepVodPic(1); }, VOD_PIC_INTERVAL);
+    }
+
+    function stopVodPicTimer() {
+        if (vodPicTimer) {
+            clearInterval(vodPicTimer);
+            vodPicTimer = null;
+        }
+    }
+
+    function restartVodPicTimer() {
+        stopVodPicTimer();
+        startVodPicTimer();
+    }
+
+    window.addEventListener('beforeunload', stopVodPicTimer);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindVodPicPreview);
+    } else {
+        bindVodPicPreview();
+    }
+
+    // 轻提示（复用 ElementPlus 的消息组件）
+    function detailMsg(text, type) {
+        if (window.ElementPlus && ElementPlus.ElMessage) {
+            ElementPlus.ElMessage({ message: text, type: type || 'info', plain: true });
+            return;
+        }
+        alert(text);
+    }
+
+    // 兼容旧浏览器/非 HTTPS 环境的复制
+    function legacyCopy(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.top = '0';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        var ok = false;
+        try {
+            ok = document.execCommand('copy');
+        } catch (e) {
+            ok = false;
+        }
+        document.body.removeChild(ta);
+        return ok;
+    }
+
+    // 复制资源链接
+    function copyLink() {
+        var url = (DETAIL.Url || '').trim();
+        if (!url) {
+            detailMsg('该资源暂无可用链接', 'warning');
+            return;
+        }
+        var onSuccess = function () { detailMsg('链接已复制', 'success'); };
+        var onFail = function () { detailMsg('复制失败，请手动复制', 'error'); };
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(url).then(onSuccess).catch(function () {
+                legacyCopy(url) ? onSuccess() : onFail();
+            });
+        } else {
+            legacyCopy(url) ? onSuccess() : onFail();
+        }
+    }
+
+    function linkBtn() {
+        if (app.pc_type == 1) {
+            safeJump(DETAIL.Url);
+        } else {
+            DETAIL.showUrl = DETAIL.Url;
+            app.dialogUrl = true;
+            showUrlFun(DETAIL);
+        }
+    }
+
+    // 详情页引流（traffic_wxchannel_viewsource=2）：资源地址默认隐藏，点「查看资源」→ 公众号弹窗 → 验证通过后显示
+    function unlockDetailSource() {
+        var showSource = function () {
+            var lockBtn = document.getElementById('detailSourceLock');
+            if (lockBtn) lockBtn.style.display = 'none';
+            var line = document.getElementById('detailSourceLine');
+            if (line) line.classList.remove('detail-source-locked');
+            var actions = document.getElementById('detailActions');
+            if (actions) actions.classList.remove('detail-source-locked');
+        };
+        var guard = window.wxTrafficViewSourceGuard;
+        if (typeof guard === 'function') {
+            guard(2).then(function (ok) { if (ok) showSource(); });
+        } else {
+            showSource();
+        }
+    }
+
+    function safeJump(url, target = '_blank') {
+        const a = document.createElement('a');
+        a.href = url;
+        a.rel = 'noreferrer';
+        a.target = target;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    function showUrlFun(item) {
+        app.dialogItem = item;
+        app.dialogUrl = true;
+        if (item.showUrl) {
+            setTimeout(() => {
+                var el = document.getElementById('qrcode');
+                if (el) {
+                    el.innerHTML = '';
+                    var canvas = qrcanvas.qrcanvas({ data: item.showUrl, size: 120 });
+                    el.appendChild(canvas);
+                }
+            }, 200);
+        }
+    }
+</script>
+}

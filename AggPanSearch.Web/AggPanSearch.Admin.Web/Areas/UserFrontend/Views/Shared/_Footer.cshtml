@@ -1,0 +1,59 @@
+@using AggPanSearch.Admin.Web.Areas.UserFrontend.Models
+@{
+    var config = ViewData["Config"] as SiteConfig ?? new SiteConfig();
+    var keyword = ViewData["Keyword"] as string ?? "";
+    var categoryId = ViewData["CategoryId"] as string ?? "";
+}
+<script>
+    // 二开版运行时全局注入
+    window.__UF__ = window.__UF__ || {};
+    window.__UF__.keyword = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(keyword));
+    window.__UF__.categoryId = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(categoryId));
+    window.__UF__.appName = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(config.AppName));
+    window.__UF__.webAddress = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(config.WebAddress));
+    window.__UF__.pcType = @config.PcType.ToString();
+    window.__UF__.panTypeMap = @Html.Raw(config.PanTypeJson);
+    window.__UF__.isHome = @(ViewData["IsHome"] as bool? == true ? "true" : "false");
+    window.__UF__.searchTips = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(config.SearchTips));
+    window.__UF__.searchBg = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(config.SearchBg));
+    // 搜索结果是否显示"来源"标签（搜索设置 → is_show_source）：1 显示 / 0 隐藏（数字字面量，避免字符串"0"为真值）
+    window.__UF__.isShowSource = @config.IsShowSource;
+</script>
+<script src="/userfrontend/js/vue.global.min.js"></script>
+<script src="/userfrontend/js/index.full.min.js"></script>
+<script src="/userfrontend/js/axios.min.js"></script>
+<script src="/userfrontend/js/qrcanvas@3.js"></script>
+<script src="/userfrontend/js/yfs.runtime.js?v=20261122c"></script>
+<script>
+    // 兼容层：将 Vue 实例的 setupState 暴露为全局 app，供旧列表/详情页脚本访问响应式数据
+    (function() {
+        var maxAttempts = 20; // 最多约 5 秒内多次重试，避免 yfs.runtime.js 挂载时序导致的竞态
+        var attempt = 0;
+        function exposeApp() {
+            var appEl = document.querySelector('#app');
+            if (appEl && appEl.__vue_app__ && appEl.__vue_app__._instance) {
+                // 保持 setupState（ref 保留 .value），与 Search.cshtml 中 app.keyword.value 等用法一致
+                window.app = appEl.__vue_app__._instance.setupState;
+                return true;
+            }
+            return false;
+        }
+        function tryExpose() {
+            if (window.app) return;
+            if (exposeApp()) return;
+            attempt++;
+            if (attempt < maxAttempts) {
+                setTimeout(tryExpose, 250);
+            } else {
+                // 兜底：yfs.runtime.js 报错导致 Vue 始终没挂载时，摘掉 #app 上的 v-cloak，
+                // 避免 [v-cloak]{display:none} 把整页隐藏成空白
+                var appEl = document.querySelector('#app');
+                if (appEl && appEl.hasAttribute('v-cloak')) {
+                    appEl.removeAttribute('v-cloak');
+                    console.warn('[yfs] Vue 未挂载，已自动移除 v-cloak 以显示页面内容');
+                }
+            }
+        }
+        tryExpose();
+    })();
+</script>
