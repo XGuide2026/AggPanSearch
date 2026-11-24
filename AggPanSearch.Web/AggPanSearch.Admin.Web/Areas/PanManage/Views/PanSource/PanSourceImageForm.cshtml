@@ -1,0 +1,634 @@
+@using AggPanSearch.Util
+@{
+    Layout = "~/Views/Shared/_FormWhite.cshtml";
+}
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostingEnvironment
+@section header{
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/lib/imageupload/1.0/css/imgup.min.css"))
+    <script src="@Url.Content("~/lib/imageupload/1.0/js/imgup.js")?v=@DateTime.Now.Ticks" type="text/javascript"></script>
+    <style>
+        /* ===== 资源图片生成弹窗：左图片生成模式 + 右资源图片编辑工作台 ===== */
+        html, body.white-bg { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #f8f9fb; }
+        body.white-bg > .imggen-wrapper { display: flex; flex-direction: column; height: 100%; margin: 0; box-sizing: border-box; padding: 10px 14px 12px; }
+        .is-disabled { pointer-events: none; opacity: .55; }
+        .imggen-body { flex: 1; display: flex; gap: 12px; min-height: 0; padding-top: 10px; }
+
+        /* 左栏 */
+        .imggen-side { display: flex; flex-direction: column; gap: 12px; flex: 0 0 300px; width: 300px; min-height: 0; }
+        .imggen-pane { display: flex; flex-direction: column; min-height: 0; background: #fff; border: 1px solid #e8edf2; border-radius: 6px; }
+        .imggen-pane-head { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; padding: 8px 12px; border-bottom: 1px solid #eef2f6; color: #1f2d3d; font-size: 13px; font-weight: 600; }
+        .imggen-pane-head .imggen-meta { color: #98a6b8; font-size: 12px; font-weight: 400; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .mode-pane-body { padding: 12px; }
+        #shotMode .select2-container { width: 100% !important; }
+        .mode-label { display: block; margin-bottom: 6px; color: #5e6d82; font-size: 12px; }
+        #btnShotGenerate { width: 100%; margin-top: 10px; }
+        .mode-notice { display: none; margin-top: 8px; padding: 6px 10px; border: 1px solid #ffe1b3; border-radius: 4px; background: #fff8e8; color: #b26a00; font-size: 12px; line-height: 18px; }
+        /* 生成进度浮层弹窗：iframe 内 layer 大弹层曾渲染失效，采用纯 div 居中浮层展示进度 */
+        .shot-popup-mask { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.25); }
+        .shot-popup-card { width: 340px; max-width: 86%; box-sizing: border-box; background: #fff; border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.18); padding: 16px 20px 14px; }
+        .shot-popup-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; color: #1f2d3d; font-size: 14px; font-weight: 600; }
+        .shot-popup-close { cursor: pointer; color: #98a6b8; font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
+        .shot-popup-close:hover { color: #5e6d82; background: #f0f4f8; }
+        .shot-popup-body { display: flex; align-items: flex-start; gap: 10px; min-height: 24px; }
+        .shot-popup-card .ai-spin { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 3px; border: 2px solid #cfe9e3; border-top-color: #1ab394; border-radius: 50%; animation: imggenSpin .7s linear infinite; }
+        .shot-popup-text { flex: 1; color: #16977e; font-size: 13px; line-height: 22px; word-break: break-all; }
+        .shot-popup-card.is-error { background: #fff5f5; }
+        .shot-popup-card.is-error .shot-popup-text { color: #c0392b; }
+        .shot-popup-ok { display: none; margin-top: 12px; width: 100%; padding: 7px 0; border: none; border-radius: 4px; background: #c0392b; color: #fff; font-size: 13px; cursor: pointer; }
+        .shot-popup-card.is-error .shot-popup-ok { display: block; }
+        @@keyframes imggenSpin { to { transform: rotate(360deg); } }
+        @@keyframes imggenTagIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+        .preview-pane { flex: 1; }
+        .imggen-preview { flex: 1; min-height: 0; margin: 10px 12px 12px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 1px dashed #cdd7e2; border-radius: 6px; background: #fafafa; overflow: hidden; }
+        .imggen-preview img { max-width: 100%; max-height: 100%; }
+        .imggen-preview-empty { color: #98a6b8; font-size: 12px; text-align: center; line-height: 22px; }
+        .imggen-preview-empty i { display: block; margin-bottom: 4px; font-size: 26px; color: #cdd7e2; }
+
+        /* 右栏 */
+        .imggen-main { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
+        .imggen-src { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 9px 12px; background: #fff; border: 1px solid #e8edf2; border-radius: 6px; }
+        .imggen-src-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #1f2d3d; font-size: 13px; font-weight: 600; }
+        .imggen-src-title .src-id { color: #98a6b8; font-size: 12px; font-weight: 400; margin-left: 6px; }
+        .imggen-src-tag { flex: 0 0 auto; padding: 1px 8px; border-radius: 10px; background: #e8f7f4; color: #16977e; font-size: 11px; }
+        .imggen-src-tag.dirty { background: #fff7e6; color: #ff9900; }
+        .pic-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; background: #fff; border: 1px solid #e8edf2; border-radius: 6px; }
+        .pic-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 10px 4px; }
+        /* select2 下拉：图片生成模式仅做选择，不需要搜索输入框（ysComboBox 已生成 data-search=0，此处 CSS 兜底） */
+        #shotMode_select + .select2-container .select2-search--dropdown { display: none; }
+
+        /* 缩略图卡片流：与资源编辑页(PanSourceForm)上传区一致的插件默认样式
+           （70px 卡片、虚线边框容器、浮动间距、hover 红框遮罩），仅保留「新添加」标记等独有功能定制 */
+        #vod_pic_upload .upimg-div { padding: 0 8px; }
+        #vod_pic_upload .up-section .pic-new-tag { position: absolute; left: 0; bottom: 0; z-index: 2; padding: 1px 7px 1px 5px; border-radius: 0 6px 0 0; background: rgba(22, 183, 119, .92); color: #fff; font-size: 11px; line-height: 17px; animation: imggenTagIn .16s ease; }
+
+        /* 底部操作条 */
+        .imggen-foot { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; padding: 10px 2px 0; }
+        .imggen-foot-left { color: #98a6b8; font-size: 12px; }
+        .imggen-foot-right { display: flex; gap: 8px; }
+
+        @@media (max-width: 900px) {
+            .imggen-body { flex-direction: column; }
+            .imggen-side { flex: 0 0 auto; width: auto; max-height: 220px; }
+        }
+    </style>
+}
+
+<div class="imggen-wrapper">
+    <div class="imggen-body">
+        <aside class="imggen-side">
+            <div class="imggen-pane">
+                <div class="imggen-pane-head"><span>图片生成模式</span></div>
+                <div class="mode-pane-body">
+                    <label class="mode-label">选择图片生成模式</label>
+                    <div id="shotMode" class="select-wrap"></div>
+                    <a href="javascript:void(0)" id="btnShotGenerate" class="btn btn-primary"><i class="fa fa-camera"></i>&nbsp;开始生成</a>
+                    <div id="shotModeNotice" class="mode-notice"></div>
+                </div>
+            </div>
+            <div class="imggen-pane preview-pane">
+                <div class="imggen-pane-head"><span>模式预览</span></div>
+                <div class="imggen-preview" id="shotModePreview">
+                    <div class="imggen-preview-empty"><i class="fa fa-image"></i>预览图待配置</div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="imggen-main">
+            <div class="imggen-src">
+                <span class="imggen-src-title" id="shotSrcTitle">加载中…<span class="src-id" id="shotSrcIdText"></span></span>
+                <span class="imggen-src-tag" id="shotSrcTag">夸克</span>
+                <span class="imggen-src-tag dirty" id="shotDirtyTag" style="display:none;">有未保存修改</span>
+            </div>
+            <div class="imggen-pane pic-pane">
+                <div class="imggen-pane-head"><span>资源图片</span><span class="imggen-meta" id="picCountMeta">共 0 张</span></div>
+                <div class="pic-scroll">
+                    <div id="vod_pic_upload" class="img-box"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="imggen-foot">
+        <div class="imggen-foot-left">生成与上传的图片在弹窗内暂存，点击「保存」统一写入该资源，未保存直接关闭将丢弃。</div>
+        <div class="imggen-foot-right">
+            <a href="javascript:void(0)" id="btnShotClose" class="btn btn-default">&nbsp;关 闭&nbsp;</a>
+            <a href="javascript:void(0)" id="btnShotSave" class="btn btn-primary">&nbsp;保 存&nbsp;</a>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+// 本地 HTML 转义：公共 ys 工具未提供 escapeHtml，这里自包含实现（防标题等用户输入注入）
+function escapeHtml(value) {
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+var id = ys.request("id");
+var shotSource = null;
+
+// 图片生成模式数据源（与后端 StartScreenshotJson 的 mode 参数对应；后续新增模式只改这里）
+var shotModes = [
+    { value: 1, text: '打开文件夹显示文件列表截图' },
+    { value: 2, text: '打开文件夹显示文件缩略图截图' }
+];
+// 各模式预览图：默认按 Resource/ModePreview/{模式编号}.png 命名约定取图，
+// 非约定路径（站内相对路径）时在此配置覆盖；图片缺失时显示「预览图待配置」占位
+var shotModePreviewImages = {};
+// 下一轮才开放的模式（生成按钮置灰并提示）；当前两个模式均已开放
+var shotNotReadyModes = {};
+
+// 状态
+var shotBusy = false;
+var shotTimer = null;
+var shotJobId = '';
+var shotPollFailures = 0;
+var newImages = [];   // 本次会话新增图片（相对路径，截图生成 + 本地上传）→ 打「新添加」tag
+var shotDirty = false;
+
+$(function () {
+    initShotModes();
+    initVodPicUpload();
+
+    // 图片 src 绝对化：基于本弹窗文档解析，确保列表页(parent)可加载同一地址
+    function absolutizePicSrc(src) {
+        if (/^(https?:)?\/\//i.test(src) || /^data:/i.test(src)) { return src; }
+        var a = document.createElement('a');
+        a.href = src;
+        return a.href;
+    }
+
+    // 原生兜底提示：列表页未提供轮播方法时内联固定提示
+    function showCarouselFallbackTip(message) {
+        var tip = document.createElement('div');
+        tip.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;max-width:70%;padding:18px 24px;border-radius:6px;background:rgba(192,57,43,.95);color:#fff;font-size:14px;line-height:22px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.25);';
+        tip.textContent = message;
+        document.body.appendChild(tip);
+        setTimeout(function () { if (tip.parentNode) { tip.parentNode.removeChild(tip); } }, 6000);
+    }
+
+    // 点击缩略图卡片查看完整大图（排除删除按钮）；本弹窗为 iframe，轮播统一交由资源列表页(parent)打开
+    $('#vod_pic_upload').on('click', '.up-section', function (e) {
+        if ($(e.target).closest('.close-upimg').length) { return; }
+        var data = [], start = 0;
+        $('#vod_pic_upload .up-section').each(function () {
+            var src = $(this).find('.up-img').attr('src');
+            if (!src) { return; }
+            data.push({ src: absolutizePicSrc(src), alt: '' });
+            if (this === e.currentTarget) { start = data.length - 1; }
+        });
+        if (data.length === 0) {
+            if (window.console) { console.warn('[资源图片生成] 未取到任何图片地址，已跳过轮播'); }
+            return;
+        }
+        var parentWin = null;
+        try { parentWin = window.parent; } catch (e) { }
+        if (parentWin && typeof parentWin.showImageCarousel === 'function') {
+            parentWin.showImageCarousel({ title: '资源图片', start: start, data: data });
+        }
+        else {
+            if (window.console) { console.error('[资源图片生成] 资源列表页未提供 showImageCarousel 方法，无法打开轮播'); }
+            showCarouselFallbackTip('资源列表页暂未提供轮播功能，请刷新页面后重试');
+        }
+    });
+
+    bindActions();
+    bindVodPicTagWatcher();
+    getForm();
+});
+
+// ======================= 图片生成模式 =======================
+function initShotModes() {
+    var data = [];
+    for (var i = 0; i < shotModes.length; i++) {
+        data.push({ key: shotModes[i].value, value: shotModes[i].text });
+    }
+    // 与「资源分类」下拉同一套框架组件 ysComboBox：
+    // search:false → 生成的 <select id="shotMode_select"> 带 data-search="0"，aggpansearch-init
+    // 二次初始化 select2 时沿用，始终无搜索输入框；
+    // placeholder:false → 不生成空选项，默认选中数据源第一项图片生成模式
+    $('#shotMode').ysComboBox({
+        data: data,
+        key: 'key',
+        value: 'value',
+        class: 'form-control',
+        search: false,
+        placeholder: false,
+        onChange: renderShotModeState
+    });
+    renderShotModeState();
+}
+
+function renderShotModeState() {
+    var mode = Number($('#shotMode_select').val());
+    if (shotNotReadyModes[mode]) {
+        $('#btnShotGenerate').addClass('is-disabled');
+        $('#shotModeNotice').text('「' + $('#shotMode_select option:selected').text() + '」下一轮开放，敬请期待').show();
+    }
+    else {
+        $('#btnShotGenerate').removeClass('is-disabled');
+        $('#shotModeNotice').hide();
+    }
+    renderShotModePreview();
+}
+
+function renderShotModePreview() {
+    var mode = Number($('#shotMode_select').val());
+    var src = shotModePreviewImages[mode] || ('Resource/ModePreview/' + mode + '.png');
+    var $box = $('#shotModePreview');
+    if (!src) {
+        $box.html('<div class="imggen-preview-empty"><i class="fa fa-image"></i>预览图待配置</div>');
+        return;
+    }
+    var $placeholder = $('<div class="imggen-preview-empty"><i class="fa fa-image"></i>预览图待配置</div>');
+    var full = ctx + ys.trimStart(src, '/');
+    var $img = $('<img>')
+        .attr('alt', '模式预览')
+        .on('load', function () {
+            $box.empty().append(this);
+        })
+        .on('error', function () {
+            $box.empty().append($placeholder);
+        });
+    $box.empty().append($placeholder);
+    // 事件已绑定后再设 src：图片从缓存即时加载也能收到 load/error
+    $img.attr('src', full).appendTo($box);
+}
+
+// ======================= 资源图片控件 =======================
+function initVodPicUpload() {
+    $('#vod_pic_upload').imageUpload({
+        uploadImage: 'uploadVodPic',
+        limit: 5,
+        context: ctx
+    });
+    $('#vod_pic_upload_file').attr("multiple", "multiple");
+}
+
+// 本地上传：上传成功即视为「新添加」
+function uploadVodPic(file, callback) {
+    var formdata = new FormData();
+    formdata.append("fileList", file);
+    ys.ajaxUploadFile({
+        url: '@Url.Content("~/File/UploadFile")?fileModule=@((int)AggPanSearch.Enum.UploadFileType.News)',
+        data: formdata,
+        success: function (obj) {
+            if (obj.Tag == 1) {
+                newImages.push(normPic(obj.Data));
+                markShotDirty();
+                if (callback) {
+                    callback(ctx + ys.trimStart(obj.Data, '/'));
+                }
+            }
+            else {
+                ys.msgError(obj.Message);
+            }
+        }
+    })
+}
+
+function getVodPicUrl() {
+    var url = $("#vod_pic_upload").imageUpload("getImageUrl") || '';
+    if (url && url.indexOf(ctx) === 0) {
+        url = url.substring(ctx.length);
+    }
+    return url;
+}
+
+// 图片路径归一化：去掉 ctx 前缀与前导斜杠，用于统一比对（截图返回 / 上传返回 / up-img src）
+function normPic(value) {
+    var v = value == null ? '' : String(value);
+    if (ctx && v.indexOf(ctx) === 0) {
+        v = v.substring(ctx.length);
+    }
+    return ys.trimStart(v, '/');
+}
+
+// 「新添加」tag：监听上传控件增删，为本次会话新增的图片补 tag / 刷新计数
+function bindVodPicTagWatcher() {
+    updatePicTags();
+    if (!window.MutationObserver || !$('#vod_pic_upload')[0]) {
+        return;
+    }
+    new MutationObserver(function () {
+        updatePicTags();
+    }).observe($('#vod_pic_upload')[0], { childList: true, subtree: true });
+}
+
+function updatePicTags() {
+    $('#vod_pic_upload .up-section').each(function () {
+        var $section = $(this);
+        var src = normPic($section.find('.up-img').attr('src'));
+        var isNew = $.inArray(src, newImages) >= 0;
+        if (isNew && !$section.find('.pic-new-tag').length) {
+            $('<span class="pic-new-tag"><i class="fa fa-plus"></i> 新添加</span>').appendTo($section);
+        }
+    });
+    refreshPicCount();
+}
+
+function refreshPicCount() {
+    $('#picCountMeta').text('共 ' + $('#vod_pic_upload .up-section').length + ' 张');
+}
+
+// ======================= 动作与生成流程 =======================
+function bindActions() {
+    // 图片生成模式切换已由 ysComboBox 的 onChange 配置处理，无需在此重复绑定
+    $('#btnShotGenerate').on('click', function () { startShotGenerate(); });
+    $('#btnShotSave').on('click', function () { savePic(); });
+    $('#btnShotClose').on('click', function () { closeImageGen(); });
+}
+
+// 资源加载：标题 / 网盘类型 / 已有图片
+function getForm() {
+    if (!(id > 0)) {
+        $('#shotSrcTitle').text('资源 Id 无效');
+        return;
+    }
+    ys.ajax({
+        url: '@Url.Content("~/PanManage/PanSource/GetFormJson")' + '?id=' + id,
+        type: 'get',
+        success: function (obj) {
+            if (obj.Tag == 1 && obj.Data) {
+                shotSource = obj.Data;
+                $('#shotSrcTitle').html('<span>' + escapeHtml(obj.Data.Title || '未命名资源') + '</span><span class="src-id">#' + id + '</span>');
+                $('#shotSrcTag').text(panTypeText(obj.Data.IsType));
+                var pic = obj.Data.VodPic;
+                if (pic) {
+                    $('#vod_pic_upload').imageUpload("setImageUrl", pic);
+                }
+                refreshPicCount();
+            }
+            else {
+                ys.msgError(obj.Message || '资源读取失败');
+            }
+        }
+    });
+}
+
+function panTypeText(isType) {
+    var map = { '0': '夸克', '1': '阿里', '2': '百度', '3': 'UC', '4': '迅雷' };
+    return map[String(isType == null ? 0 : isType)] || '夸克';
+}
+
+// 开始生成：提交任务（persist=false 暂存模式）→ 轮询 → 完成后把图片加入右列
+function startShotGenerate() {
+    if (shotBusy) {
+        shotSetStatus('图片生成中，请稍候…', false);
+        return;
+    }
+    var mode = Number($('#shotMode_select').val());
+    if (shotNotReadyModes[mode]) {
+        ys.msgWarning('该模式下一轮开放，敬请期待');
+        return;
+    }
+    if (!(id > 0)) {
+        ys.msgWarning('缺少资源 Id，无法生成图片');
+        return;
+    }
+    if (!shotSource) {
+        ys.msgWarning('资源信息尚未加载完成，请稍候再试');
+        return;
+    }
+    if (!shotSource.Url) {
+        ys.msgWarning('该资源缺少分享地址，无法生成图片');
+        return;
+    }
+    if (shotSource.IsType != null && shotSource.IsType != 0) {
+        ys.msgWarning('仅支持夸克资源图片生成');
+        return;
+    }
+
+    shotBusy = true;
+    $('#btnShotGenerate').addClass('is-disabled');
+    shotSetStatus('正在提交图片生成任务…', false);
+
+    ys.ajax({
+        url: '@Url.Content("~/PanManage/PanSource/StartScreenshotJson")',
+        type: 'post',
+        data: { ids: id, mode: mode, persist: false },
+        success: function (obj) {
+            if (obj.Tag == 1 && obj.Data) {
+                shotSetStatus(obj.Message || '任务已提交，正在生成…', false);
+                startShotPolling(obj.Data);
+            }
+            else {
+                shotBusy = false;
+                $('#btnShotGenerate').removeClass('is-disabled');
+                shotSetStatus(obj.Message || '图片生成任务提交失败', true);
+            }
+        },
+        error: function (xhr) {
+            shotBusy = false;
+            $('#btnShotGenerate').removeClass('is-disabled');
+            shotSetStatus(shotHttpError(xhr), true);
+        }
+    });
+}
+
+function startShotPolling(jobId) {
+    shotStopPolling();
+    shotJobId = jobId || '';
+    shotPollFailures = 0;
+    pollShot();
+    shotTimer = setInterval(pollShot, 2000);
+}
+
+function shotStopPolling() {
+    if (shotTimer) {
+        clearInterval(shotTimer);
+        shotTimer = null;
+    }
+}
+
+function pollShot() {
+    $.ajax({
+        url: '@Url.Content("~/PanManage/PanSource/GetScreenshotProgressJson")',
+        type: 'get',
+        data: { jobId: shotJobId },
+        dataType: 'json',
+        success: function (result) {
+            shotPollFailures = 0;
+            if (!result || result.Tag != 1 || !result.Data) {
+                shotFinish(null);
+                return;
+            }
+            var state = result.Data;
+            if (state.JobId) { shotJobId = state.JobId; }
+            if (state.Status == 'running') {
+                shotSetStatus(state.Message || '正在生成…', false);
+            }
+            else {
+                shotFinish(state);
+            }
+        },
+        error: function () {
+            shotPollFailures++;
+            if (shotPollFailures >= 5) {
+                shotFinish(null);
+            }
+        }
+    });
+}
+
+function shotFinish(state) {
+    shotStopPolling();
+    shotJobId = '';
+    shotBusy = false;
+    $('#btnShotGenerate').removeClass('is-disabled');
+
+    var status = state ? state.Status : '';
+    if (status == 'succeeded') {
+        var images = (state.Images || []);
+        var added = 0;
+        var joined = '';
+        for (var i = 0; i < images.length; i++) {
+            var url = String(images[i]).trim();
+            if (!url) { continue; }
+            if ($.inArray(normPic(url), newImages) >= 0) { continue; }
+            newImages.push(normPic(url));
+            added++;
+            joined += (joined ? ';' : '') + url;
+        }
+        if (added > 0) {
+            $('#vod_pic_upload').imageUpload("setImageUrl", joined);
+            markShotDirty();
+            updatePicTags();
+        }
+        var msg = (state.Message || '图片生成完成') + (added > 0 ? '，已加入图片列表' : '');
+        shotSetStatus(msg, false, false);
+        shotAutoClosePopup(3000);
+    }
+    else if (status == 'canceled') {
+        shotSetStatus(state.Message || '图片生成已取消', true);
+    }
+    else if (status == 'failed') {
+        shotSetStatus(state.Message || '图片生成失败', true);
+    }
+    else {
+        shotSetStatus('图片生成任务已结束，请重试', true);
+    }
+}
+
+// ======================= 生成进度浮层弹窗 =======================
+// 页面内不再内嵌进度提示，统一用居中浮层弹窗展示（纯 div，不依赖 layer，iframe 内稳定）
+var shotPopupTimer = null;
+
+function shotShowPopup(message, isError, withSpinner) {
+    if (shotPopupTimer) {
+        clearTimeout(shotPopupTimer);
+        shotPopupTimer = null;
+    }
+    var $mask = $('#shotProgressPopup');
+    if (!$mask.length) {
+        $mask = $(
+            '<div id="shotProgressPopup" class="shot-popup-mask">' +
+            '<div class="shot-popup-card">' +
+            '<div class="shot-popup-head"><span>图片生成进度</span><a class="shot-popup-close" href="javascript:;" title="关闭">&times;</a></div>' +
+            '<div class="shot-popup-body"><span class="ai-spin"></span><span class="shot-popup-text"></span></div>' +
+            '<button type="button" class="shot-popup-ok">我知道了</button>' +
+            '</div></div>'
+        );
+        $mask.appendTo(document.body);
+        $mask.find('.shot-popup-close, .shot-popup-ok').on('click', function () { shotClosePopup(); });
+    }
+    var $card = $mask.find('.shot-popup-card');
+    $card.removeClass('is-error');
+    $mask.find('.shot-popup-text').text(message);
+    if (isError) {
+        $card.addClass('is-error');
+        $card.find('.ai-spin').hide();
+    }
+    else {
+        $card.find('.ai-spin').toggle(withSpinner !== false);
+    }
+    $mask.show();
+}
+
+function shotClosePopup() {
+    if (shotPopupTimer) {
+        clearTimeout(shotPopupTimer);
+        shotPopupTimer = null;
+    }
+    var $mask = $('#shotProgressPopup');
+    if ($mask.length) { $mask.hide(); }
+}
+
+function shotAutoClosePopup(millis) {
+    if (shotPopupTimer) {
+        clearTimeout(shotPopupTimer);
+        shotPopupTimer = null;
+    }
+    shotPopupTimer = setTimeout(shotClosePopup, millis || 3000);
+}
+
+function shotSetStatus(message, isError, withSpinner) {
+    if (!message) {
+        shotClosePopup();
+        return;
+    }
+    shotShowPopup(message, !!isError, withSpinner);
+}
+
+function markShotDirty() {
+    if (shotDirty) { return; }
+    shotDirty = true;
+    $('#shotDirtyTag').show();
+}
+
+function shotHttpError(xhr) {
+    var status = xhr && xhr.status ? xhr.status : 0;
+    if (status === 401 || status === 403) { return '登录状态已失效，请刷新页面后重试'; }
+    if (status === 404) { return '接口不存在，请确认后台版本是否为最新'; }
+    if (status === 0) { return '网络不可达或请求超时，请稍后重试'; }
+    if (status >= 500) { return '服务端处理失败（' + status + '），请稍后重试'; }
+    return '请求失败（' + status + '）';
+}
+
+// ======================= 保存 / 关闭 =======================
+function savePic() {
+    if (shotBusy) {
+        ys.msgWarning('图片正在生成中，请稍候再保存');
+        return;
+    }
+    if (!(id > 0)) {
+        ys.msgError('缺少资源 Id，无法保存');
+        return;
+    }
+    var data = { Id: id, VodPic: getVodPicUrl() };
+    ys.ajax({
+        url: '@Url.Content("~/PanManage/PanSource/SaveFormJson")',
+        type: 'post',
+        data: data,
+        success: function (obj) {
+            if (obj.Tag == 1) {
+                ys.msgSuccess(obj.Message || '资源图片已保存');
+                shotDirty = false;
+                try {
+                    if (window.parent && typeof window.parent.searchGrid === 'function') {
+                        window.parent.searchGrid();
+                    }
+                } catch (e) { }
+                closeImageGen();
+            }
+            else {
+                ys.msgError(obj.Message);
+            }
+        }
+    });
+}
+
+function closeImageGen() {
+    if (shotBusy) {
+        ys.msgWarning('图片正在生成中，请稍候再关闭');
+        return;
+    }
+    if (window.parent && window.parent.layer) {
+        var index = window.parent.layer.getFrameIndex(window.name);
+        window.parent.layer.close(index);
+    }
+}
+</script>

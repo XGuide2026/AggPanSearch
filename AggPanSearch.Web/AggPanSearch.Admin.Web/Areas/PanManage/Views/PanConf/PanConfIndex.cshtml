@@ -108,6 +108,19 @@
         return SEARCH_CONF_KEYS.indexOf(key) > -1;
     }
 
+    // "AI设置"已拆分为独立页面（网盘管理 - AI设置，PanAiConf），本页不再展示这些配置项。
+    // conf_type=14 即 AI设置分类；conf_key 以 ai_ 开头的历史遗留项也归入这里。
+    // 注意：与 PanAiConfController.IsAiConf 保持一致。
+    function isAiConf(item) {
+        if (!item) {
+            return false;
+        }
+        if (String(item.ConfType) === '14') {
+            return true;
+        }
+        return /^ai_/i.test(String(item.ConfKey || ''));
+    }
+
     // 配置项显示位置微调：key = 需要移动的 conf_key，value = 目标 conf_key（移动到它下面）
     // 例：网站网址（web_address）显示在网站LOGO（logo）下面
     var confKeyAfterMap = {
@@ -176,8 +189,8 @@
         var typeOrder = [];  // 有序的分类key
         for (var i = 0; i < allData.length; i++) {
             var item = allData[i];
-            // 搜索设置已迁移到独立页面，这里直接跳过，避免两处都能改
-            if (isSearchConf(item)) {
+            // 搜索设置 / AI设置 已迁移到独立页面，这里直接跳过，避免两处都能改
+            if (isSearchConf(item) || isAiConf(item)) {
                 continue;
             }
             // 分类优先取数据库 conf_type（二维码设置=10、引流设置=11、广告设置=12）
@@ -209,13 +222,12 @@
 
         // 分类 Tab 显示顺序：基础设置、联系方式、广告设置、引流设置、二维码设置、前端设置、SEO设置、网盘Cookie设置、上传设置
         // 未在顺序表中的分类排在末尾（保持原出现顺序），未分类放最后
-        // 搜索设置（conf_type=1）已迁移到独立页面，不在此列
+        // 搜索设置（conf_type=1）、AI设置（conf_type=14）已迁移到独立页面，不在此列
         // 广告设置=12、引流设置=11、二维码设置=10、联系方式=13
-        var confTypeOrder = ['0', '13', '12', '11', '10', '3', '14', '9', '2', '4'];
+        var confTypeOrder = ['0', '13', '12', '11', '10', '3', '9', '2', '4'];
         // 固定 Tab：暂无配置项时也展示，后续新增配置项设置了对应 conf_type 会自动归入
-        // 4=网盘Cookie设置（夸克 Cookie 等网盘凭据）、13=联系方式（字段由「配置项管理」按需新增）、
-        // 14=AI设置（AI 接口地址/Key/模型等，由 PanConfBLL.DefaultConfValues 自动补齐），未配置时也要能进入新增
-        ['11', '10', '4', '13', '14'].forEach(function (type) {
+        // 4=网盘Cookie设置（夸克 Cookie 等网盘凭据）、13=联系方式（字段由「配置项管理」按需新增），未配置时也要能进入新增
+        ['11', '10', '4', '13'].forEach(function (type) {
             if (typeOrder.indexOf(type) === -1) {
                 typeOrder.push(type);
                 groupMap[type] = [];

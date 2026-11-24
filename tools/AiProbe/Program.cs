@@ -43,7 +43,7 @@ Console.WriteLine($"    ai_deepseek_apikey = 长度 {key.Length}，{preview}，�
 
 if (key.Trim().Length == 0)
 {
-    Console.WriteLine("    ✗ 未读到 Key，请先在后台「基础设置 - AI设置」保存");
+    Console.WriteLine("    ✗ 未读到 Key，请先在后台「网盘管理 - AI设置」保存");
     return 3;
 }
 

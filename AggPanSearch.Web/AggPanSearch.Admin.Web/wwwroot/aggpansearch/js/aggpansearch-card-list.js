@@ -70,7 +70,9 @@
             html += '<span class="collect-card-cover-count" title="共 ' + imageTotal + ' 张图片">' +
                 '<i class="fa fa-picture-o"></i> ' + imageTotal + '</span>';
         }
-        html += '<span class="collect-card-cover-ph">' + (cover === '' ? opts.placeholder : opts.failed) + '</span>';
+        // 无图 / 加载失败：暗淡背景 + 图片裂开图标（样式见 aggpansearch-card-list.css），文本仅作辅助说明
+        html += '<span class="collect-card-cover-ph"><i class="fa fa-file-image-o"></i>' +
+            (cover === '' ? opts.placeholder : opts.failed) + '</span>';
         return html + '</div>';
     }
 

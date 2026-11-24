@@ -97,10 +97,11 @@ namespace AggPanSearch.Business.PanManage
 
         #region 自动截图
         /// <summary>
-        /// 启动自动截图任务：对勾选的夸克资源做移动端截图，图片落盘后追加到 vod_pic 末尾。
-        /// ids 为逗号分隔的资源 Id，非夸克资源与已有截图的资源会被跳过。
+        /// 启动截图任务：对选中的夸克资源做移动端截图，图片落盘后追加到 vod_pic 末尾（persist=true）；
+        /// persist=false（资源图片生成弹窗暂存模式）时仅落盘并回传图片地址，不写库，由弹窗统一保存。
+        /// ids 为逗号分隔的资源 Id；mode 为截图模式（1=打开文件夹显示文件列表截图）；批量模式非夸克与已有截图会跳过，暂存模式仅跳过非夸克。
         /// </summary>
-        public TData<string> StartScreenshot(string ids)
+        public TData<string> StartScreenshot(string ids, int mode = 1, bool persist = true)
         {
             TData<string> obj = new TData<string>();
             List<long> idList = new List<long>();
@@ -120,7 +121,7 @@ namespace AggPanSearch.Business.PanManage
                 return obj;
             }
 
-            string jobId = PanSourceScreenshotJobRunner.Start(idList, out string error);
+            string jobId = PanSourceScreenshotJobRunner.Start(idList, mode, persist, out string error);
             if (jobId.Length == 0)
             {
                 obj.Message = error;
@@ -128,7 +129,7 @@ namespace AggPanSearch.Business.PanManage
             }
             obj.Data = jobId;
             obj.Tag = 1;
-            obj.Message = "截图任务已提交，正在后台截图";
+            obj.Message = persist ? "截图任务已提交，正在后台截图" : "图片生成任务已提交，完成后将加入图片列表";
             return obj;
         }
 

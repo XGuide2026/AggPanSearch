@@ -143,18 +143,6 @@
                 </span>
             </div>
         </div>
-        <div class="form-group">
-            <label class="col-sm-3 control-label">本地图片</label>
-            <div class="col-sm-8">
-                <textarea id="image_url" col="ImageUrl" class="form-control link-lines" rows="5" maxlength="1000"
-                          placeholder="由补图任务从原图片下载生成，一行一个链接，也可在下方上传"></textarea>
-                <div id="collectImageUpload" style="margin-top:8px;"></div>
-                <div id="imagePreview" class="image-preview-box"></div>
-                <span class="help-block m-b-none" style="font-size:12px;color:#999;">
-                    本地图片由「补图」任务下载到本机；一行一个链接，上传的图片会追加到本地图片列表。
-                </span>
-            </div>
-        </div>
     </form>
 </div>
 
@@ -173,18 +161,9 @@
             class: 'form-control'
         });
 
-        $("#collectImageUpload").imageUpload({
-            uploadImage: 'uploadCollectImage',
-            limit: 1,
-            context: ctx
-        });
-
         // 手工修改图片链接时同步刷新预览
         $('#collect_image_url').on('input change', function () {
             renderCollectPreview();
-        });
-        $('#image_url').on('input change', function () {
-            renderLocalPreview();
         });
 
         getForm();
@@ -196,8 +175,7 @@
                 collect_source: { maxlength: 100 },
                 collect_source_url: { maxlength: 1000, url2: true },
                 resource_intro: { maxlength: 2000 },
-                collect_image_url: { maxlength: 1000, images: true },
-                image_url: { maxlength: 1000 }
+                collect_image_url: { maxlength: 1000, images: true }
             },
             messages: {
                 resource_name: { required: '请输入资源名称', maxlength: '资源名称不能超过 500 个字符' },
@@ -205,8 +183,7 @@
                 collect_source: { maxlength: '采集来源不能超过 100 个字符' },
                 collect_source_url: { maxlength: '采集源链接不能超过 1000 个字符' },
                 resource_intro: { maxlength: '资源简介不能超过 2000 个字符' },
-                collect_image_url: { maxlength: '原图片地址不能超过 1000 个字符' },
-                image_url: { maxlength: '本地图片地址不能超过 1000 个字符' }
+                collect_image_url: { maxlength: '原图片地址不能超过 1000 个字符' }
             }
         });
     });
@@ -249,9 +226,7 @@
                     $('#form').setWebControls(obj.Data);
                     // 库里多图以英文分号分隔，回填时转成一行一个链接
                     $('#collect_image_url').val(toLines(obj.Data.CollectImageUrl));
-                    $('#image_url').val(toLines(obj.Data.ImageUrl));
                     renderCollectPreview();
-                    renderLocalPreview();
                     if (isDetail) {
                         applyDetailMode();
                     }
@@ -286,11 +261,6 @@
     // 原图片预览：远端地址直接使用
     function renderCollectPreview() {
         renderImageBox($('#collectImagePreview'), splitImages($('#collect_image_url').val()), false);
-    }
-
-    // 本地图片预览：本站相对路径补 ctx 前缀
-    function renderLocalPreview() {
-        renderImageBox($('#imagePreview'), splitImages($('#image_url').val()), true);
     }
 
     function renderImageBox(box, images, withContext) {
@@ -332,44 +302,12 @@
         });
     }
 
-    // 上传回调：走本站 File/UploadFile 接口，成功后回填图片链接
-    function uploadCollectImage(file, callback) {
-        var formdata = new FormData();
-        formdata.append("fileList", file);
-        ys.ajaxUploadFile({
-            url: '@Url.Content("~/File/UploadFile")?fileModule=@((int)AggPanSearch.Enum.UploadFileType.News)',
-            data: formdata,
-            success: function (obj) {
-                if (obj.Tag == 1) {
-                    var path = ys.trimStart(obj.Data, '/');
-                    // 上传的是本机图片，追加到本地图片列表，最多保留 5 张
-                    var images = splitImages($('#image_url').val());
-                    if ($.inArray(path, images) < 0) {
-                        images.push(path);
-                    }
-                    if (images.length > 5) {
-                        images = images.slice(0, 5);
-                    }
-                    $('#image_url').val(images.join('\n'));
-                    renderLocalPreview();
-                    if (callback) {
-                        callback(ctx + path);
-                    }
-                }
-                else {
-                    ys.msgError(obj.Message);
-                }
-            }
-        });
-    }
-
     function saveForm(index) {
         if (!$('#form').validate().form()) {
             return;
         }
         var postData = $('#form').getWebControls({ Id: id });
         postData.CollectImageUrl = splitImages($('#collect_image_url').val()).join(';');
-        postData.ImageUrl = splitImages($('#image_url').val()).join(';');
         ys.ajax({
             url: '@Url.Content("~/PanManage/PanSourceCollect/SaveFormJson")',
             type: 'post',

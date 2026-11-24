@@ -41,4 +41,12 @@
     <Folder Include="Areas\UserFrontend\" />
     <Folder Include="Areas\PanManage\" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- 图片生成模式预览图：随发布复制到站点输出目录 Resource\ModePreview，供「资源图片生成」弹窗展示 -->
+    <Content Include="Resource\ModePreview\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

@@ -38,16 +38,8 @@
             <a id="btnAdd" class="btn btn-success" onclick="showSaveForm(true)"><i class="fa fa-plus"></i> 新增</a>
             @* 工具栏的删除作用于勾选项；单张卡片的修改 / 删除在卡片底部 *@
             <a id="btnDelete" class="btn btn-danger disabled" onclick="deleteForm()"><i class="fa fa-remove"></i> 删除</a>
-            @* 自动截图：对勾选的夸克资源做移动端截图，图片落盘后追加到资源图片末尾 *@
-            <a id="btnScreenshot" class="btn btn-default disabled" onclick="startScreenshot()"><i class="fa fa-camera"></i> 自动截图</a>
-        </div>
-        @* 截图进度：提交任务后显示，结束时自动隐藏；进度条样式复用 aggpansearch-card-list.css 里的 collect-progress-* *@
-        <div id="screenshotProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
-            <div class="progress" style="margin-bottom:6px;height:16px;">
-                <div id="screenshotProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;"></div>
-            </div>
-            <span id="screenshotProgressText" class="collect-progress-text"></span>
-            <a id="btnCancelScreenshot" class="btn btn-warning btn-xs collect-progress-cancel" style="display:none;" onclick="cancelScreenshot()"><i class="fa fa-stop"></i> 取消截图</a>
+            @* 资源图片生成：打开独立弹窗，按图片生成模式生成图片并在弹窗内统一管理、保存（仅支持单选） *@
+            <a id="btnScreenshot" class="btn btn-default disabled" onclick="startScreenshot()"><i class="fa fa-camera"></i> 截图</a>
         </div>
         @* 保留 #gridTable：分页、勾选、请求仍由 bootstrap-table 负责，
            卡片化由 renderCard 的单卡片列 + aggpansearch-card-list.css 的瀑布流布局完成。
@@ -74,8 +66,6 @@
         $(function () {
             loadSourceCategories();
             initGrid();
-            // 刷新页面后恢复仍在运行的截图任务进度
-            resumeScreenshot();
         });
 
         function loadSourceCategories() {
@@ -319,187 +309,78 @@
             deleteRows(id);
         }
 
-        // ==================== 自动截图 ====================
-        // 后台任务 + 轮询进度：接口立即返回 jobId，前端每 2 秒拉一次进度，可随时取消。
-        // 单条截图约 3~10 秒（无头浏览器打开夸克分享页），单次最多 50 条。
-        var screenshotTimer = null;
-        var screenshotJobId = '';
-        var screenshotPollFailures = 0;
-
+        // ==================== 资源图片生成弹窗入口 ====================
+        // 独立弹窗：选择图片生成模式生成图片，右侧统一管理并保存；仅支持单选一条资源。
         function startScreenshot() {
-            if ($('#btnCancelScreenshot').is(':visible')) {
-                ys.msgWarning('截图任务正在运行，请等待完成后再试');
-                return;
-            }
             var rows = $('#gridTable').bootstrapTable('getSelections') || [];
             if (rows.length === 0) {
-                ys.msgWarning('请选择要截图的资源');
+                ys.msgWarning('请先勾选 1 条资源');
                 return;
             }
-            var ids = ys.getIds(rows);
-            ys.confirm('确认对选中的 ' + rows.length + ' 条资源自动截图吗？将用无头浏览器打开夸克分享链接、进入第一个文件夹后截图，并把截图追加到资源图片末尾。仅处理夸克资源，已有截图的资源会跳过。', function () {
-                ys.ajax({
-                    url: '@Url.Content("~/PanManage/PanSource/StartScreenshotJson")',
-                    type: 'post',
-                    data: { ids: ids },
-                    success: function (obj) {
-                        if (obj.Tag == 1 && obj.Data) {
-                            ys.msgSuccess(obj.Message);
-                            startScreenshotPolling(obj.Data);
-                        } else {
-                            ys.msgError(obj.Message || '截图任务提交失败');
-                        }
-                    }
-                });
-            });
-        }
-
-        // 页面加载时若还有运行中的任务（刷新 / 换页），直接接上进度条
-        function resumeScreenshot() {
-            $.ajax({
-                url: '@Url.Content("~/PanManage/PanSource/GetScreenshotProgressJson")',
-                type: 'get',
-                data: { jobId: '' },
-                dataType: 'json',
-                success: function (result) {
-                    if (result && result.Tag == 1 && result.Data && result.Data.JobId) {
-                        startScreenshotPolling(result.Data.JobId);
-                    }
-                }
-            });
-        }
-
-        function startScreenshotPolling(jobId) {
-            stopScreenshotTimer();
-            screenshotJobId = jobId || '';
-            screenshotPollFailures = 0;
-            $('#btnScreenshot').addClass('disabled');
-            $('#screenshotProgressBar').show();
-            $('#screenshotProgressInner')
-                .removeClass('progress-bar-success progress-bar-danger')
-                .addClass('active')
-                .css('width', '5%');
-            $('#screenshotProgressText').text('截图任务已启动，正在打开分享页…');
-            $('#btnCancelScreenshot').show().removeClass('disabled');
-            pollScreenshot();
-            screenshotTimer = setInterval(pollScreenshot, 2000);
-        }
-
-        function stopScreenshotTimer() {
-            if (screenshotTimer) {
-                clearInterval(screenshotTimer);
-                screenshotTimer = null;
-            }
-        }
-
-        function pollScreenshot() {
-            $.ajax({
-                url: '@Url.Content("~/PanManage/PanSource/GetScreenshotProgressJson")',
-                type: 'get',
-                data: { jobId: screenshotJobId },
-                dataType: 'json',
-                success: function (result) {
-                    screenshotPollFailures = 0;
-                    if (!result || result.Tag != 1 || !result.Data) {
-                        finishScreenshot(null);
-                        return;
-                    }
-                    var state = result.Data;
-                    if (state.JobId) {
-                        screenshotJobId = state.JobId;
-                    }
-                    renderScreenshotProgress(state);
-                    if (state.Status != 'running') {
-                        finishScreenshot(state);
-                    }
-                },
-                error: function () {
-                    // 偶发网络抖动不打断轮询，连续 5 次失败才收尾
-                    screenshotPollFailures++;
-                    if (screenshotPollFailures >= 5) {
-                        finishScreenshot(null);
-                    }
-                }
-            });
-        }
-
-        function renderScreenshotProgress(state) {
-            var total = state.Total || 0;
-            var done = state.Done || 0;
-            var succeeded = state.Succeeded || 0;
-            var skipped = state.Skipped || 0;
-            var failed = state.Failed || 0;
-            var percent = total > 0 ? Math.min(100, Math.round(done * 100 / total)) : 5;
-            if (state.Status == 'running' && percent < 5) {
-                percent = 5;
-            }
-            $('#screenshotProgressInner').css('width', percent + '%');
-            var text;
-            if (state.Status == 'running') {
-                text = '截图进度：' + done + '/' + total + ' 条，成功 ' + succeeded + '，跳过 ' + skipped + '，失败 ' + failed;
-            } else {
-                text = state.Message || ('截图进度：' + done + '/' + total + ' 条');
-            }
-            $('#screenshotProgressText').text(text);
-        }
-
-        function finishScreenshot(state) {
-            stopScreenshotTimer();
-            $('#btnCancelScreenshot').hide().addClass('disabled');
-            $('#screenshotProgressInner').removeClass('active');
-
-            var status = state ? state.Status : '';
-            if (status == 'succeeded') {
-                $('#screenshotProgressInner').removeClass('progress-bar-danger').addClass('progress-bar-success').css('width', '100%');
-            } else if (status == 'failed' || !state) {
-                $('#screenshotProgressInner').removeClass('progress-bar-success').addClass('progress-bar-danger');
-            }
-
-            var message = state && state.Message ? state.Message : '截图任务已结束，请刷新查看结果';
-            $('#screenshotProgressText').text(message);
-            if (status == 'succeeded') {
-                ys.msgSuccess(message);
-            } else if (status == 'failed') {
-                ys.msgError(message);
-            } else if (status == 'canceled') {
-                ys.msgWarning(message);
-            } else {
-                ys.msgWarning(message);
-            }
-
-            screenshotJobId = '';
-            // 刷新卡片，显示新追加的截图封面（列表封面仍是首图）
-            searchGrid();
-
-            setTimeout(function () {
-                // 期间若又启动了新任务，保留进度条
-                if (!screenshotTimer) {
-                    $('#screenshotProgressBar').fadeOut(300);
-                }
-            }, 5000);
-        }
-
-        function cancelScreenshot() {
-            if (!screenshotJobId) {
-                ys.msgWarning('当前没有正在运行的截图任务');
+            if (rows.length > 1) {
+                ys.msgWarning('资源图片生成一次只能处理 1 条资源，请先单选');
                 return;
             }
-            var jobId = screenshotJobId;
-            ys.confirm('确认取消正在进行的截图任务吗？已完成的截图会保留。', function () {
-                ys.ajax({
-                    url: '@Url.Content("~/PanManage/PanSource/CancelScreenshotJson")',
-                    type: 'post',
-                    data: { jobId: jobId },
-                    success: function (obj) {
-                        if (obj.Tag == 1) {
-                            $('#btnCancelScreenshot').addClass('disabled');
-                            $('#screenshotProgressText').text(obj.Message || '正在取消截图…');
-                        } else {
-                            ys.msgError(obj.Message);
-                        }
-                    }
-                });
+            openImageGenForm(rows[0].Id);
+        }
+
+        // 打开「资源图片生成」弹窗（无默认按钮，保存/关闭在弹窗内）
+        function openImageGenForm(resourceId) {
+            if (!resourceId) {
+                ys.msgWarning('缺少资源 Id');
+                return;
+            }
+            ys.openDialog({
+                title: '资源图片生成',
+                content: '@Url.Content("~/PanManage/PanSource/PanSourceImageForm")' + '?id=' + resourceId + '&t=' + new Date().getTime(),
+                width: '1080px',
+                height: '680px',
+                btn: null
             });
         }
+
+        // ==================== 图片轮播（供 iframe 弹窗调用）====================
+        // iframe 内 layer 弹层渲染失效，轮播统一由本列表页打开，复用本页通用图片查看器 ys.imageViewer。
+        // iframe 调用约定：{ title, start, data: [{src: 绝对化URL, alt}] }
+        window.showImageCarousel = function (photos) {
+            if (!photos || !photos.data || photos.data.length === 0) {
+                if (window.console) { console.warn('[资源图片生成] 无可预览图片，跳过轮播'); }
+                return;
+            }
+            var list = [];
+            for (var i = 0; i < photos.data.length; i++) {
+                var item = photos.data[i];
+                if (!item || !item.src) { continue; }
+                list.push(item.src);
+            }
+            if (!list.length) {
+                if (window.console) { console.warn('[资源图片生成] 图片地址全部为空，已跳过轮播'); }
+                return;
+            }
+            var start = Math.max(0, Math.min(parseInt(photos.start, 10) || 0, list.length - 1));
+
+            // 查看器缺失时的内联兜底提示
+            function showFallbackTip(message) {
+                var tip = document.createElement('div');
+                tip.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;max-width:70%;padding:18px 24px;border-radius:6px;background:rgba(192,57,43,.95);color:#fff;font-size:14px;line-height:22px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.25);';
+                tip.textContent = message;
+                document.body.appendChild(tip);
+                setTimeout(function () { if (tip.parentNode) { tip.parentNode.removeChild(tip); } }, 3000);
+            }
+
+            try {
+                if (typeof ys === 'undefined' || !ys.imageViewer || typeof ys.imageViewer.open !== 'function') {
+                    if (window.console) { console.error('[资源图片生成] 图片查看器未加载，无法打开轮播'); }
+                    showFallbackTip('图片查看器未就绪，请刷新页面后重试');
+                    return;
+                }
+                ys.imageViewer.open({ images: list, index: start, title: photos.title || '资源图片' });
+                if (window.console) { console.log('[资源图片生成] 图片查看器已打开'); }
+            }
+            catch (e) {
+                if (window.console) { console.error('[资源图片生成] 轮播打开异常', e); }
+                ys.msgError('轮播打开失败：' + ((e && e.message) || '未知异常'));
+            }
+        };
     </script>
 }

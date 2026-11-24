@@ -98,6 +98,7 @@ namespace AggPanSearch.Admin.Web.Areas.UserFrontend.Services
             string[] disallowPaths =
             {
                 "/s/",
+                "/search",
                 "/UserFrontend/Home/Search",
                 "/api/",
                 "/Resource/",

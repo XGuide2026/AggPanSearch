@@ -1,0 +1,322 @@
+@using AggPanSearch.Util
+@{
+    Layout = "~/Views/Shared/_Index.cshtml";
+}
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostingEnvironment
+@section header{
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/lib/imageupload/1.0/css/imgup.min.css"))
+    @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/lib/imageupload/1.0/js/imgup.min.js"))
+}
+<style type="text/css">
+    .ai-conf-tip {
+        font-size: 12px;
+        color: #999;
+        line-height: 20px;
+        margin-bottom: 10px;
+    }
+
+    /* 配置项状态为「隐藏」（conf_status=0）：参数名加删除线，控件区禁用 */
+    .conf-label-hidden {
+        text-decoration: line-through;
+        color: #999 !important;
+    }
+
+    .conf-item-disabled .col-sm-7 {
+        opacity: .6;
+        pointer-events: none;
+    }
+
+    .conf-item-disabled input,
+    .conf-item-disabled textarea,
+    .conf-item-disabled select {
+        background-color: #f5f5f5;
+        cursor: not-allowed;
+    }
+</style>
+<div class="container-div">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="tabs-container m-b-sm">
+                <div class="ibox-title" style="display:flex; align-items:center; justify-content:space-between;">
+                    <h5 style="margin:0;">AI设置</h5>
+                    <div class="ibox-tools" style="position:static; margin:0; align-items:center; display:flex;">
+                        <a id="btnSaveCurrent" class="btn btn-primary btn-sm" style="vertical-align:middle;" onclick="saveCurrentTab()">
+                            <i class="fa fa-check"></i>&nbsp;保存当前页签
+                        </a>
+                    </div>
+                </div>
+                <div class="ibox-content">
+                    <div class="ai-conf-tip">
+                        AI厂商的API主要作用于AI生成资源简介
+                    </div>
+                    <div id="aiForm">
+                        <div class="text-muted" style="padding:20px;">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(function () {
+        loadAiConf();
+    });
+
+    // 加载 AI 配置项（按 pan_conf 动态渲染）
+    function loadAiConf() {
+        ys.ajax({
+            url: '@Url.Content("~/PanManage/PanAiConf/GetListJson")',
+            type: 'get',
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    var list = obj.Data || [];
+                    $('#aiForm').html(list.length === 0
+                        ? '<div class="text-muted" style="padding:20px;">暂无 AI 配置项，可在「系统配置 - 配置项管理」中按 conf_type=14 新增</div>'
+                        : renderConfForm(list));
+                    initConfSelects('#aiForm');
+                    initImageUploadControls();
+                } else {
+                    $('#aiForm').html('<div class="text-danger" style="padding:20px;">加载失败：' + escHtml(obj.Message || '') + '</div>');
+                }
+            }
+        });
+    }
+
+    // ---------- 保存 ----------
+    function saveCurrentTab() {
+        var entities = [];
+        $('#aiForm .form-group[data-conf-id]').each(function () {
+            var $group = $(this);
+            var confId = $group.attr('data-conf-id');
+            if (!confId) {
+                return;
+            }
+            var spec = $group.attr('data-conf-spec') || '';
+            var $radioChecked = $group.find('input[type="radio"]:checked');
+            var value = '';
+            if (spec == '4') {
+                // 上传图片：取图片地址并去掉 ctx 前缀（imgup 回显时会自动拼接 ctx）
+                var $upload = $group.find('.img-box[data-upload="1"]').first();
+                value = $upload.length ? $upload.imageUpload('getImageUrl') : '';
+                if (value && value.indexOf(ctx) === 0) {
+                    value = value.substring(ctx.length);
+                }
+            } else if ($radioChecked.length > 0) {
+                value = $radioChecked.val();
+            } else {
+                var $control = $group.find('input[type="text"], textarea, select, input[type="checkbox"]').last();
+                if ($control.is('input[type="checkbox"]')) {
+                    value = $control.prop('checked') ? '1' : '0';
+                } else {
+                    value = $control.val();
+                }
+            }
+            entities.push({ Id: confId, ConfValue: value });
+        });
+        if (entities.length === 0) {
+            ys.msgInfo('没有可保存的配置项');
+            return;
+        }
+        postJson('@Url.Content("~/PanManage/PanAiConf/SaveBatchJson")', entities);
+    }
+
+    function postJson(url, data) {
+        $.ajax({
+            url: url,
+            type: 'post',
+            dataType: 'json',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            beforeSend: function () {
+                ys.showLoading('正在处理中...');
+            },
+            complete: function () {
+                ys.closeLoading();
+            },
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    ys.msgSuccess(obj.Message || '保存成功');
+                } else {
+                    ys.msgError(obj.Message || '保存失败');
+                }
+            },
+            error: function (xhr) {
+                var msg = '保存失败';
+                try {
+                    if (xhr.responseJSON && xhr.responseJSON.Message) {
+                        msg = xhr.responseJSON.Message;
+                    }
+                } catch (e) { }
+                ys.alertError(msg);
+            }
+        });
+    }
+
+    // ---------- 配置项控件渲染（与「基础设置」页保持一致） ----------
+    function renderConfForm(list) {
+        var html = '<form class="form-horizontal m">';
+        for (var i = 0; i < list.length; i++) {
+            var item = list[i];
+            var val = item.ConfValue === null || item.ConfValue === undefined ? '' : item.ConfValue;
+            var spec = item.ConfSpec === null || item.ConfSpec === undefined ? 1 : item.ConfSpec;
+            var desc = item.ConfDesc || '';
+            // conf_status=0 表示「隐藏」：参数名加删除线、控件禁用（值仍随保存提交，前台读取逻辑不变）
+            var isHidden = String(item.ConfStatus) === '0';
+            html += '<div class="form-group' + (isHidden ? ' conf-item-disabled' : '') + '" data-conf-id="' + (item.id || item.Id || '') + '" data-conf-spec="' + spec + '">';
+            html += '<label class="col-sm-3 control-label' + (isHidden ? ' conf-label-hidden' : '') + '" title="' + escAttr(item.ConfKey || '') + '">' + escHtml(item.ConfTitle || item.ConfKey || '') + '</label>';
+            html += '<div class="col-sm-7">';
+            html += renderControl(spec, val, item.ConfContent || '', item.id || item.Id || '', isHidden);
+            if (desc) {
+                html += '<span class="help-block m-b-none" style="font-size:12px;color:#999;">' + escHtml(desc) + '</span>';
+            }
+            html += '</div>';
+            html += '</div>';
+        }
+        html += '</form>';
+        return html;
+    }
+
+    // conf_spec：1=多行文本框 2=单选框 3=下拉 4=上传图片
+    function renderControl(spec, val, content, confId, disabled) {
+        var name = 'conf_' + confId;
+        var optionsArray = [];
+        var disabledAttr = disabled ? ' disabled' : '';
+        if (content) {
+            optionsArray = content.split(/\r?\n|,/).map(function (s) { return $.trim(s); }).filter(function (s) { return s !== ''; });
+        }
+        var html = '';
+        if (spec == 1) {
+            html += '<textarea id="' + name + '" name="' + name + '" class="form-control" rows="4"' + disabledAttr + '>' + escHtml(val) + '</textarea>';
+        } else if (spec == 3) {
+            // 下拉统一用 ysComboBox 渲染：选项与当前值放在 data 属性里，插入 DOM 后由 initConfSelects 初始化
+            var selectItems = [];
+            for (var k = 0; k < optionsArray.length; k++) {
+                var opt = optionsArray[k];
+                var optVal = opt;
+                var optText = opt;
+                if (opt.indexOf('=') > -1) {
+                    var parts = opt.split('=');
+                    optVal = $.trim(parts[0]);
+                    optText = $.trim(parts[1]);
+                }
+                selectItems.push({ Key: optVal, Value: optText });
+            }
+            html += '<div id="' + name + '" class="conf-select" data-disabled="' + (disabled ? '1' : '0') +
+                '" data-value="' + escAttr(val) + '" data-options="' + escAttr(JSON.stringify(selectItems)) + '"></div>';
+        } else if (spec == 2) {
+            if (optionsArray.length === 0) {
+                html += '<div class="text-muted" style="padding-top:7px;">（无选项，请到编辑页配置 conf_content）</div>';
+            } else {
+                for (var r = 0; r < optionsArray.length; r++) {
+                    var ropt = optionsArray[r];
+                    var roptVal = ropt;
+                    var roptText = ropt;
+                    if (ropt.indexOf('=>') > -1) {
+                        var rparts = ropt.split('=>');
+                        roptText = $.trim(rparts[0]);
+                        roptVal = $.trim(rparts[1]);
+                    }
+                    var rchecked = (String(val) === String(roptVal)) ? ' checked' : '';
+                    html += '<label class="radio-inline" style="padding-top:7px;">' +
+                        '<input type="radio" name="' + name + '" value="' + escAttr(roptVal) + '"' + rchecked + disabledAttr + ' /> ' + escHtml(roptText) + '</label>';
+                }
+            }
+        } else if (spec == 4) {
+            html += '<div id="' + name + '" class="img-box" data-upload="1" data-value="' + escAttr(val) + '"></div>';
+        } else {
+            html += '<input id="' + name + '" name="' + name + '" type="text" class="form-control" value="' + escAttr(val) + '"' + disabledAttr + ' />';
+        }
+        return html;
+    }
+
+    // conf_spec=3 下拉控件初始化：统一用 ysComboBox 渲染，且不启用下拉搜索输入框
+    function initConfSelects(container) {
+        $(container).find('.conf-select').each(function () {
+            var $box = $(this);
+            if ($box.attr('data-inited')) {
+                return;
+            }
+            $box.attr('data-inited', '1');
+            var items = [];
+            try {
+                items = JSON.parse($box.attr('data-options') || '[]');
+            } catch (e) {
+                items = [];
+            }
+            if (items.length === 0) {
+                $box.html('<div class="text-muted" style="padding-top:7px;">（无选项，请到编辑页配置 conf_content）</div>');
+                return;
+            }
+            var val = $box.attr('data-value') || '';
+            // 当前值不在候选里时补一项，避免打开页面保存时被清空
+            var matched = val === '';
+            for (var i = 0; i < items.length; i++) {
+                if (String(items[i].Key) === String(val)) {
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                items.push({ Key: val, Value: '当前值（未在选项里）' });
+            }
+            // placeholder:false 不生成空选项，行为与原 select（默认选中第一项）保持一致
+            $box.ysComboBox({ data: items, class: 'form-control', search: false, placeholder: false });
+            if (val !== '') {
+                $box.ysComboBox('setValue', val);
+            }
+            if ($box.attr('data-disabled') === '1') {
+                $box.find('select').prop('disabled', true);
+            }
+        });
+    }
+
+    // 上传图片控件初始化（含已有图片回显）
+    function initImageUploadControls() {
+        $('#aiForm .img-box[data-upload="1"]').each(function () {
+            var $box = $(this);
+            if ($box.attr('data-inited')) {
+                return;
+            }
+            $box.attr('data-inited', '1');
+            $box.imageUpload({
+                uploadImage: 'uploadPanConfImage',
+                limit: 1,
+                context: ctx
+            });
+            var val = $box.attr('data-value');
+            if (val) {
+                $box.imageUpload('setImageUrl', val);
+            }
+        });
+    }
+
+    // 图片上传回调：走本站 File/UploadFile 接口
+    function uploadPanConfImage(file, callback) {
+        var formdata = new FormData();
+        formdata.append("fileList", file);
+        ys.ajaxUploadFile({
+            url: '@Url.Content("~/File/UploadFile")?fileModule=@((int)AggPanSearch.Enum.UploadFileType.News)',
+            data: formdata,
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    if (callback) {
+                        callback(ctx + ys.trimStart(obj.Data, '/'));
+                    }
+                } else {
+                    ys.msgError(obj.Message);
+                }
+            }
+        });
+    }
+
+    // 转义 HTML
+    function escHtml(str) {
+        return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // 转义属性值
+    function escAttr(str) {
+        return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+</script>

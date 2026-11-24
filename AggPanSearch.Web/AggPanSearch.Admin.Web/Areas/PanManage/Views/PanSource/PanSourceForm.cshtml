@@ -6,29 +6,9 @@
 @section header{
     @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/lib/imageupload/1.0/css/imgup.min.css"))
     <script src="@Url.Content("~/lib/imageupload/1.0/js/imgup.js")?v=@DateTime.Now.Ticks" type="text/javascript"></script>
-    <script src="@Url.Content("~/lib/imageupload/1.0/js/preview.js")?v=@DateTime.Now.Ticks" type="text/javascript"></script>
     <style>
-        /* 资源图片预览：鼠标悬浮在图片链接上时显示对应大图 */
-        .vod-pic-carousel { position: relative; margin-top: 10px; }
-        .vod-pic-viewport { width: 100%; height: 320px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #e5e5e5; border-radius: 4px; background: #f7f7f7; }
-        .vod-pic-viewport img { max-width: 100%; max-height: 100%; }
-        .vod-pic-tip { font-size: 12px; color: #999; }
-        /* 左右切换按钮（图片多于一张时显示） */
-        .vod-pic-prev, .vod-pic-next { position: absolute; top: 50%; transform: translateY(-50%); display: none; width: 24px; height: 36px; line-height: 34px; text-align: center; background: rgba(0, 0, 0, .45); color: #fff; font-size: 20px; text-decoration: none; z-index: 2; }
-        .vod-pic-prev { left: 0; border-radius: 0 4px 4px 0; }
-        .vod-pic-next { right: 0; border-radius: 4px 0 0 4px; }
-        .vod-pic-prev:hover, .vod-pic-next:hover { background: rgba(0, 0, 0, .7); color: #fff; }
-
         /* 修正上传区左右留白不一致：插件默认只设了 padding-left: 18px，右侧没有留白 */
         #vod_pic_upload .upimg-div { padding: 0 8px; }
-        /* 图片项改为显示图片链接，不再显示缩略图预览 */
-        #vod_pic_upload .up-section { width: auto; height: auto; float: none; display: block; margin: 6px 0; padding: 3px 26px 3px 8px; border: 1px solid #e5e5e5; border-radius: 3px; background: #fafafa; }
-        #vod_pic_upload .up-section .up-img { display: none; }
-        #vod_pic_upload .up-section .img-name-p { display: block; margin: 0; font-size: 12px; line-height: 18px; color: #1ab394; word-break: break-all; }
-        #vod_pic_upload .up-section:hover { border: 1px solid #1ab394; }
-        /* 取消 hover 遮罩与大图浮层，同时让链接文本可选中复制（拖动排序仍作用于整个图片项） */
-        #vod_pic_upload .up-section .up-span { background: transparent; pointer-events: none; }
-        #vod_pic_upload .up-section .close-upimg { top: 4px; }
     </style>
 }
 
@@ -119,14 +99,6 @@
                     <div class="col-sm-12">
                         <label class="control-label" style="display:block; text-align:left; padding-left:0;">资源图片</label>
                         <div id="vod_pic_upload" class="img-box"></div>
-                        <div id="vod_pic_carousel" class="vod-pic-carousel" style="display:none;">
-                            <div class="vod-pic-viewport">
-                                <img id="vod_pic_preview" alt="预览" />
-                                <span class="vod-pic-tip" style="display:none;">图片无法加载</span>
-                            </div>
-                            <a href="javascript:void(0)" class="vod-pic-prev">‹</a>
-                            <a href="javascript:void(0)" class="vod-pic-next">›</a>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -159,7 +131,44 @@
         // 兜底：确保文件选择框支持多选（防止静态 JS 被缓存导致 multiple 缺失）
         $("#vod_pic_upload_file").attr("multiple", "multiple");
 
-        bindVodPicPreview();
+        // 图片 src 绝对化：基于本弹窗文档解析，确保列表页(parent)可加载同一地址
+        function absolutizePicSrc(src) {
+            if (/^(https?:)?\/\//i.test(src) || /^data:/i.test(src)) { return src; }
+            var a = document.createElement('a');
+            a.href = src;
+            return a.href;
+        }
+
+        // 原生兜底提示：列表页未提供轮播方法时内联固定提示
+        function showCarouselFallbackTip(message) {
+            var tip = document.createElement('div');
+            tip.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;max-width:70%;padding:18px 24px;border-radius:6px;background:rgba(192,57,43,.95);color:#fff;font-size:14px;line-height:22px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.25);';
+            tip.textContent = message;
+            document.body.appendChild(tip);
+            setTimeout(function () { if (tip.parentNode) { tip.parentNode.removeChild(tip); } }, 6000);
+        }
+
+        // 点击缩略图卡片查看完整大图（排除删除按钮）；本弹窗为 iframe，轮播统一交由资源列表页(parent)打开
+        $('#vod_pic_upload').on('click', '.up-section', function (e) {
+            if ($(e.target).closest('.close-upimg').length) { return; }
+            var data = [], start = 0;
+            $('#vod_pic_upload .up-section').each(function () {
+                var src = $(this).find('.up-img').attr('src');
+                if (!src) { return; }
+                data.push({ src: absolutizePicSrc(src), alt: '' });
+                if (this === e.currentTarget) { start = data.length - 1; }
+            });
+            if (data.length === 0) { return; }
+            var parentWin = null;
+            try { parentWin = window.parent; } catch (e) { }
+            if (parentWin && typeof parentWin.showImageCarousel === 'function') {
+                parentWin.showImageCarousel({ title: '资源图片', start: start, data: data });
+            }
+            else {
+                if (window.console) { console.error('[资源图片生成] 资源列表页未提供 showImageCarousel 方法，无法打开轮播'); }
+                showCarouselFallbackTip('资源列表页暂未提供轮播功能，请刷新页面后重试');
+            }
+        });
 
         getForm();
 
@@ -186,7 +195,6 @@
                     if (callback) {
                         callback(ctx + ys.trimStart(obj.Data, '/'));
                     }
-                    scheduleVodPicPreviewRefresh();
                 }
                 else {
                     ys.msgError(obj.Message);
@@ -203,165 +211,6 @@
         return url;
     }
 
-    // ---------- 资源图片预览：默认展示第一张，鼠标悬浮链接展示对应大图 ----------
-    var vodPicSelectedSrc = null; // 当前选中展示的图片（默认第一张，可用左右按钮切换）
-    var vodPicHoverSrc = null;    // 当前鼠标悬浮的图片，null 表示未悬浮
-    var vodPicLoadedSrc = null;   // 已成功加载的图片地址（缓存命中不会再次触发 load）
-    var vodPicErrorSrc = null;    // 加载失败的图片地址
-    var vodPicRefreshTimer = null;
-
-    function bindVodPicPreview() {
-        var $box = $('#vod_pic_carousel');
-        var $img = $('#vod_pic_preview');
-        var $tip = $box.find('.vod-pic-tip');
-
-        $img.on('load', function () {
-            var src = this.getAttribute('src');
-            if (src === getVodPicTargetSrc()) {
-                vodPicLoadedSrc = src;
-                vodPicErrorSrc = null;
-                $tip.hide();
-                $img.show();
-                $box.show();
-            }
-        }).on('error', function () {
-            var src = this.getAttribute('src');
-            if (src === getVodPicTargetSrc()) {
-                vodPicLoadedSrc = null;
-                vodPicErrorSrc = src;
-                $img.hide();
-                $tip.show();
-                $box.show();
-            }
-        });
-
-        // 左右按钮切换预览图
-        $box.find('.vod-pic-prev').on('click', function () {
-            stepVodPic(-1);
-        });
-        $box.find('.vod-pic-next').on('click', function () {
-            stepVodPic(1);
-        });
-
-        // 悬浮图片链接时展示对应图片
-        $('#vod_pic_upload').on('mouseenter', '.up-section', function () {
-            var src = $(this).find('.up-img').attr('src');
-            if (!src) return;
-            vodPicHoverSrc = src;
-            showVodPic(src);
-        }).on('mouseleave', '.up-section', function () {
-            vodPicHoverSrc = null;
-            // 延后一拍再回选中图，避免在两条链接之间移动时闪现第一张
-            setTimeout(function () {
-                if (!vodPicHoverSrc) {
-                    showVodPic(vodPicSelectedSrc);
-                }
-            }, 0);
-        });
-
-        refreshVodPicPreview();
-
-        // 监听上传控件的增删图片，实时刷新默认预览图
-        if (window.MutationObserver && $('#vod_pic_upload')[0]) {
-            new MutationObserver(function () {
-                scheduleVodPicPreviewRefresh();
-            }).observe($('#vod_pic_upload')[0], { childList: true, subtree: true });
-        }
-    }
-
-    function getVodPicTargetSrc() {
-        return vodPicHoverSrc || vodPicSelectedSrc;
-    }
-
-    function getVodPicList() {
-        var list = [];
-        $('#vod_pic_upload .up-section .up-img').each(function () {
-            var src = $(this).attr('src');
-            if (src) {
-                list.push(src);
-            }
-        });
-        return list;
-    }
-
-    // 刷新预览：默认展示列表第一张，已选中的图片仍存在则保持
-    function refreshVodPicPreview() {
-        var list = getVodPicList();
-        if (list.length === 0) {
-            vodPicSelectedSrc = null;
-        }
-        else if ($.inArray(vodPicSelectedSrc, list) === -1) {
-            vodPicSelectedSrc = list[0];
-        }
-        toggleVodPicNav(list.length > 1);
-        if (!vodPicHoverSrc) {
-            showVodPic(vodPicSelectedSrc);
-        }
-    }
-
-    // 左右按钮：图片多于一张时显示
-    function toggleVodPicNav(show) {
-        var $nav = $('#vod_pic_carousel').find('.vod-pic-prev, .vod-pic-next');
-        if (show) {
-            $nav.show();
-        }
-        else {
-            $nav.hide();
-        }
-    }
-
-    // 左右切换预览图（首尾循环）
-    function stepVodPic(step) {
-        var list = getVodPicList();
-        if (list.length === 0) {
-            return;
-        }
-        var current = vodPicHoverSrc || vodPicSelectedSrc;
-        var index = $.inArray(current, list);
-        if (index === -1) {
-            index = 0;
-        }
-        index = (index + step + list.length) % list.length;
-        vodPicHoverSrc = null;
-        vodPicSelectedSrc = list[index];
-        showVodPic(vodPicSelectedSrc);
-    }
-
-    function scheduleVodPicPreviewRefresh() {
-        clearTimeout(vodPicRefreshTimer);
-        vodPicRefreshTimer = setTimeout(refreshVodPicPreview, 200);
-    }
-
-    function showVodPic(src) {
-        var $box = $('#vod_pic_carousel');
-        var $img = $('#vod_pic_preview');
-        var $tip = $box.find('.vod-pic-tip');
-
-        if (!src) {
-            vodPicLoadedSrc = null;
-            vodPicErrorSrc = null;
-            $img.hide().removeAttr('src');
-            $tip.hide();
-            $box.hide();
-            return;
-        }
-        if (vodPicErrorSrc === src) {
-            $img.hide();
-            $tip.show();
-            $box.show();
-            return;
-        }
-        if (vodPicLoadedSrc === src) {
-            $tip.hide();
-            $img.show();
-            $box.show();
-            return;
-        }
-        // 未加载过（或换了图片）：先加载，load 成功后再展示
-        $tip.hide();
-        $img.hide().attr('src', src);
-    }
-
     function getForm() {
         if (id > 0) {
             ys.ajax({
@@ -374,7 +223,6 @@
                         if (pic) {
                             $("#vod_pic_upload").imageUpload("setImageUrl", pic);
                         }
-                        scheduleVodPicPreviewRefresh();
                     }
                 }
             });

@@ -164,7 +164,7 @@ namespace AggPanSearch.Business.PanManage
                 };
 
                 template = GetValue(confList, "ai_intro_prompt");
-                maxChars = ParseInt(GetValue(confList, "ai_intro_max_chars"), 200);
+                maxChars = PickMaxChars(GetValue(confList, "ai_intro_max_chars"), 200);
             }
             catch (AiException ex)
             {
@@ -329,6 +329,35 @@ namespace AggPanSearch.Business.PanManage
                 return value;
             }
             return defaultValue;
+        }
+
+        /// <summary>
+        /// 从「AI 介绍字数上限」配置值解析候选列表并随机取一个。
+        /// 配置支持逗号、顿号、分号、空白等分隔多个候选值：
+        /// 0 个有效候选→返回默认值；1 个→固定使用；多个→随机取一。
+        /// </summary>
+        private static int PickMaxChars(string text, int defaultValue)
+        {
+            // 覆盖中文输入法常见符号：逗号 、 顿号 、分号 、空格/制表符，忽略空项
+            char[] separators = { ',', '，', '、', ';', '；', ' ', '\t', '\n' };
+            List<int> candidates = new List<int>();
+            foreach (string part in (text ?? string.Empty).Split(separators, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (int.TryParse(part.Trim(), out int value) && value > 0)
+                {
+                    candidates.Add(value);
+                }
+            }
+
+            if (candidates.Count == 0)
+            {
+                return defaultValue;
+            }
+            if (candidates.Count == 1)
+            {
+                return candidates[0];
+            }
+            return candidates[new Random().Next(candidates.Count)];
         }
 
         private async Task<List<PanConfEntity>> LoadConfList()

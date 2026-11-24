@@ -383,7 +383,6 @@ namespace AggPanSearch.Business.PanManage
             entity.ResourceIntro = (entity.ResourceIntro ?? "").Trim();
             entity.ResourceUrl = (entity.ResourceUrl ?? "").Trim();
             entity.CollectImageUrl = (entity.CollectImageUrl ?? "").Trim();
-            entity.ImageUrl = (entity.ImageUrl ?? "").Trim();
 
             if (entity.ResourceName.Length == 0)
             {
@@ -437,13 +436,26 @@ namespace AggPanSearch.Business.PanManage
                 }
             }
             entity.CollectImageUrl = string.Join(";", collectImages);
-            // 本地图片由补图任务回写，也允许手动上传；这里只校验长度，并统一成分号分隔存储
-            if (entity.ImageUrl.Length > MaxImageUrlLength)
+            // 本地图片由补图任务回写，编辑表单已移除该字段：
+            // 未提交(null)表示不修改，保留库中原值，避免整行更新把补图回写的数据清空；非 null 时才校验并归一化
+            if (entity.ImageUrl != null)
             {
-                obj.Message = "本地图片地址不能超过 1000 个字符";
-                return obj;
+                entity.ImageUrl = entity.ImageUrl.Trim();
+                if (entity.ImageUrl.Length > MaxImageUrlLength)
+                {
+                    obj.Message = "本地图片地址不能超过 1000 个字符";
+                    return obj;
+                }
+                entity.ImageUrl = string.Join(";", SplitImageUrls(entity.ImageUrl));
             }
-            entity.ImageUrl = string.Join(";", SplitImageUrls(entity.ImageUrl));
+            else if (entity.Id > 0)
+            {
+                PanSourceCollectEntity current = await panSourceCollectService.GetEntity(entity.Id.Value);
+                if (current != null)
+                {
+                    entity.ImageUrl = current.ImageUrl;
+                }
+            }
             if (entity.CollectSource.Length > 100)
             {
                 obj.Message = "采集来源不能超过 100 个字符";

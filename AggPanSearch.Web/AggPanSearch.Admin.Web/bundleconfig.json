@@ -373,8 +373,7 @@
     {
         "outputFileName": "wwwroot/lib/imageupload/1.0/js/imgup.min.js",
         "inputFiles": [
-            "wwwroot/lib/imageupload/1.0/js/imgup.js",
-            "wwwroot/lib/imageupload/1.0/js/preview.js"
+            "wwwroot/lib/imageupload/1.0/js/imgup.js"
         ],
         "minify": {
             "enabled": true,

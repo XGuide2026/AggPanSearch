@@ -39,13 +39,18 @@ namespace AggPanSearch.Business.PanManage
 
         public string Message { get; set; } = string.Empty;
 
+        /// <summary>本次任务生成的图片站内地址（暂存模式回传用；写库模式为空）。</summary>
+        public List<string> Images { get; set; } = new List<string>();
+
         public DateTime StartTime { get; set; } = DateTime.Now;
 
         public DateTime? EndTime { get; set; }
 
         public PanSourceScreenshotJobState Clone()
         {
-            return (PanSourceScreenshotJobState)MemberwiseClone();
+            PanSourceScreenshotJobState copy = (PanSourceScreenshotJobState)MemberwiseClone();
+            copy.Images = new List<string>(Images);
+            return copy;
         }
     }
 
@@ -283,8 +288,13 @@ namespace AggPanSearch.Business.PanManage
 
         private readonly PanSourceService panSourceService = new PanSourceService();
 
-        /// <summary>启动截图任务：ids 为勾选的资源 Id，返回 JobId（失败时返回空并写入 error）。</summary>
-        public static string Start(List<long> ids, out string error)
+        /// <summary>
+        /// 启动截图任务：ids 为选中的资源 Id，返回 JobId（失败时返回空并写入 error）。
+        /// mode 为截图模式：1=打开文件夹显示文件列表截图，2=打开文件夹显示文件缩略图截图。
+        /// persist=true 写库（批量自动截图），persist=false 为暂存模式（资源图片生成弹窗）：
+        /// 不写库，图片地址回传到任务状态 Images 由弹窗统一保存。
+        /// </summary>
+        public static string Start(List<long> ids, int mode, bool persist, out string error)
         {
             error = string.Empty;
             List<long> targetIds = (ids ?? new List<long>())
@@ -305,11 +315,11 @@ namespace AggPanSearch.Business.PanManage
             }
 
             PanSourceScreenshotJobRunner runner = new PanSourceScreenshotJobRunner();
-            _ = Task.Run(() => runner.RunAsync(jobId, targetIds, token), CancellationToken.None);
+            _ = Task.Run(() => runner.RunAsync(jobId, targetIds, mode, persist, token), CancellationToken.None);
             return jobId;
         }
 
-        private async Task RunAsync(string jobId, List<long> ids, CancellationToken token)
+        private async Task RunAsync(string jobId, List<long> ids, int mode, bool persist, CancellationToken token)
         {
             int done = 0;
             int succeeded = 0;
@@ -332,7 +342,9 @@ namespace AggPanSearch.Business.PanManage
                     int currentIndex = done + 1;
                     PanSourceScreenshotJobManager.Update(jobId, state =>
                     {
-                        state.Message = $"正在截图：{currentIndex}/{ids.Count}";
+                        state.Message = persist
+                            ? $"正在截图：{currentIndex}/{ids.Count}"
+                            : $"正在生成图片：{currentIndex}/{ids.Count}";
                     });
 
                     if (!recordMap.TryGetValue(id, out PanSourceEntity record))
@@ -342,7 +354,7 @@ namespace AggPanSearch.Business.PanManage
                     }
                     else
                     {
-                        string skipReason = GetSkipReason(record);
+                        string skipReason = GetSkipReason(record, ignoreScreenshotCheck: !persist);
                         if (skipReason.Length > 0)
                         {
                             skipped++;
@@ -350,15 +362,14 @@ namespace AggPanSearch.Business.PanManage
                         }
                         else
                         {
-                            (byte[] bytes, string captureError) = await QuarkShareScreenshotCapturer
-                                .CaptureAsync(record.Url, record.Code, token)
+                            (byte[] bytes, string captureError) = await CaptureByModeAsync(mode, record, token)
                                 .ConfigureAwait(false);
 
                             if (bytes == null || bytes.Length == 0)
                             {
                                 failed++;
                                 AddNote(notes, $"{ShortTitle(record.Title)}：{(captureError.Length > 0 ? captureError : "截图失败")}");
-                                LogHelper.Info($"自动截图失败：Id={id}，原因：{captureError}");
+                                LogHelper.Info($"截图失败：Id={id}，原因：{captureError}");
                             }
                             else
                             {
@@ -370,8 +381,22 @@ namespace AggPanSearch.Business.PanManage
                                 }
                                 else
                                 {
-                                    string vodPic = AppendImage(record.VodPic, imageUrl);
-                                    await panSourceService.UpdateVodPic(id, vodPic).ConfigureAwait(false);
+                                    if (persist)
+                                    {
+                                        string vodPic = AppendImage(record.VodPic, imageUrl);
+                                        await panSourceService.UpdateVodPic(id, vodPic).ConfigureAwait(false);
+                                    }
+                                    else
+                                    {
+                                        string img = imageUrl;
+                                        PanSourceScreenshotJobManager.Update(jobId, state =>
+                                        {
+                                            if (!state.Images.Contains(img, StringComparer.OrdinalIgnoreCase))
+                                            {
+                                                state.Images.Add(img);
+                                            }
+                                        });
+                                    }
                                     succeeded++;
                                 }
                             }
@@ -389,11 +414,15 @@ namespace AggPanSearch.Business.PanManage
                         state.Succeeded = succeededSnapshot;
                         state.Skipped = skippedSnapshot;
                         state.Failed = failedSnapshot;
-                        state.Message = $"正在截图：{doneSnapshot}/{state.Total}";
+                        state.Message = persist
+                            ? $"正在截图：{doneSnapshot}/{state.Total}"
+                            : $"正在生成图片：{doneSnapshot}/{state.Total}";
                     });
                 }
 
-                string message = $"截图完成：处理 {ids.Count} 条，成功 {succeeded} 条，跳过 {skipped} 条，失败 {failed} 条";
+                string message = persist
+                    ? $"自动截图完成：处理 {ids.Count} 条，成功 {succeeded} 条，跳过 {skipped} 条，失败 {failed} 条"
+                    : $"图片生成完成：生成 {succeeded} 张，跳过 {skipped} 条，失败 {failed} 条（未保存，可在弹窗内预览后保存）";
                 if (notes.Count > 0)
                 {
                     message += "。" + string.Join("；", notes);
@@ -422,8 +451,9 @@ namespace AggPanSearch.Business.PanManage
             }
         }
 
-        /// <summary>不需要截图的资源直接跳过，返回跳过原因（空字符串表示需要截图）。</summary>
-        private static string GetSkipReason(PanSourceEntity record)
+        /// <summary>不需要截图的资源直接跳过，返回跳过原因（空字符串表示需要处理）。</summary>
+        /// <param name="ignoreScreenshotCheck">暂存模式下允许对已有截图的资源重新生成（只影响暂存列表，不写库）。</param>
+        private static string GetSkipReason(PanSourceEntity record, bool ignoreScreenshotCheck)
         {
             if (string.IsNullOrWhiteSpace(record.Url))
             {
@@ -434,14 +464,31 @@ namespace AggPanSearch.Business.PanManage
             {
                 return "仅支持夸克资源";
             }
-            if (HasScreenshot(record.VodPic))
+            if (!ignoreScreenshotCheck && HasScreenshot(record.VodPic))
             {
                 return "已有自动截图";
             }
             return string.Empty;
         }
 
-        /// <summary>PNG 落盘到 Resource/Collect/年/月/日，返回站内访问地址；失败返回空字符串。</summary>
+        /// <summary>按截图模式选择执行器。</summary>
+        /// <remarks>mode=1（默认）：打开文件夹显示文件列表截图；
+        /// mode=2：打开文件夹显示文件缩略图截图（先切换视图再截图）。</remarks>
+        private static async Task<(byte[] Bytes, string Error)> CaptureByModeAsync(
+            int mode, PanSourceEntity record, CancellationToken token)
+        {
+            switch (mode)
+            {
+                case 2:
+                    return await QuarkShareScreenshotCapturer.CaptureAsync(
+                        record.Url, record.Code, token, switchToThumbnail: true).ConfigureAwait(false);
+                default:
+                    return await QuarkShareScreenshotCapturer.CaptureAsync(record.Url, record.Code, token)
+                        .ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>图片落盘到 Resource/Collect/年/月/日，返回站内访问地址；失败返回空字符串。</summary>
         private static async Task<string> SaveImageAsync(byte[] bytes, CancellationToken token)
         {
             try

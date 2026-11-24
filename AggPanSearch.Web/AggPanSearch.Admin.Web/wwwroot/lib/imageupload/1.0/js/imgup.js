@@ -61,7 +61,6 @@
         uploadImage: '',    // 上传图片回调
         limit: 10,          // 上传限制
         context: '',        // 当前页面根目录
-        canPreview: 1,      // 是否可以预览(0不可以，1可以)
         canAdd: 1           // 是否可以添加(0不可以，1可以)
     };
 
@@ -100,11 +99,10 @@
                         html += '</section>';
                         $(html).insertBefore($(target).find(".z_file"));
                         $("#" + deleteId).on("click", function () {
-                            $("#" + inputFileId).imageUpload("deleteImage", deleteId)
+                            $("#" + inputFileId).imageUpload("deleteImage", this.id)
                         });
                     }
                 }
-                $(".up-span").Huipreview();
                 $("#" + inputFileId).imageUpload("checkImageLimit")
             }
         },
@@ -246,7 +244,7 @@
                 var context = $("#" + inputFileId).attr("context");
                 var deleteId = ys.getGuid();
                 var deleteImg = $("<img id='" + deleteId + "' class='close-upimg' draggable='false' style='display:" + deleteDisplay + "' />").on("click", function () {
-                    $("#" + inputFileId).imageUpload("deleteImage", deleteId)
+                    $("#" + inputFileId).imageUpload("deleteImage", this.id)
                 });
                 deleteImg.attr("src", context + "lib/imageupload/1.0/img/delete.png").appendTo(section);
 

@@ -18,7 +18,7 @@ internal sealed class OpenAiErrorMapper
             case 403:
                 return new AiException(
                     AiErrorKind.Unauthorized,
-                    "AI 接口 Key 无效或已失效，请到「基础设置 - AI设置」重新填写",
+                    "AI 接口 Key 无效或已失效，请到「AI设置」页面重新填写",
                     statusCode,
                     providerKey);
 
@@ -32,7 +32,7 @@ internal sealed class OpenAiErrorMapper
             case 404:
                 return new AiException(
                     AiErrorKind.BadRequest,
-                    "AI 接口地址不正确（HTTP 404），请到「基础设置 - AI设置」检查接口地址",
+                    "AI 接口地址不正确（HTTP 404），请到「AI设置」页面检查接口地址",
                     statusCode,
                     providerKey);
 
@@ -48,7 +48,7 @@ internal sealed class OpenAiErrorMapper
                 {
                     return new AiException(
                         AiErrorKind.ModelNotFound,
-                        $"AI 模型「{model}」不存在或已下线，请到「基础设置 - AI设置」修改 AI 模型（可在接口地址后拼接 /models 查询可用模型）",
+                        $"AI 模型「{model}」不存在或已下线，请到「AI设置」页面修改 AI 模型（可在接口地址后拼接 /models 查询可用模型）",
                         statusCode,
                         providerKey);
                 }

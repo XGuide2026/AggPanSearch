@@ -3,7 +3,8 @@
  * 用法：ys.imageViewer.open({ images: ['https://a.jpg', 'https://b.jpg'], index: 0 });
  *       ys.imageViewer.close();
  * 说明：单例 DOM，首次打开时创建，之后复用同一节点，只替换图片地址与计数；
- *       图片按原始比例完整显示（contain），多图支持左右切换、指示点与计数，单图隐藏切换控件。
+ *       图片按原始比例完整显示（contain），多图支持左右切换、指示点与计数；
+ *       单图隐藏左右切换控件，底部底栏（计数）保持常驻，单图 / 多图底部样式一致。
  */
 ;(function ($, window) {
     'use strict';
@@ -198,11 +199,10 @@
         $title.text($.trim(options.title === null || options.title === undefined ? '' : String(options.title)));
 
         renderDots(images.length);
-        // 单图不展示切换控件与底栏，只保留关闭按钮
+        // 单图不展示左右切换控件，只保留关闭按钮；底栏（计数 + 指示点）常驻，保证单图 / 多图弹窗底部样式一致
         var multi = images.length > 1;
         $prev.toggleClass('is-hidden', !multi);
         $next.toggleClass('is-hidden', !multi);
-        $foot.toggleClass('is-hidden', !multi);
 
         if (!opened) {
             opened = true;

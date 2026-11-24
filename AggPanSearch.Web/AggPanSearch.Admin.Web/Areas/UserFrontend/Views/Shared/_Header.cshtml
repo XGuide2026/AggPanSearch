@@ -21,28 +21,29 @@
     {
         currentPath = "/";
     }
-    // 路由别名归一化：短链（/category、/uf、/s/xx.html、/UserFrontend/Home/Index）与菜单的规范地址不同，
+    // 路由别名归一化：短链（/search、/category、/s/xx.html、/uf、/UserFrontend/Home/Index）与菜单的规范地址不同，
     // 不归一会导致这些页面一个 active 都没有
-    if (string.Equals(currentPath, "/category", StringComparison.OrdinalIgnoreCase))
+    if (string.Equals(currentPath, "/category", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentPath, "/UserFrontend/Home/Category", StringComparison.OrdinalIgnoreCase)
+        || currentPath.StartsWith("/category/", StringComparison.OrdinalIgnoreCase))
     {
-        currentPath = "/UserFrontend/Home/Category";
+        currentPath = "/category";
     }
-    else if (string.Equals(currentPath, "/uf", StringComparison.OrdinalIgnoreCase)
+    else if (string.Equals(currentPath, "/search", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentPath, "/UserFrontend/Home/Search", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentPath, "/uf", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentPath, "/UserFrontend", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentPath, "/UserFrontend/Home", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(currentPath, "/UserFrontend/Home/Index", StringComparison.OrdinalIgnoreCase))
+        || string.Equals(currentPath, "/UserFrontend/Home/Index", StringComparison.OrdinalIgnoreCase)
+        || currentPath.StartsWith("/s/", StringComparison.OrdinalIgnoreCase))
     {
         // 首页本身没有独立菜单项，统一归到"搜索"菜单（首页即搜索入口）
-        currentPath = "/UserFrontend/Home/Search";
-    }
-    else if (currentPath.StartsWith("/s/", StringComparison.OrdinalIgnoreCase))
-    {
-        currentPath = "/UserFrontend/Home/Search";
+        currentPath = "/search";
     }
     var navItems = new[]
     {
-        new { Href = "/UserFrontend/Home/Search", Text = "搜索" },
-        new { Href = "/UserFrontend/Home/Category", Text = "资源分类" }
+        new { Href = "/search", Text = "搜索" },
+        new { Href = "/category", Text = "资源分类" }
     };
     string activeHref = null;
     foreach (var navItem in navItems)

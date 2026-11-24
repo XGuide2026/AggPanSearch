@@ -81,10 +81,6 @@
         display: block;
     }
 
-    .up-section:hover .up-span {
-        visibility: visible;
-    }
-
 .z_photo .up-img {
     display: block;
     width: 100%;

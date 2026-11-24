@@ -34,8 +34,9 @@ namespace AggPanSearch.Admin.Web.Areas.UserFrontend.Controllers
             return View(data);
         }
 
-        /// <summary>搜索结果页（Razor 版 list）。</summary>
+        /// <summary>搜索结果页（Razor 版 list；规范地址 /search，保留旧长路由与 /s/{keyword}.html 兼容）。</summary>
         [HttpGet]
+        [Route("search")]
         [Route("UserFrontend/Home/Search")]
         [Route("s/{keyword}.html")]
         public IActionResult Search(string keyword = "", int page = 1, int categoryId = 0)

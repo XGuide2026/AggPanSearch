@@ -1685,13 +1685,13 @@
         // 路由别名归一化：短链与菜单里的规范地址不同，不归一这些页面会一个 active 都没有
         function canonicalPath(path) {
             var p = normalizePath(path);
-            if (p === '/') { return '/userfrontend'; }
-            if (p === '/category') { return '/userfrontend/home/category'; }
-            // 首页与搜索页统一归到 /userfrontend：后台配置里"搜索"有的写 / 、有的写 /UserFrontend/Home/Search，
-            // 归一后两种写法的 active 表现一致（与服务端 _Header.cshtml 的 activeHref 规则相同）
-            if (p === '/uf' || p === '/userfrontend/home' || p === '/userfrontend/home/index'
-                || p === '/userfrontend/home/search') { return '/userfrontend'; }
-            if (p.indexOf('/s/') === 0) { return '/userfrontend'; }
+            // 首页与搜索页统一归到 /search：后台配置里"搜索"有的写 / 、有的写 /search、/UserFrontend/Home/Search，
+            // 归一后表现一致（与服务端 _Header.cshtml 的 activeHref 规则相同）
+            if (p === '/' || p === '/search' || p === '/uf' || p === '/userfrontend'
+                || p === '/userfrontend/home' || p === '/userfrontend/home/index'
+                || p === '/userfrontend/home/search') { return '/search'; }
+            if (p === '/category' || p === '/userfrontend/home/category') { return '/category'; }
+            if (p.indexOf('/s/') === 0) { return '/search'; }
             return p;
         }
 

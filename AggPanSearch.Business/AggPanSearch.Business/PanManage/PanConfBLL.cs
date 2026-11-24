@@ -142,7 +142,7 @@ namespace AggPanSearch.Business.PanManage
                 { "ai_deepseek_apikey", ("AI 接口 Key", "DeepSeek 控制台创建的 API Key（sk- 开头），仅后端调用使用，不输出到前台", 14, 0) },
                 { "ai_model", ("AI 模型", "默认 deepseek-flash；可手工修改，留空按厂商默认模型处理", 14, 0) },
                 { "ai_intro_prompt", ("AI 介绍提示词", "支持占位符 {title} {shareTitle} {category} {types} {old} {files}，留空使用内置模板", 14, 1) },
-                { "ai_intro_max_chars", ("AI 介绍字数上限", "超出时截断到最近的句末标点，建议 150~300，默认 200", 14, 0) }
+                { "ai_intro_max_chars", ("AI 介绍字数上限", "AI 生成资源简介随机取其中一个作为本次字数上限。", 14, 0) }
             };
 
         /// <summary>

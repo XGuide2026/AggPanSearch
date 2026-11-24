@@ -68,7 +68,7 @@ public sealed class AiProviderRegistry
         string supported = string.Join("、", Descriptors.Select(t => t.Key));
         throw new AiException(
             AiErrorKind.InvalidConfig,
-            $"不支持的 AI 厂商「{key}」，请在「基础设置 - AI设置」修改 AI 厂商（当前支持：{supported}）");
+            $"不支持的 AI 厂商「{key}」，请在「AI设置」页面修改 AI 厂商（当前支持：{supported}）");
     }
 
     /// <summary>
@@ -87,7 +87,7 @@ public sealed class AiProviderRegistry
         {
             throw new AiException(
                 AiErrorKind.InvalidConfig,
-                $"未配置 {descriptor.DisplayName} 的 API Key，请到「基础设置 - AI设置」填写（配置项 {descriptor.ApiKeyConfKey}）",
+                $"未配置 {descriptor.DisplayName} 的 API Key，请到「AI设置」页面填写（配置项 {descriptor.ApiKeyConfKey}）",
                 null,
                 descriptor.Key);
         }

@@ -43,6 +43,12 @@ namespace AggPanSearch.Admin.Web.Areas.PanManage.Controllers
         {
             return View();
         }
+
+        /// <summary>资源图片生成弹窗（图片生成模式 + 弹窗内暂存/保存）</summary>
+        public ActionResult PanSourceImageForm()
+        {
+            return View();
+        }
         #endregion
 
         #region 获取数据
@@ -112,14 +118,16 @@ namespace AggPanSearch.Admin.Web.Areas.PanManage.Controllers
 
         #region 自动截图
         /// <summary>
-        /// 启动自动截图任务：对勾选的夸克资源用无头浏览器截图，图片落盘后追加到 vod_pic 末尾。
+        /// 启动截图任务：对选中的夸克资源用无头浏览器截图，图片落盘后追加到 vod_pic 末尾。
         /// 后台执行，返回 jobId，前端通过 GetScreenshotProgressJson 轮询进度。
+        /// mode 为图片生成模式（1=打开文件夹显示文件列表截图，预留扩展）；persist 为 true 时直接写库，
+        /// 为 false（资源图片生成弹窗）时仅落盘并在任务状态中回传图片地址，不写库，由弹窗统一保存。
         /// </summary>
         [HttpPost]
         [AuthorizeFilter("pan:pansource:edit")]
-        public ActionResult StartScreenshotJson(string ids)
+        public ActionResult StartScreenshotJson(string ids, int mode = 1, bool persist = true)
         {
-            TData<string> obj = panSourceBLL.StartScreenshot(ids);
+            TData<string> obj = panSourceBLL.StartScreenshot(ids, mode, persist);
             return Json(obj);
         }
 
