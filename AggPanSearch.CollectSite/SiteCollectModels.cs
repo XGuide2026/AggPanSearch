@@ -103,6 +103,9 @@ public sealed class SiteCollectResult
     /// <summary>解析出的资源条数（去重前）。</summary>
     public int Found => Items.Count;
 
+    /// <summary>累计解析出的条目总数（列表页解析时即累加，先于入库确定，作进度条分母）。</summary>
+    public int TotalFound { get; set; }
+
     /// <summary>被跳过的条目数（无链接、链接类型不识别、字段超长等）。</summary>
     public int Skipped { get; set; }
 
@@ -169,17 +172,14 @@ public sealed class SiteCollectedPage
     public SiteCollectNavResult Nav { get; set; } = new SiteCollectNavResult();
 }
 
-/// <summary>分页采集进度（引擎每处理完一个列表页刷新一次）。</summary>
+/// <summary>采集进度（引擎每处理完一个阶段刷新一次）。</summary>
 public sealed class SiteCollectProgress
 {
-    /// <summary>已处理的列表页数量。</summary>
-    public int ListPagesDone { get; set; }
-
-    /// <summary>预计列表页总数，0 表示未知。</summary>
-    public int ListPagesTotal { get; set; }
-
-    /// <summary>累计发现的资源条数。</summary>
+    /// <summary>累计发现的资源条数（含未入库的列表条目）。</summary>
     public int Found { get; set; }
+
+    /// <summary>预计/累计解析出的条目总数（进度条分母，优先于 Found 使用）。</summary>
+    public int TotalFound { get; set; }
 
     /// <summary>累计跳过条数。</summary>
     public int Skipped { get; set; }

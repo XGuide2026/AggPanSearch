@@ -24,9 +24,6 @@ namespace AggPanSearch.Business.PanManage
     {
         private const int MaxCustomPages = 100;
 
-        /// <summary>手动补图一次最多处理的记录数。</summary>
-        private const int MaxBackfillImageCount = 50;
-
         /// <summary>单个图片字段的最大字符数（与数据库 varchar(1000) 保持一致）。</summary>
         private const int MaxImageUrlLength = 1000;
 
@@ -290,62 +287,7 @@ namespace AggPanSearch.Business.PanManage
             return obj;
         }
 
-        /// <summary>
-        /// 启动补图任务：ids 为空时补缺少本地图片的前 limit 条记录。
-        /// 原图下载失败会被剔除，任务结束后 collect_image_url 可能变短。
-        /// </summary>
-        public TData<string> StartBackfillImage(string ids, int limit)
-        {
-            TData<string> obj = new TData<string>();
-            List<long> idList = new List<long>();
-            if (!string.IsNullOrWhiteSpace(ids))
-            {
-                foreach (string id in ids.Split(',', StringSplitOptions.RemoveEmptyEntries))
-                {
-                    if (long.TryParse(id.Trim(), out long value) && value > 0)
-                    {
-                        idList.Add(value);
-                    }
-                }
-            }
-            if (idList.Count == 0)
-            {
-                limit = limit > 0 ? Math.Min(limit, MaxBackfillImageCount) : MaxBackfillImageCount;
-            }
-
-            string jobId = PanSourceCollectImageJobRunner.Start(idList, limit, out string error);
-            if (jobId.Length == 0)
-            {
-                obj.Message = error;
-                return obj;
-            }
-            obj.Data = jobId;
-            obj.Tag = 1;
-            obj.Message = "补图任务已提交，正在后台下载本地图片";
-            return obj;
-        }
-
-        /// <summary>查询补图进度；jobId 为空或已过期时返回最近一个运行中的任务。</summary>
-        public TData<PanSourceCollectImageJobState> GetImageProgress(string jobId)
-        {
-            TData<PanSourceCollectImageJobState> obj = new TData<PanSourceCollectImageJobState>();
-            PanSourceCollectImageJobState state = PanSourceCollectImageJobManager.Get(jobId);
-            if (state == null)
-            {
-                state = PanSourceCollectImageJobManager.GetLatestRunning();
-            }
-            if (state == null)
-            {
-                obj.Message = "补图任务不存在或已结束";
-                return obj;
-            }
-            obj.Data = state;
-            obj.Tag = 1;
-            obj.Message = state.Message;
-            return obj;
-        }
-
-        /// <summary>查询自动补图队列的实时进度（采集入库后后台自动下载本地图片的状态）。</summary>
+        /// <summary>查询资源图片下载队列的实时进度（采集入库后后台自动下载本地图片的状态）。</summary>
         public TData<PanSourceCollectAutoQueueState> GetAutoBackfillProgress()
         {
             TData<PanSourceCollectAutoQueueState> obj = new TData<PanSourceCollectAutoQueueState>();
@@ -356,17 +298,14 @@ namespace AggPanSearch.Business.PanManage
             return obj;
         }
 
-        /// <summary>取消正在运行的补图任务（已回写的本地图片保留）。</summary>
-        public TData CancelBackfillImage(string jobId)
+        /// <summary>查询资源信息分析队列的实时进度（图片下载完成后后台自动分析网盘链接的状态）。</summary>
+        public TData<PanSourceCollectInfoQueueState> GetInfoAnalyzeProgress()
         {
-            TData obj = new TData();
-            if (!PanSourceCollectImageJobManager.Cancel(jobId))
-            {
-                obj.Message = "补图任务不存在或已结束";
-                return obj;
-            }
+            TData<PanSourceCollectInfoQueueState> obj = new TData<PanSourceCollectInfoQueueState>();
+            PanSourceCollectInfoQueueState state = PanSourceCollectInfoJobRunner.GetInfoQueueState();
+            obj.Data = state;
             obj.Tag = 1;
-            obj.Message = "已提交取消请求，正在停止补图";
+            obj.Message = state == null ? string.Empty : state.Message;
             return obj;
         }
 
@@ -489,10 +428,10 @@ namespace AggPanSearch.Business.PanManage
                 }
             }
 
-            // 链接是否有效：未指定时默认有效
+            // 链接是否有效：未指定时默认未检测，待资源分析完成后回写 1/0
             if (entity.IsLinkValid == null)
             {
-                entity.IsLinkValid = 1;
+                entity.IsLinkValid = -1;
             }
 
             await panSourceCollectService.SaveForm(entity);

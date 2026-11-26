@@ -246,28 +246,7 @@ namespace AggPanSearch.Admin.Web.Areas.PanManage.Controllers
             return Json(obj);
         }
 
-        /// <summary>
-        /// 启动补图任务：把原图片地址下载到本机并回写本地图片地址。
-        /// ids 为空时补缺少本地图片的前 limit 条记录；后台执行，返回 jobId，前端通过 GetImageProgressJson 轮询。
-        /// </summary>
-        [HttpPost]
-        [AuthorizeFilter("pan:pansourcecollect:add,pan:pansourcecollect:edit")]
-        public ActionResult BackfillImageJson(string ids, int limit = 0)
-        {
-            TData<string> obj = panSourceCollectBLL.StartBackfillImage(ids, limit);
-            return Json(obj);
-        }
-
-        /// <summary>查询补图任务进度；jobId 为空或已过期时返回最近运行中的任务。</summary>
-        [HttpGet]
-        [AuthorizeFilter("pan:pansourcecollect:add")]
-        public ActionResult GetImageProgressJson(string jobId)
-        {
-            TData<PanSourceCollectImageJobState> obj = panSourceCollectBLL.GetImageProgress(jobId);
-            return Json(obj);
-        }
-
-        /// <summary>查询自动补图队列进度（采集入库后自动下载本地图片的实时状态，页面加载即开始轮询）。</summary>
+        /// <summary>查询资源图片下载队列进度（采集入库后自动下载本地图片的实时状态，页面加载即开始轮询）。</summary>
         [HttpGet]
         [AuthorizeFilter("pan:pansourcecollect:view")]
         public ActionResult GetAutoBackfillProgressJson()
@@ -276,12 +255,12 @@ namespace AggPanSearch.Admin.Web.Areas.PanManage.Controllers
             return Json(obj);
         }
 
-        /// <summary>取消正在运行的补图任务（已回写的本地图片保留）。</summary>
-        [HttpPost]
-        [AuthorizeFilter("pan:pansourcecollect:add")]
-        public ActionResult CancelBackfillImageJson(string jobId)
+        /// <summary>查询资源信息分析队列进度（图片下载完成后自动打开网盘链接解析三字段的实时状态）。</summary>
+        [HttpGet]
+        [AuthorizeFilter("pan:pansourcecollect:view")]
+        public ActionResult GetInfoAnalyzeProgressJson()
         {
-            TData obj = panSourceCollectBLL.CancelBackfillImage(jobId);
+            TData<PanSourceCollectInfoQueueState> obj = panSourceCollectBLL.GetInfoAnalyzeProgress();
             return Json(obj);
         }
 

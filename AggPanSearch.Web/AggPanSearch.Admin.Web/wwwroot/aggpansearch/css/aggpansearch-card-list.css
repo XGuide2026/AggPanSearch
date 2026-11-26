@@ -391,6 +391,23 @@
     word-break: break-all;
 }
 
+/* 资源信息行：文件个数 / 文件大小 / 资源有效期组合的「共 N 个文件 6.2G 永久有效」，
+   位于元信息行（collect-card-meta）上方，单行超长省略 */
+.collect-card-file-meta {
+    margin-top: 8px;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 16px;
+    color: #676a6c;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.collect-card-file-meta .fa {
+    margin-right: 3px;
+    color: #999;
+}
+
 /* 元信息行：默认两端对齐；条目多（如本地资源的提取码 / 浏览量 / 时间）放不下时换行，不挤压成省略号 */
 .collect-card-meta {
     display: flex;

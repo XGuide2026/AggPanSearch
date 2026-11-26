@@ -98,6 +98,24 @@
             return String(value).replace('T', ' ').substring(0, 16);
         }
 
+        // 文件大小：数据库存 M 整数（采集分析按 1024 进制换算），这里还原为可读文本
+        function formatFileSize(fileSize) {
+            var m = Number(fileSize);
+            if (isNaN(m) || m <= 0) {
+                return '';
+            }
+            if (m >= 1073741824) {
+                return (m / 1073741824).toFixed(1) + 'T';
+            }
+            if (m >= 1024) {
+                return (m / 1024).toFixed(1) + 'G';
+            }
+            if (m >= 1) {
+                return Math.round(m) + 'M';
+            }
+            return Math.round(m * 1024) + 'K';
+        }
+
         // 卡片标签：分类 / 网盘类型 / 状态 / 置顶 / 软删除，配色由 ys.cardList.renderTags 统一处理
         function buildTags(row) {
             var tags = [];
@@ -132,6 +150,20 @@
             }
             if (String(row.IsDelete) === '1') {
                 tags.push({ text: '已删除', type: 'warn' });
+            }
+
+            // 资源信息分析三字段：来源于采集时的资源信息分析（转存时拷贝），空值自动跳过
+            var infoCount = row.FileCount === undefined || row.FileCount === null ? '' : String(row.FileCount);
+            var infoSize = formatFileSize(row.FileSize);
+            var infoValidity = $.trim(row.ShareValidityPeriod || '');
+            if (infoCount !== '' && infoCount !== '0') {
+                tags.push({ text: infoCount + ' 个文件', type: 'primary', title: '文件个数：' + infoCount });
+            }
+            if (infoSize !== '') {
+                tags.push({ text: infoSize, type: 'primary', title: '文件大小：' + infoSize });
+            }
+            if (infoValidity !== '') {
+                tags.push({ text: infoValidity, type: 'primary', title: '资源有效期：' + infoValidity });
             }
             return tags;
         }

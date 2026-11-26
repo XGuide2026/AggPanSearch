@@ -13,8 +13,8 @@
 }
 
 <div class="container-div">
-    @* 进度悬浮区：四个进度条统一固定在视口顶部中间，脱离文档流，始终可见 *@
-    <div id="collectProgressPanel" class="collect-progress-panel">
+    @* 进度悬浮区：四个进度条统一固定在视口顶部中间，脱离文档流，有任务时自动显示 *@
+    <div id="collectProgressPanel" class="collect-progress-panel" style="display:none;">
         @* 采集进度：提交任务后显示，结束时自动隐藏 *@
         <div id="collectProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
             <div class="progress" style="margin-bottom:6px;height:16px;">
@@ -31,20 +31,19 @@
             <span id="transferProgressText" class="collect-progress-text"></span>
             <a id="btnCancelTransfer" class="btn btn-warning btn-xs collect-progress-cancel" style="display:none;" onclick="cancelTransfer()"><i class="fa fa-stop"></i> 取消转存</a>
         </div>
-        @* 补图进度：把原图片下载到本机并回写本地图片，失败的原图会被剔除 *@
-        <div id="imageProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
-            <div class="progress" style="margin-bottom:6px;height:16px;">
-                <div id="imageProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;"></div>
-            </div>
-            <span id="imageProgressText" class="collect-progress-text"></span>
-            <a id="btnCancelImageBackfill" class="btn btn-warning btn-xs collect-progress-cancel" style="display:none;" onclick="cancelImageBackfill()"><i class="fa fa-stop"></i> 取消补图</a>
-        </div>
-        @* 自动补图进度：采集入库后由后台队列自动下载本地图片，页面实时展示处理进度 *@
+        @* 资源图片下载进度：采集入库后由后台队列自动下载本地图片，页面实时展示处理进度 *@
         <div id="autoImageProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
             <div class="progress" style="margin-bottom:6px;height:16px;">
-                <div id="autoImageProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;"></div>
+                <div id="autoImageProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;transition:width .8s ease;"></div>
             </div>
             <span id="autoImageProgressText" class="collect-progress-text"></span>
+        </div>
+        @* 资源文件分析进度：图片下载全部完成后由后台队列自动打开网盘链接解析三字段，页面实时展示处理进度 *@
+        <div id="infoAnalyzeProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
+            <div class="progress" style="margin-bottom:6px;height:16px;">
+                <div id="infoAnalyzeProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;transition:width .8s ease;"></div>
+            </div>
+            <span id="infoAnalyzeProgressText" class="collect-progress-text"></span>
         </div>
     </div>
     <div class="collect-layout">
@@ -91,6 +90,19 @@
                             </li>
                         </ul>
                     </div>
+                    @* 文件大小排序列：单独一行。三态点击切换（默认 → 从大到小 ↓ → 从小到大 ↑ → 默认），
+                       状态写入带 col 的隐藏框，getWebControls 自动收集为 file_size_sort，无需改 queryParams *@
+                    <div class="collect-sort-row">
+                        <span class="sort-label">排序：</span>
+                        <a href="javascript:void(0)" id="fileSizeSorter" class="file-size-sorter" title="点击切换排序：默认 → 从大到小 → 从小到大 → 默认">
+                            <span class="sorter-text">文件大小</span>
+                            <span class="sorter-arrows" title="长条形双头箭头：上=从小到大，下=从大到小">
+                                <i class="sorter-up"></i>
+                                <i class="sorter-down"></i>
+                            </span>
+                        </a>
+                        <input type="hidden" id="fileSizeSort" col="file_size_sort" value="" />
+                    </div>
                 </div>
                 <div class="btn-group-sm hidden-xs collect-toolbar" id="toolbar">
                     @* 卡片列表无表头，用这里的复选框代替表格表头的全选；勾选范围为当前页 *@
@@ -100,7 +112,7 @@
                     </label>
                     <a id="btnAdd" class="btn btn-success" onclick="showSaveForm(true)"><i class="fa fa-plus"></i> 新增</a>
                     @* 批量删除勾选卡片；单张卡片的修改 / 删除在卡片底部
-                       “下载图片到本地”已移除手动入口：采集入库后由后台自动补图，下载失败的失效原图会被剔除 *@
+                       “下载图片到本地”已移除手动入口：采集入库后由后台资源图片下载队列自动下载，下载失败的失效原图会被剔除 *@
                     <a id="btnDelete" class="btn btn-danger disabled" onclick="deleteSelectedRows()"><i class="fa fa-remove"></i> 删除</a>
                     <a id="btnTransfer" class="btn btn-primary disabled" onclick="transferToLocal()"><i class="fa fa-cloud-upload"></i> 转存并分享</a>
                 </div>
@@ -129,10 +141,8 @@
             startCollect: '@Url.Content("~/PanManage/PanSourceCollect/StartCollectJson")',
             progress: '@Url.Content("~/PanManage/PanSourceCollect/GetCollectProgressJson")',
             cancel: '@Url.Content("~/PanManage/PanSourceCollect/CancelCollectJson")',
-            backfillImage: '@Url.Content("~/PanManage/PanSourceCollect/BackfillImageJson")',
-            imageProgress: '@Url.Content("~/PanManage/PanSourceCollect/GetImageProgressJson")',
-            cancelImageBackfill: '@Url.Content("~/PanManage/PanSourceCollect/CancelBackfillImageJson")',
             autoImageProgress: '@Url.Content("~/PanManage/PanSourceCollect/GetAutoBackfillProgressJson")',
+            infoAnalyzeProgress: '@Url.Content("~/PanManage/PanSourceCollect/GetInfoAnalyzeProgressJson")',
             transfer: '@Url.Content("~/PanManage/PanSourceCollect/TransferToLocalJson")',
             transferProgress: '@Url.Content("~/PanManage/PanSourceCollect/GetTransferProgressJson")',
             cancelTransfer: '@Url.Content("~/PanManage/PanSourceCollect/CancelTransferJson")',

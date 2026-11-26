@@ -51,5 +51,11 @@ namespace AggPanSearch.Entity.PanManage
         public string VodContent { get; set; }
         /// <summary>资源图片</summary>
         public string VodPic { get; set; }
+        /// <summary>文件个数：转存时从采集表拷贝（资源信息分析采集），NULL 表示未分析</summary>
+        public int? FileCount { get; set; }
+        /// <summary>文件大小：单位 M（转存时从采集表拷贝，按 1024 进制换算，如 6.2G 存为 6349），NULL 表示未分析</summary>
+        public int? FileSize { get; set; }
+        /// <summary>资源有效期：网盘分享页原文（如 永久有效）</summary>
+        public string ShareValidityPeriod { get; set; }
     }
 }

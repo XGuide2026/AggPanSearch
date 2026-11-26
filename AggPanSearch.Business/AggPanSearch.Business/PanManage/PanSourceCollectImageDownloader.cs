@@ -25,6 +25,9 @@ namespace AggPanSearch.Business.PanManage
         /// <summary>单张图片下载超时时间。</summary>
         private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(12);
 
+        /// <summary>下载完每张图片后的暂停间隔（毫秒）。无论成功下载还是失败剔除，每处理一张都暂停一次，限速节奏更稳定。</summary>
+        private const int DelayAfterImageMilliseconds = 500;
+
         private const string BrowserUserAgent =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
 
@@ -70,13 +73,14 @@ namespace AggPanSearch.Business.PanManage
             {
                 token.ThrowIfCancellationRequested();
                 string localImage = await DownloadOneAsync(remoteImage, referer, token).ConfigureAwait(false);
-                if (localImage.Length == 0)
+                if (localImage.Length != 0)
                 {
-                    // 失效图直接剔除，collect_image_url 也不再保留
-                    continue;
+                    // 失效图直接剔除，不保留在返回结果里
+                    keptImages.Add(remoteImage);
+                    localImages.Add(localImage);
                 }
-                keptImages.Add(remoteImage);
-                localImages.Add(localImage);
+                // 下载限速：每张图片处理完（含失败剔除）都暂停一次，防止请求过频触发站点风控
+                await Task.Delay(DelayAfterImageMilliseconds, token).ConfigureAwait(false);
             }
             return (string.Join(";", keptImages), string.Join(";", localImages));
         }

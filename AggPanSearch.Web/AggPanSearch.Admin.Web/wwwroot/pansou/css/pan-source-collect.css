@@ -550,3 +550,158 @@
     padding: 4px 0 8px 0;
 }
 
+/* 14. 文件大小排序列：searchDiv 内单独一行，「文字 + 上下箭头」三态点击排序
+   状态：默认（双箭头灰色）→ 从大到小（↓ 高亮）→ 从小到大（↑ 高亮）→ 默认 */
+.collect-sort-row {
+    display: flex;
+    align-items: center;
+    height: 32px;
+    line-height: 32px;
+    margin-top: 6px;
+    white-space: nowrap;
+    border-top: 1px dashed #E5E8ED;
+}
+
+.collect-sort-row .sort-label {
+    display: inline-block;
+    width: 70px;
+    margin: 0;
+    font-weight: normal;
+    text-align: right;
+    vertical-align: middle;
+}
+
+.file-size-sorter {
+    display: inline-flex;
+    align-items: center;
+    color: #333333;
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+.file-size-sorter:hover {
+    color: #1AB394;
+}
+
+/* 文字 + 长条形双头箭头（上在左、下在右），CSS 伪元素自绘 */
+.file-size-sorter .sorter-arrows {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+    gap: 0;
+    color: #C0C4CC;
+}
+
+/* 每个箭头：固定尺寸 + 相对定位，供伪元素绘制箭尖与箭杆 */
+.file-size-sorter .sorter-arrows i {
+    font-style: normal;
+    display: block;
+    width: 10px;
+    height: 12px;
+    position: relative;
+}
+
+/* 上箭头：顶部箭尖 + 向下延伸的箭杆 */
+.file-size-sorter .sorter-arrows .sorter-up::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 4px solid currentColor;
+}
+
+.file-size-sorter .sorter-arrows .sorter-up::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 3px;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    border-radius: 1px;
+    background-color: currentColor;
+}
+
+/* 下箭头：底部箭尖 + 向上延伸的箭杆 */
+.file-size-sorter .sorter-arrows .sorter-down::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 4px solid currentColor;
+}
+
+.file-size-sorter .sorter-arrows .sorter-down::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 3px;
+    width: 2px;
+    margin-left: -1px;
+    border-radius: 1px;
+    background-color: currentColor;
+}
+
+/* 升序（从小到大）：向上箭头高亮 */
+.file-size-sorter.sorter-asc .sorter-arrows .sorter-up {
+    color: #1AB394;
+}
+
+/* 降序（从大到小）：向下箭头高亮 */
+.file-size-sorter.sorter-desc .sorter-arrows .sorter-down {
+    color: #1AB394;
+}
+
+/* ============================================================
+   15. 卡片列表列数自适应：按右栏容器实际宽度决定（容器查询）
+       采集页右栏被左侧站点面板挤占（约剩 70% 宽度），若沿用公共 card-list.css
+       按「视口宽度」的断点，卡片会比本地页窄。这里把右栏卡片列表声明为查询
+       容器，列数断点与本地页完全一致（768 / 992 / 1280 / 1600 → 2 / 3 / 4 / 5 列），
+       但改按容器自身可用宽度判断，卡片宽度观感与本地资源页基本一致。
+       浏览器不支持容器查询时自动回退到 card-list.css 的视口断点，不影响本地页。
+   ============================================================ */
+.collect-main .collect-card-table {
+    container-type: inline-size;
+    container-name: collect-cards;
+}
+
+@container collect-cards {
+    .collect-card-table #gridTable > tbody {
+        column-count: 1;
+    }
+}
+
+@container collect-cards (min-width: 768px) {
+    .collect-card-table #gridTable > tbody {
+        column-count: 2;
+    }
+}
+
+@container collect-cards (min-width: 992px) {
+    .collect-card-table #gridTable > tbody {
+        column-count: 3;
+    }
+}
+
+@container collect-cards (min-width: 1280px) {
+    .collect-card-table #gridTable > tbody {
+        column-count: 4;
+    }
+}
+
+@container collect-cards (min-width: 1600px) {
+    .collect-card-table #gridTable > tbody {
+        column-count: 5;
+    }
+}
+

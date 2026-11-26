@@ -477,6 +477,10 @@ namespace AggPanSearch.Business.PanManage.Quark
                 IsTime = 0,
                 PageViews = 0,
                 Sort = 0,
+                // 「资源信息分析」三字段随采集记录拷贝到本地资源，便于前台/后台直接展示
+                FileCount = record.FileCount,
+                FileSize = record.FileSize,
+                ShareValidityPeriod = Truncate(record.ShareValidityPeriod, MaxDescriptionLength),
             };
         }
 

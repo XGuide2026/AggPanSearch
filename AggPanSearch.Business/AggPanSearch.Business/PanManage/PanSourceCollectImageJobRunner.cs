@@ -12,261 +12,10 @@ using AggPanSearch.Util;
 namespace AggPanSearch.Business.PanManage
 {
     /// <summary>
-    /// 描 述：图片补图任务的内存状态（后台下载 + 前端轮询进度）。
-    /// 不做持久化，进程重启后任务丢失，重新触发补图即可。
-    /// </summary>
-    public class PanSourceCollectImageJobState
-    {
-        public string JobId { get; set; } = string.Empty;
-
-        /// <summary>running / succeeded / failed / canceled。</summary>
-        public string Status { get; set; } = PanSourceCollectImageJobManager.StatusRunning;
-
-        /// <summary>本次任务涉及的记录总数。</summary>
-        public int Total { get; set; }
-
-        /// <summary>已处理记录数。</summary>
-        public int Done { get; set; }
-
-        /// <summary>已回写本地图片的记录数。</summary>
-        public int Updated { get; set; }
-
-        /// <summary>本地图片已齐全而跳过的记录数。</summary>
-        public int Skipped { get; set; }
-
-        /// <summary>被剔除的失效图片数量。</summary>
-        public int FailedImages { get; set; }
-
-        public string Message { get; set; } = string.Empty;
-
-        public DateTime StartTime { get; set; } = DateTime.Now;
-
-        public DateTime? EndTime { get; set; }
-
-        public PanSourceCollectImageJobState Clone()
-        {
-            return (PanSourceCollectImageJobState)MemberwiseClone();
-        }
-    }
-
-    /// <summary>
-    /// 描 述：图片补图任务注册表（进程内静态单例）。
-    /// 补图属于 IO 密集操作且只写图片两列，手动补图全局只允许运行 1 个，避免抢占带宽与磁盘。
-    /// </summary>
-    public static class PanSourceCollectImageJobManager
-    {
-        public const string StatusRunning = "running";
-        public const string StatusSucceeded = "succeeded";
-        public const string StatusFailed = "failed";
-        public const string StatusCanceled = "canceled";
-
-        private const int MaxJobCount = 20;
-        private static readonly TimeSpan Retention = TimeSpan.FromHours(1);
-        private static readonly object CreateLock = new object();
-
-        private static readonly ConcurrentDictionary<string, JobEntry> Jobs =
-            new ConcurrentDictionary<string, JobEntry>(StringComparer.OrdinalIgnoreCase);
-
-        private sealed class JobEntry
-        {
-            public readonly object SyncRoot = new object();
-
-            public PanSourceCollectImageJobState State = new PanSourceCollectImageJobState();
-
-            public CancellationTokenSource Cts = new CancellationTokenSource();
-        }
-
-        /// <summary>创建补图任务并返回 JobId 与取消令牌；已有任务运行时返回空 JobId。</summary>
-        public static string Create(out CancellationToken token, out string error)
-        {
-            token = CancellationToken.None;
-            error = string.Empty;
-            Cleanup();
-
-            lock (CreateLock)
-            {
-                if (Jobs.Values.Any(GetIsRunning))
-                {
-                    error = "已有补图任务在运行，请等待完成后再试";
-                    return string.Empty;
-                }
-
-                string jobId = Guid.NewGuid().ToString("N");
-                JobEntry entry = new JobEntry
-                {
-                    State = new PanSourceCollectImageJobState
-                    {
-                        JobId = jobId,
-                        Status = StatusRunning,
-                        Message = "补图任务已启动",
-                        StartTime = DateTime.Now,
-                    },
-                };
-                Jobs[jobId] = entry;
-                token = entry.Cts.Token;
-                return jobId;
-            }
-        }
-
-        public static PanSourceCollectImageJobState Get(string jobId)
-        {
-            if (string.IsNullOrWhiteSpace(jobId) || !Jobs.TryGetValue(jobId, out JobEntry entry))
-            {
-                return null;
-            }
-            lock (entry.SyncRoot)
-            {
-                return entry.State.Clone();
-            }
-        }
-
-        /// <summary>取最近启动且仍在运行的补图任务（页面刷新后恢复进度显示用）。</summary>
-        public static PanSourceCollectImageJobState GetLatestRunning()
-        {
-            PanSourceCollectImageJobState latest = null;
-            foreach (JobEntry entry in Jobs.Values)
-            {
-                lock (entry.SyncRoot)
-                {
-                    if (entry.State.Status != StatusRunning)
-                    {
-                        continue;
-                    }
-                    if (latest == null || entry.State.StartTime > latest.StartTime)
-                    {
-                        latest = entry.State.Clone();
-                    }
-                }
-            }
-            return latest;
-        }
-
-        public static bool Update(string jobId, Action<PanSourceCollectImageJobState> update)
-        {
-            if (update == null || string.IsNullOrWhiteSpace(jobId) || !Jobs.TryGetValue(jobId, out JobEntry entry))
-            {
-                return false;
-            }
-            lock (entry.SyncRoot)
-            {
-                if (entry.State.Status != StatusRunning)
-                {
-                    return false;
-                }
-                update(entry.State);
-            }
-            return true;
-        }
-
-        public static void Finish(string jobId, string status, string message)
-        {
-            if (string.IsNullOrWhiteSpace(jobId) || !Jobs.TryGetValue(jobId, out JobEntry entry))
-            {
-                return;
-            }
-            lock (entry.SyncRoot)
-            {
-                entry.State.Status = status;
-                entry.State.Message = message ?? string.Empty;
-                entry.State.EndTime = DateTime.Now;
-            }
-        }
-
-        public static bool Cancel(string jobId)
-        {
-            if (string.IsNullOrWhiteSpace(jobId) || !Jobs.TryGetValue(jobId, out JobEntry entry))
-            {
-                return false;
-            }
-            lock (entry.SyncRoot)
-            {
-                if (entry.State.Status != StatusRunning)
-                {
-                    return false;
-                }
-                entry.State.Message = "正在取消补图…";
-            }
-            try
-            {
-                entry.Cts.Cancel();
-                return true;
-            }
-            catch (ObjectDisposedException)
-            {
-                return false;
-            }
-        }
-
-        private static bool GetIsRunning(JobEntry entry)
-        {
-            lock (entry.SyncRoot)
-            {
-                return entry.State.Status == StatusRunning;
-            }
-        }
-
-        private static void Cleanup()
-        {
-            DateTime now = DateTime.Now;
-            List<string> expired = new List<string>();
-            foreach (KeyValuePair<string, JobEntry> pair in Jobs)
-            {
-                lock (pair.Value.SyncRoot)
-                {
-                    if (pair.Value.State.Status == StatusRunning)
-                    {
-                        continue;
-                    }
-                    DateTime? endTime = pair.Value.State.EndTime;
-                    if (endTime == null || now - endTime.Value > Retention)
-                    {
-                        expired.Add(pair.Key);
-                    }
-                }
-            }
-            Remove(expired);
-
-            if (Jobs.Count > MaxJobCount)
-            {
-                List<string> overflow = Jobs.Values
-                    .Select(t =>
-                    {
-                        lock (t.SyncRoot)
-                        {
-                            return new { t.State.JobId, t.State.StartTime };
-                        }
-                    })
-                    .OrderBy(t => t.StartTime)
-                    .Take(Jobs.Count - MaxJobCount)
-                    .Select(t => t.JobId)
-                    .ToList();
-                Remove(overflow);
-            }
-        }
-
-        private static void Remove(List<string> jobIds)
-        {
-            foreach (string jobId in jobIds)
-            {
-                if (Jobs.TryRemove(jobId, out JobEntry removed))
-                {
-                    try
-                    {
-                        removed.Cts.Dispose();
-                    }
-                    catch
-                    {
-                        // 忽略释放异常
-                    }
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// 描 述：自动补图队列的实时进度状态（进程内静态，供前端轮询展示）。
+    /// 描 述：资源图片下载队列的实时进度状态（进程内静态，供前端轮询展示）。
     /// 采集入库后由 <see cref="PanSourceCollectImageJobRunner.Enqueue"/> 入队，
     /// 队列工作线程逐批处理后把统计累加到这里，页面通过接口读取并展示进度。
+    /// 各计数单位均为「图片张数」，其中 Total 由采集完成后先按已入库数据精确算出。
     /// </summary>
     public sealed class PanSourceCollectAutoQueueState
     {
@@ -276,22 +25,22 @@ namespace AggPanSearch.Business.PanManage
         /// <summary>idle（队列空闲）/ running（队列处理中）。</summary>
         public string Status { get; set; } = StatusIdle;
 
-        /// <summary>当前处理周期累计入队的记录数。</summary>
+        /// <summary>当前处理周期应下载的图片总张数（资源采集完成后先精确算出，Enqueue 时累加）。</summary>
         public int Total { get; set; }
 
-        /// <summary>当前处理周期已处理的记录数（含回写与跳过）。</summary>
+        /// <summary>已处理的图片张数（含本地已齐全跳过的与成功入库的），= Skipped + Updated + FailedImages。</summary>
         public int Processed { get; set; }
 
-        /// <summary>已回写本地图片的记录数。</summary>
+        /// <summary>成功下载并入库的图片张数。</summary>
         public int Updated { get; set; }
 
-        /// <summary>本地图片已齐全而跳过的记录数。</summary>
+        /// <summary>本地图已齐全、跳过下载的图片张数。</summary>
         public int Skipped { get; set; }
 
-        /// <summary>被剔除的失效图片数量。</summary>
+        /// <summary>失效被剔除的图片张数。</summary>
         public int FailedImages { get; set; }
 
-        /// <summary>队列中剩余等待处理的记录数。</summary>
+        /// <summary>剩余待下载的图片张数（Total - Processed）。</summary>
         public int Pending { get; set; }
 
         /// <summary>给前端的提示文案。</summary>
@@ -307,32 +56,32 @@ namespace AggPanSearch.Business.PanManage
     }
 
     /// <summary>
-    /// 描 述：图片补图任务执行器。
+    /// 描 述：资源图片下载执行器（资源图片下载队列）。
     /// 把记录中 collect_image_url 的远端图片下载到本机，并只回写 collect_image_url / image_url 两列；
     /// 下载失败的图片会从 collect_image_url 中剔除，因此任务结束后原图字段可能变短。
-    /// 采集入库后走 <see cref="Enqueue"/> 队列自动补图，后台页面的“补图”按钮走 <see cref="Start"/> 并展示进度。
+    /// 采集入库后由 <see cref="Enqueue"/> 自动入队，队列工作线程逐批处理，不阻塞采集主流程。
     /// </summary>
     public sealed class PanSourceCollectImageJobRunner
     {
         /// <summary>记录之间的并发数，记录内图片保持顺序下载以维持索引对应。</summary>
         private const int RecordConcurrency = 3;
 
-        /// <summary>手动补图的默认条数。</summary>
-        private const int DefaultLimit = 50;
-
-        /// <summary>自动补图队列单次批量。</summary>
+        /// <summary>资源图片下载队列单次批量。</summary>
         private const int QueueBatchSize = 100;
 
         private static readonly ConcurrentQueue<long> PendingIds = new ConcurrentQueue<long>();
         private static int queueWorkerRunning;
 
-        /// <summary>自动补图队列状态（锁保护，前端轮询读取）。</summary>
+        /// <summary>资源图片下载队列状态（锁保护，前端轮询读取）。</summary>
         private static readonly object AutoQueueStateLock = new object();
         private static PanSourceCollectAutoQueueState autoQueueState = new PanSourceCollectAutoQueueState();
 
+        /// <summary>当前周期已处理记录 Id 的累积（锁保护）：图片下载队列全部完成后一次性投递给资源文件分析队列，保证「先下载、后分析」的严格顺序。</summary>
+        private static readonly List<long> PendingAnalyzeIds = new List<long>();
+
         private readonly PanSourceCollectService panSourceCollectService = new PanSourceCollectService();
 
-        /// <summary>获取自动补图队列的实时进度状态（返回副本，调用方可自由读取）。</summary>
+        /// <summary>获取资源图片下载队列的实时进度状态（返回副本，调用方可自由读取）。</summary>
         public static PanSourceCollectAutoQueueState GetAutoQueueState()
         {
             lock (AutoQueueStateLock)
@@ -341,8 +90,8 @@ namespace AggPanSearch.Business.PanManage
             }
         }
 
-        /// <summary>采集入库后把新增记录投递到自动补图队列（不等待下载，也不占用手动补图任务）。</summary>
-        public static void Enqueue(IEnumerable<long>? ids)
+        /// <summary>采集入库后把新增记录投递到资源图片下载队列，并登记本批应下载的图片总张数（不等待下载）。</summary>
+        public static void Enqueue(IEnumerable<long>? ids, int totalImages = 0)
         {
             int added = 0;
             if (ids != null)
@@ -356,19 +105,25 @@ namespace AggPanSearch.Business.PanManage
                     }
                 }
             }
-            if (added > 0)
-            {
-                UpdateAutoQueueState(state => state.Pending += added);
-            }
-            if (Interlocked.CompareExchange(ref queueWorkerRunning, 1, 0) == 0)
+            if (added > 0 && Interlocked.CompareExchange(ref queueWorkerRunning, 1, 0) == 0)
             {
                 // 从空闲唤醒：重置本周期的累计统计
                 ResetAutoQueueState();
                 _ = Task.Run(DrainQueueAsync, CancellationToken.None);
             }
+            // 登记图片总张数：Total 为精确值，由采集完成后先按已入库数据算出，不再按记录条数近似；
+            // 若队列在本周期运行中又入队新一批，则继续累加
+            if (totalImages > 0)
+            {
+                UpdateAutoQueueState(state =>
+                {
+                    state.Total += totalImages;
+                    state.Pending = Math.Max(0, state.Total - state.Processed);
+                });
+            }
         }
 
-        /// <summary>重置自动补图队列统计并标记为运行中（队列从空闲唤醒时调用）。</summary>
+        /// <summary>重置资源图片下载队列统计并标记为运行中（队列从空闲唤醒时调用）。</summary>
         private static void ResetAutoQueueState()
         {
             lock (AutoQueueStateLock)
@@ -379,12 +134,15 @@ namespace AggPanSearch.Business.PanManage
                 autoQueueState.Updated = 0;
                 autoQueueState.Skipped = 0;
                 autoQueueState.FailedImages = 0;
-                autoQueueState.Message = "自动补图已启动，正在下载本地图片…";
+                autoQueueState.Pending = 0;
+                autoQueueState.Message = "资源图片下载已启动，正在下载本地图片…";
                 autoQueueState.UpdateTime = DateTime.Now;
+                // 从空闲唤醒开始新周期：清空上一周期累积的待分析 Id
+                PendingAnalyzeIds.Clear();
             }
         }
 
-        /// <summary>在锁内更新自动补图队列状态，并刷新更新时间。</summary>
+        /// <summary>在锁内更新资源图片下载队列状态，并刷新更新时间。</summary>
         private static void UpdateAutoQueueState(Action<PanSourceCollectAutoQueueState> update)
         {
             lock (AutoQueueStateLock)
@@ -394,26 +152,7 @@ namespace AggPanSearch.Business.PanManage
             }
         }
 
-        /// <summary>启动手动补图任务：ids 非空时补指定记录，否则补缺少本地图片的前 limit 条。</summary>
-        public static string Start(List<long> ids, int limit, out string error)
-        {
-            error = string.Empty;
-            string jobId = PanSourceCollectImageJobManager.Create(out CancellationToken token, out error);
-            if (jobId.Length == 0)
-            {
-                return string.Empty;
-            }
-
-            List<long> targetIds = ids?.Where(t => t > 0).Distinct().ToList() ?? new List<long>();
-            int targetLimit = limit > 0 ? limit : DefaultLimit;
-            PanSourceCollectImageJobRunner runner = new PanSourceCollectImageJobRunner();
-            _ = Task.Run(
-                () => runner.RunAsync(jobId, targetIds, targetLimit, token),
-                CancellationToken.None);
-            return jobId;
-        }
-
-        /// <summary>自动补图队列工作线程：循环取空队列后退出。</summary>
+        /// <summary>资源图片下载队列工作线程：循环取空队列后退出。</summary>
         private static async Task DrainQueueAsync()
         {
             try
@@ -430,11 +169,17 @@ namespace AggPanSearch.Business.PanManage
                     {
                         break;
                     }
-                    UpdateAutoQueueState(state =>
+                    // 先累积本批 Id：图片下载队列全部完成后再一次性投递资源文件分析队列，保证顺序
+                    lock (AutoQueueStateLock)
                     {
-                        state.Pending = Math.Max(0, state.Pending - batch.Count);
-                        state.Total += batch.Count;
-                    });
+                        foreach (long id in batch)
+                        {
+                            if (id > 0)
+                            {
+                                PendingAnalyzeIds.Add(id);
+                            }
+                        }
+                    }
                     try
                     {
                         List<PanSourceCollectEntity> records =
@@ -442,33 +187,70 @@ namespace AggPanSearch.Business.PanManage
                         records = FilterRecords(records);
                         if (records.Count > 0)
                         {
+                            int batchImages = records.Sum(t => CountImages(t.CollectImageUrl));
                             UpdateAutoQueueState(state =>
                             {
-                                state.Message = $"正在下载本地图片：本批 {records.Count} 条…";
+                                state.Message = $"正在下载本地图片：本批 {batchImages} 张…";
                                 state.UpdateTime = DateTime.Now;
                             });
                         }
                         ImageProcessResult result = new ImageProcessResult();
                         if (records.Count > 0)
                         {
+                            // 逐张/逐条实时上报进度：ProcessAsync 每完成一条记录都会触发回调，
+                            // 这里以「与上次上报的差值」累加进队列状态，前端轮询即可看到进度渐进推进，
+                            // 避免整批（最多 100 条、数百张图）处理完才一次性跳变。
+                            int lastDone = 0, lastUpdated = 0, lastSkipped = 0, lastFailed = 0;
+                            object progressLock = new object();
                             await runner.ProcessAsync(
-                                records, CancellationToken.None, result, null).ConfigureAwait(false);
+                                records,
+                                CancellationToken.None,
+                                result,
+                                progress =>
+                                {
+                                    int done, updated, skipped, failed;
+                                    lock (progressLock)
+                                    {
+                                        // 并发回调下串行读取基准值：result 字段由 Interlocked 单调递增，
+                                        // 用上次快照求差值，避免并发调用时统计重复累加。
+                                        done = progress.Done - lastDone;
+                                        updated = progress.Updated - lastUpdated;
+                                        skipped = progress.Skipped - lastSkipped;
+                                        failed = progress.FailedImages - lastFailed;
+                                        lastDone = progress.Done;
+                                        lastUpdated = progress.Updated;
+                                        lastSkipped = progress.Skipped;
+                                        lastFailed = progress.FailedImages;
+                                    }
+                                    if (done == 0 && updated == 0 && skipped == 0 && failed == 0)
+                                    {
+                                        return;
+                                    }
+                                    UpdateAutoQueueState(state =>
+                                    {
+                                        state.Processed += done;
+                                        state.Updated += updated;
+                                        state.Skipped += skipped;
+                                        state.FailedImages += failed;
+                                        state.Pending = Math.Max(0, state.Total - state.Processed);
+                                        // Message 保持批开始时文案即可，前端自行拼装"已处理/入库/剩余"明细。
+                                    });
+                                }).ConfigureAwait(false);
                         }
                         UpdateAutoQueueState(state =>
                         {
-                            state.Processed += result.Done;
-                            state.Updated += result.Updated;
-                            state.Skipped += result.Skipped;
-                            state.FailedImages += result.FailedImages;
+                            // 张数统计已在逐张/逐条上报中实时累加，这里只补充批汇总文案，避免与实时上报重复累加。
                             state.Message = records.Count > 0
-                                ? $"本批处理完成：回写 {result.Updated} 条，跳过 {result.Skipped} 条，剔除失效图 {result.FailedImages} 张"
-                                : "本批没有需要补图的记录";
-                            state.UpdateTime = DateTime.Now;
+                                ? $"本批处理完成：入库 {result.Updated} 张，跳过 {result.Skipped} 张，剔除失效图片 {result.FailedImages} 张"
+                                : "本批没有需要下载资源图片的记录";
                         });
+                        // 注意：不再在本批结束后入队资源文件分析。所有批次处理完后，
+                        // 在 finally 的空闲分支统一把整周期 Id 一次性投递给资源文件分析队列，
+                        // 从而保证「图片下载全部完成 → 文件分析开始」的严格先后顺序。
                     }
                     catch (Exception ex)
                     {
-                        // 自动补图失败不影响采集与后续队列
+                        // 资源图片下载失败不影响采集与后续队列
                         LogHelper.Error(ex);
                         UpdateAutoQueueState(state =>
                         {
@@ -492,74 +274,31 @@ namespace AggPanSearch.Business.PanManage
                 }
                 else
                 {
+                    // 图片下载队列真正空闲：把本周期累积的全部记录 Id 一次性投递给资源文件分析队列。
+                    // 先在锁内取出并清空，再在锁外 Enqueue（分析队列持有独立锁，避免锁内跨 Runner 交叉竞争）。
+                    List<long> analyzeIds;
+                    lock (AutoQueueStateLock)
+                    {
+                        analyzeIds = new List<long>(PendingAnalyzeIds);
+                        PendingAnalyzeIds.Clear();
+                    }
+                    if (analyzeIds.Count > 0)
+                    {
+                        PanSourceCollectInfoJobRunner.Enqueue(analyzeIds);
+                    }
                     UpdateAutoQueueState(state =>
                     {
                         state.Status = PanSourceCollectAutoQueueState.StatusIdle;
                         state.Message = state.Processed > 0
-                            ? $"自动补图完成：处理 {state.Processed} 条，回写 {state.Updated} 条，跳过 {state.Skipped} 条，剔除失效图片 {state.FailedImages} 张"
-                            : "自动补图队列已清空";
+                            ? $"资源图片下载完成：共 {state.Total} 张，入库 {state.Updated} 张，跳过 {state.Skipped} 张，剔除失效图片 {state.FailedImages} 张"
+                            : "资源图片下载队列已清空";
                         state.UpdateTime = DateTime.Now;
                     });
                 }
             }
         }
 
-        private async Task RunAsync(string jobId, List<long> ids, int limit, CancellationToken token)
-        {
-            try
-            {
-                List<PanSourceCollectEntity> records = ids.Count > 0
-                    ? await panSourceCollectService.GetListByIds(ids).ConfigureAwait(false)
-                    : await panSourceCollectService.GetImagePendingList(limit).ConfigureAwait(false);
-                records = FilterRecords(records);
-
-                ImageProcessResult result = new ImageProcessResult { Total = records.Count };
-                PanSourceCollectImageJobManager.Update(jobId, state =>
-                {
-                    state.Total = records.Count;
-                    state.Message = records.Count == 0
-                        ? "没有需要补图的记录"
-                        : $"开始下载本地图片，共 {records.Count} 条记录";
-                });
-                if (records.Count == 0)
-                {
-                    PanSourceCollectImageJobManager.Finish(
-                        jobId, PanSourceCollectImageJobManager.StatusSucceeded, "没有需要补图的记录");
-                    return;
-                }
-
-                await ProcessAsync(records, token, result, current =>
-                {
-                    PanSourceCollectImageJobManager.Update(jobId, state =>
-                    {
-                        state.Done = current.Done;
-                        state.Updated = current.Updated;
-                        state.Skipped = current.Skipped;
-                        state.FailedImages = current.FailedImages;
-                        state.Message = $"正在下载本地图片：{current.Done}/{state.Total}";
-                    });
-                }).ConfigureAwait(false);
-
-                PanSourceCollectImageJobManager.Finish(
-                    jobId,
-                    PanSourceCollectImageJobManager.StatusSucceeded,
-                    $"补图完成：处理 {result.Total} 条，回写 {result.Updated} 条，跳过 {result.Skipped} 条，" +
-                    $"剔除失效图片 {result.FailedImages} 张");
-            }
-            catch (OperationCanceledException)
-            {
-                PanSourceCollectImageJobManager.Finish(
-                    jobId, PanSourceCollectImageJobManager.StatusCanceled, "补图已取消，已回写的数据保留");
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Error(ex);
-                PanSourceCollectImageJobManager.Finish(
-                    jobId, PanSourceCollectImageJobManager.StatusFailed, "补图失败：" + ex.Message);
-            }
-        }
-
-        /// <summary>逐条处理记录：本地图齐全则跳过，否则下载并回写两列。</summary>
+        /// <summary>逐条处理记录：本地图齐全则跳过，否则下载并回写两列（统计单位：图片张数）。</summary>
         private async Task ProcessAsync(
             List<PanSourceCollectEntity> records,
             CancellationToken token,
@@ -573,12 +312,15 @@ namespace AggPanSearch.Business.PanManage
                 await semaphore.WaitAsync(token).ConfigureAwait(false);
                 tasks.Add(Task.Run(async () =>
                 {
+                    int remoteCount = 0;
                     try
                     {
                         token.ThrowIfCancellationRequested();
+                        remoteCount = CountImages(record.CollectImageUrl);
                         if (IsLocalReady(record))
                         {
-                            Interlocked.Increment(ref result.Skipped);
+                            // 本地图已齐全：该条的图片张数整体跳过
+                            Interlocked.Add(ref result.Skipped, remoteCount);
                             return;
                         }
 
@@ -589,9 +331,8 @@ namespace AggPanSearch.Business.PanManage
                             .UpdateImages(record.Id.Value, collectImageUrl, imageUrl)
                             .ConfigureAwait(false);
 
-                        Interlocked.Increment(ref result.Updated);
-                        int remoteCount = SiteCollectHtmlUtil.SplitImages(record.CollectImageUrl).Count;
                         int keptCount = SiteCollectHtmlUtil.SplitImages(collectImageUrl).Count;
+                        Interlocked.Add(ref result.Updated, keptCount);
                         if (remoteCount > keptCount)
                         {
                             Interlocked.Add(ref result.FailedImages, remoteCount - keptCount);
@@ -608,12 +349,22 @@ namespace AggPanSearch.Business.PanManage
                     finally
                     {
                         semaphore.Release();
-                        Interlocked.Increment(ref result.Done);
+                        // 该条的图片张数整体视为已处理（含成功、跳过与剔除）
+                        Interlocked.Add(ref result.Done, remoteCount);
                         onProgress?.Invoke(result);
                     }
                 }, CancellationToken.None));
             }
             await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+
+        /// <summary>图片张数统计口径，与下载端完全一致：过滤无效地址、最多取 MaxImageCount 张。</summary>
+        private static int CountImages(string collectImageUrl)
+        {
+            return SiteCollectHtmlUtil.SplitImages(collectImageUrl)
+                .Where(image => SiteCollectHtmlUtil.TryCreateHttpUri(image, out _))
+                .Take(SiteCollectHtmlUtil.MaxImageCount)
+                .Count();
         }
 
         /// <summary>只保留有 Id 且有原图地址的记录。</summary>

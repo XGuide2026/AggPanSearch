@@ -152,7 +152,8 @@
     var isDetail = ys.request("detail") == '1';
 
     $(function () {
-        $("#is_link_valid").ysRadioBox({ data: [{ Key: '1', Value: '有效' }, { Key: '0', Value: '无效' }] });
+        // 链接是否有效：新增/手动录入默认未检测（-1），与采集入库保持一致，资源分析后回写 1/0
+        $("#is_link_valid").ysRadioBox({ data: [{ Key: '-1', Value: '未检测' }, { Key: '1', Value: '有效' }, { Key: '0', Value: '无效' }] });
         // 分类：指向「分类资源」表（pan_source_category），保存 Id；留空表示未分类
         $("#source_category_id").ysComboBox({
             url: '@Url.Content("~/PanManage/PanSourceCollect/GetSourceCategoryOptionJson")',
@@ -234,7 +235,7 @@
             });
         }
         else {
-            $('#form').setWebControls({ IsLinkValid: '1' });
+            $('#form').setWebControls({ IsLinkValid: '-1' });
             if (isDetail) {
                 applyDetailMode();
             }

@@ -34,7 +34,7 @@ namespace AggPanSearch.Entity.PanManage
         [Description("资源链接")]
         public string ResourceUrl { get; set; }
 
-        /// <summary>链接是否有效：1 有效 0 无效</summary>
+        /// <summary>链接是否有效：-1 未检测 1 有效 0 无效（新增/采集默认 -1，资源分析后回写 1 或 0）</summary>
         [Description("链接是否有效")]
         public int? IsLinkValid { get; set; }
 
@@ -46,5 +46,17 @@ namespace AggPanSearch.Entity.PanManage
         /// 多张用英文分号分隔，与 CollectImageUrl 同索引一一对应</summary>
         [Description("本地图片地址")]
         public string ImageUrl { get; set; }
+
+        /// <summary>文件个数：资源信息分析采集（网盘分享页 span.info-stat 中「共 N 个文件」），NULL 表示未分析</summary>
+        [Description("文件个数")]
+        public int? FileCount { get; set; }
+
+        /// <summary>文件大小：单位 M（资源信息分析采集，按 1024 进制换算，如 6.2G 存为 6349），NULL 表示未分析</summary>
+        [Description("文件大小")]
+        public int? FileSize { get; set; }
+
+        /// <summary>资源有效期：网盘分享页原文（如 永久有效）</summary>
+        [Description("资源有效期")]
+        public string ShareValidityPeriod { get; set; }
     }
 }

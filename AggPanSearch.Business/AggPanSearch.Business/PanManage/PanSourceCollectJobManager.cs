@@ -26,11 +26,8 @@ namespace AggPanSearch.Business.PanManage
         /// <summary>running / succeeded / failed / canceled。</summary>
         public string Status { get; set; } = PanSourceCollectJobManager.StatusRunning;
 
-        /// <summary>已处理的列表页数量。</summary>
-        public int PagesDone { get; set; }
-
-        /// <summary>预计列表页总数，0 表示未知。</summary>
-        public int PagesTotal { get; set; }
+        /// <summary>累计发现的资源条数（含未入库的列表条目，进度条分母优先字段）。</summary>
+        public int TotalFound { get; set; }
 
         public int Found { get; set; }
 

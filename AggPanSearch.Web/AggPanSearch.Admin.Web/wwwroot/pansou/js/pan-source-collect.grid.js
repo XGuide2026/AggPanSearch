@@ -53,10 +53,13 @@
         return { text: name, type: 'primary', title: name };
     }
 
-    // 链接有效性标签：1 有效 / 其他无效，空值表示还没检测过
+    // 链接有效性标签：-1 未检测 / 1 有效 / 0 无效，空值表示状态未知（旧数据）
     function validTag(value) {
         if (ys.isNullOrEmpty(value)) {
             return { text: '状态未知', type: 'mute' };
+        }
+        if (String(value) === '-1') {
+            return { text: '未检测', type: 'mute' };
         }
         return String(value) === '1'
             ? { text: '链接有效', type: 'ok' }
@@ -80,6 +83,51 @@
         return { text: '无原图', type: 'mute' };
     }
 
+    // 文件大小：数据库存 M 整数（采集分析按 1024 进制换算），这里还原为可读文本
+    // 空 / 0 / 未分析（null）时返回空串不展示；>=1T 显示 x.xT，>=1G 显示 x.xG，>=1M 显示 xM，不足 1M 显示 xK
+    function formatFileSize(fileSize) {
+        var m = Number(fileSize);
+        if (isNaN(m) || m <= 0) {
+            return '';
+        }
+        if (m >= 1073741824) {
+            return (m / 1073741824).toFixed(1) + 'T';
+        }
+        if (m >= 1024) {
+            return (m / 1024).toFixed(1) + 'G';
+        }
+        if (m >= 1) {
+            return Math.round(m) + 'M';
+        }
+        return Math.round(m * 1024) + 'K';
+    }
+
+    // 资源信息行：「文件个数 / 文件大小 / 资源有效期」三字段来自资源信息分析队列
+    // （图片下载完成后打开网盘链接解析 .info-stat），组合为
+    // 「共 N 个文件 6.2G 永久有效」显示在元信息行（collect-card-meta）上方；
+    // 空字段跳过对应片段，三字段全部为空时不渲染该行
+    function renderFileInfo(row) {
+        var cl = ys.cardList;
+        var parts = [];
+        var count = row.FileCount === undefined || row.FileCount === null ? '' : String(row.FileCount);
+        var size = formatFileSize(row.FileSize);
+        var validity = $.trim(row.ShareValidityPeriod || '');
+        if (count !== '' && count !== '0') {
+            parts.push('共 ' + count + ' 个文件');
+        }
+        if (size !== '') {
+            parts.push(size);
+        }
+        if (validity !== '') {
+            parts.push(validity);
+        }
+        if (parts.length === 0) {
+            return '';
+        }
+        return '<div class="collect-card-file-meta" title="' + cl.escHtml(parts.join(' ')) + '">' +
+            '<i class="fa fa-database"></i> ' + cl.escHtml(parts.join(' ')) + '</div>';
+    }
+
     // 整张资源卡片：表格只保留这一列，行即卡片
     // 封面 / 标题 / 标签 / 简介 / 元信息 / 链接 / 操作条全部复用公共脚本 ys.cardList，
     // 本页只负责字段映射；所有文本由 ys.cardList 统一转义后再拼接
@@ -92,11 +140,14 @@
         var sourceText = source === '' ? '来源未知' : source;
         var timeText = ns.renderTime(row.BaseCreateTime);
 
+        var cardTags = [categoryTag(row.SourceCategoryId), validTag(row.IsLinkValid), localImageTag(row)];
         return '<div class="collect-card" data-id="' + cl.escHtml(id) + '">' +
             cl.renderCover(cl.parseImages(row.CollectImageUrl)) +
             '<div class="collect-card-body">' +
             cl.renderTitle(name, '（未命名资源）') +
-            cl.renderTags([categoryTag(row.SourceCategoryId), validTag(row.IsLinkValid), localImageTag(row)]) +
+            // 资源信息行：文件个数 / 文件大小 / 资源有效期，显示在标签区上方
+            renderFileInfo(row) +
+            cl.renderTags(cardTags) +
             // 简介行数随内容自适应（上限约 12 行），超出时由 ys.cardList 在末行末尾补「查看完整」
             cl.renderIntro(row.ResourceIntro) +
             cl.renderMeta([
@@ -110,12 +161,48 @@
             '</div>';
     }
 
+    // 文件大小排序：三态点击循环
+    //   状态  ''（默认）→ 'desc'（从大到小，↓ 高亮）→ 'asc'（从小到大，↑ 高亮）→ 回到默认
+    // 箭头：向上 = 从小到大，向下 = 从大到小；第一次点击箭头向下高亮，第二次箭头向上高亮，
+    // 第三次恢复默认（两个箭头均不高亮）。选择时状态写入 #fileSizeSort 隐藏框，并刷新表格。
+    function bindFileSizeSorter() {
+        var state = ''; // '' 默认 | 'desc' | 'asc'
+        var $sorter = $('#fileSizeSorter');
+        if (!$sorter.length) {
+            return;
+        }
+        $sorter.on('click', function () {
+            if (state === '') {
+                state = 'desc';
+            } else if (state === 'desc') {
+                state = 'asc';
+            } else {
+                state = ''; // 第三次点击恢复默认排序
+            }
+            renderFileSizeSorter($sorter, state);
+            $('#fileSizeSort').val(state);
+            grid.search();
+        });
+    }
+
+    // 按当前排序状态高亮对应箭头：desc 高亮向下箭头（从大到小），asc 高亮向上箭头（从小到大）
+    function renderFileSizeSorter($sorter, state) {
+        $sorter.removeClass('sorter-desc sorter-asc');
+        if (state === 'desc') {
+            $sorter.addClass('sorter-desc');
+        } else if (state === 'asc') {
+            $sorter.addClass('sorter-asc');
+        }
+    }
+
     grid.init = function () {
-        // 链接状态：使用框架 ysComboBox，与系统其他页面搜索区下拉保持一致
+        // 链接状态：使用框架 ysComboBox，与系统其他页面搜索区下拉保持一致。
+        // 查询条件下拉自动以 value=-1 作为「全部」；「未检测」用 -2 对应数据库的 -1
         $('#isLinkValid').ysComboBox({
             data: [
                 { Key: '1', Value: '有效' },
-                { Key: '0', Value: '无效' }
+                { Key: '0', Value: '无效' },
+                { Key: '-2', Value: '未检测' }
             ],
             search: false
         });
@@ -126,6 +213,11 @@
             laydate.render({ elem: '#startTime', format: 'yyyy-MM-dd', trigger: 'click' });
             laydate.render({ elem: '#endTime', format: 'yyyy-MM-dd', trigger: 'click' });
         }
+
+        // 文件大小排序：单独一排的「文字 + 上下箭头」三态点击。
+        // 状态：'' 默认不排序 → 'desc' 从大到小（↓ 高亮）→ 'asc' 从小到大（↑ 高亮）→ 'default' 恢复默认。
+        // 状态写入带 col 的隐藏框，queryParams 里 getWebControls 自动收集为 file_size_sort，无需改 queryParams。
+        bindFileSizeSorter();
 
         // 先取分类资源字典，再初始化筛选下拉与表格，避免列渲染时字典还没到
         loadCategoryOptions(function () {
@@ -180,11 +272,12 @@
             onSelection: grid.updateToolbar
         });
 
-        // 页面刷新后若仍有转存 / 补图任务在跑，恢复进度显示
+        // 页面刷新后若仍有转存任务在跑，恢复进度显示
         grid.resumeTransfer();
-        grid.resumeImage();
-        // 自动补图队列：采集入库后由后台队列自动下载本地图片，持续轮询展示进度
+        // 资源图片下载队列：采集入库后由后台队列自动下载本地图片，持续轮询展示进度
         grid.startAutoImagePolling();
+        // 资源文件分析队列：图片下载全部完成后由后台队列自动打开网盘链接解析三字段，持续轮询展示进度
+        grid.startInfoAnalyzePolling();
     }
 
     // 工具栏按钮状态：单张卡片的修改 / 删除在卡片底部，工具栏负责批量操作：删除、转存、补图
@@ -195,11 +288,10 @@
             count = selectedRows().length;
         }
 
-        // 转存 / 补图任务运行中禁用删除，避免删掉正在处理的记录
-        var busy = grid.isTransferRunning() || grid.isImageRunning();
+        // 转存任务运行中禁用删除，避免删掉正在处理的记录
+        var busy = grid.isTransferRunning();
         $('#btnDelete').toggleClass('disabled', count === 0 || busy);
         $('#btnTransfer').toggleClass('disabled', count === 0 || grid.isTransferRunning());
-        $('#btnBackfillImage').toggleClass('disabled', grid.isImageRunning());
     };
 
     // 批量删除：拼接卡片勾选行的 Id，复用 remove 的确认与请求流程
@@ -279,33 +371,19 @@
         });
     };
 
-    /* ===== 补图：把原图片下载到本机并回写本地图片 ===== */
-    var IMAGE_JOB_KEY = 'panSourceImageJobId';
-    var IMAGE_BACKFILL_LIMIT = 50;
-    var imageTimer = null;
-    var imageJobId = '';
-    var imageStart = 0;
-    var imageFailures = 0;
-
-    // 任务运行中以「取消按钮可见」为准，避免刷新页面后状态错乱
-    grid.isImageRunning = function () {
-        return $('#btnCancelImageBackfill').is(':visible');
-    };
-
-    grid.resumeImage = function () {
-        var jobId = sessionStorage.getItem(IMAGE_JOB_KEY);
-        if (jobId) {
-            startImagePolling(jobId);
-        }
-    };
-
-    // ======================== 自动补图队列进度 ========================
+    // ======================== 资源图片下载队列进度 ========================
     // 采集入库后由后台队列自动下载本地图片，无需手动触发；这里实时展示队列进度，
-    // 让“采集完成但还没看到本地图片”期间用户能看到下载在跑、还剩多少。
+    // 让"采集完成但还没看到本地图片"期间用户能看到下载在跑、还剩多少。
     var AUTO_IMAGE_POLL_INTERVAL = 2000;
     var autoImageTimer = null;
-    var autoImageShownMarker = '';   // 最近一次已展示的完成周期标记，避免反复提示
     var autoImageFailures = 0;       // 连续查询失败的次数，用于避免错误提示闪烁/静默
+    // 完成态编排标记：autoImageDoneHidden 防止 2 秒轮询重复刷新表格/重启隐藏定时器；
+    // autoImageRunning 供隐藏定时器判断「隐藏期内是否又启动了新任务」，避免误收进度条
+    var autoImageDoneHidden = false;
+    var autoImageRunning = false;
+    // autoImageSeenRunning：本页面会话内是否亲眼见过队列 running（或剩余待处理>0）。
+    // 用于区分「本会话真实运行完成的任务」与「页面打开时后端遗留的历史完成汇总」。
+    var autoImageSeenRunning = false;
 
     grid.startAutoImagePolling = function () {
         if (autoImageTimer) {
@@ -325,13 +403,13 @@
                 if (obj.Tag === 1 && obj.Data) {
                     renderAutoImageProgress(obj.Data);
                 } else {
-                    renderAutoImageError(obj.Message || '自动补图进度查询失败');
+                    renderAutoImageError(obj.Message || '资源图片下载进度查询失败');
                 }
             },
             error: function () {
                 autoImageFailures++;
                 if (autoImageFailures >= 2) {
-                    renderAutoImageError('自动补图进度查询失败（网络/接口异常）');
+                    renderAutoImageError('资源图片下载进度查询失败（网络/接口异常）');
                 }
             }
         });
@@ -339,20 +417,23 @@
 
     function renderAutoImageProgress(state) {
         var running = state.Status === 'running';
-        var pending = state.Pending || 0;
         var processed = state.Processed || 0;
         var updated = state.Updated || 0;
-        var marker = processed + '_' + updated + '_' + state.Status;
+        var total = state.Total || 0;
+        var remaining = Math.max(0, total - processed);
 
-        // 处理中或队列仍有等待记录：实时进度条（封顶 95%）
-        if (running || pending > 0) {
-            var percent = state.Total > 0
-                ? Math.min(95, Math.round(processed * 100 / state.Total))
-                : 5;
+        // 处理中或仍有剩余图片待下载：实时进度条（封顶 95%）
+        if (running || remaining > 0) {
+            autoImageRunning = true;
+            autoImageDoneHidden = false;
+            autoImageSeenRunning = true;
+            var percent = total > 0
+                ? Math.min(95, Math.round(processed * 100 / total))
+                : 0;
             showAutoImage();
             $('#autoImageProgressInner').addClass('active').css('width', percent + '%');
-            var text = '自动补图：正在下载本地图片… 已处理 ' + processed + ' 条，回写 ' + updated
-                + ' 张，队列剩余 ' + pending + ' 条';
+            var text = '资源图片下载：正在下载本地图片… 已处理 ' + processed + ' 张，入库 ' + updated
+                + ' 张，剩余 ' + remaining + ' 张';
             if (state.Message) {
                 text += '（' + state.Message + '）';
             }
@@ -360,25 +441,41 @@
             return;
         }
 
-        // 空闲且本周期刚完成过：展示完成汇总 12 秒，同一周期只提示一次
-        if (processed > 0 && autoImageShownMarker !== marker) {
-            autoImageShownMarker = marker;
+        // 本周期已完成过资源图片下载：显示 100% 完成汇总并刷新表格，5 秒后进度条自动消失
+        if (processed > 0) {
+            autoImageRunning = false;
+            if (!autoImageSeenRunning) {
+                // 页面打开时后端即处于完成态：属于历史遗留汇总，不显示进度条，
+                // 仅刷新表格展示最新本地图片一次，并记忆以免后续轮询重复刷新。
+                if (autoImageDoneHidden) {
+                    return;
+                }
+                autoImageDoneHidden = true;
+                hideAutoImageProgress();
+                grid.search();
+                return;
+            }
+            if (autoImageDoneHidden) {
+                return;   // 已隐藏过：保持隐藏，不再重复展示/刷新表格/重启定时器
+            }
+            autoImageDoneHidden = true;
             showAutoImage();
             $('#autoImageProgressInner').removeClass('active').css('width', '100%');
-            $('#autoImageProgressText').text(state.Message || '自动补图完成，本地图片已下载');
+            $('#autoImageProgressText').text(state.Message || '资源图片下载完成，本地图片已下载');
+            grid.search();   // 下载完成后刷新表格，展示最新本地图片
             setTimeout(function () {
-                // 12 秒后重新拉取一次最新状态，汇总自然转入常驻空闲提示
-                pollAutoImage();
-            }, 12000);
+                if (autoImageRunning) {
+                    return;   // 隐藏期内进入了新周期运行中：保持进度条显示
+                }
+                hideAutoImageProgress();
+            }, 5000);
             return;
         }
 
-        // 空闲：进度区常驻显示提示，让“自动补图”功能始终可见
-        showAutoImage();
-        $('#autoImageProgressInner').removeClass('active').css('width', '0%');
-        $('#autoImageProgressText').text(processed > 0
-            ? '自动补图队列空闲（最近批次：' + (state.Message || '已完成') + '）'
-            : '自动补图队列空闲，新采集的资源会自动下载本地图片');
+        // 从未发生过下载：空闲时不显示进度条，避免页面出现空面板
+        autoImageRunning = false;
+        autoImageDoneHidden = false;
+        hideAutoImageProgress();
     }
 
     function renderAutoImageError(message) {
@@ -389,149 +486,142 @@
 
     function showAutoImage() {
         $('#autoImageProgressBar').show();
+        ns.syncProgressPanel();
         $('#autoImageProgressInner').removeClass('progress-bar-danger');
     }
 
     function hideAutoImageProgress() {
         $('#autoImageProgressBar').hide();
+        ns.syncProgressPanel();
         $('#autoImageProgressInner').removeClass('active progress-bar-danger').css('width', '0%');
     }
 
-    // 有选中行只补选中记录，未选中则补最近缺少本地图片的前 50 条
-    grid.backfillImage = function () {
-        var rows = selectedRows();
-        var ids = rows.length > 0 ? ys.getIds(rows) : '';
-        var tip = rows.length > 0
-            ? '确认给选中的 ' + rows.length + ' 条资源补图吗？会把原图片下载到本机并回写本地图片，下载失败的原图会被剔除。'
-            : '未选择记录，将为最近缺少本地图片的前 ' + IMAGE_BACKFILL_LIMIT + ' 条资源补图，是否继续？';
-        ys.confirm(tip, function () {
-            ys.ajax({
-                url: ns.api.backfillImage,
-                type: 'post',
-                data: { ids: ids, limit: IMAGE_BACKFILL_LIMIT },
-                success: function (obj) {
-                    if (obj.Tag === 1 && obj.Data) {
-                        layer.msg('补图任务已提交，正在后台下载图片…', { icon: 1, time: 2000, shift: 5 });
-                        sessionStorage.setItem(IMAGE_JOB_KEY, obj.Data);
-                        startImagePolling(obj.Data);
-                    } else {
-                        ys.msgError(obj.Message || '补图任务提交失败');
-                    }
-                }
-            });
-        });
-    };
+    // ======================== 资源文件分析队列进度 ========================
+    // 图片下载全部完成后，由后台队列自动打开网盘链接解析三字段（文件个数/大小/有效期）；
+    // 这里仿照图片下载队列实时展示进度，让用户能看到分析在跑、还剩多少，完成后自动刷新表格。
+    var INFO_ANALYZE_POLL_INTERVAL = 2000;
+    var infoAnalyzeTimer = null;
+    var infoAnalyzeFailures = 0;       // 连续查询失败的次数，用于避免错误提示闪烁/静默
+    // 完成态编排标记：infoAnalyzeDoneHidden 防止 2 秒轮询重复刷新表格/重启隐藏定时器；
+    // infoAnalyzeRunning 供隐藏定时器判断「隐藏期内是否又启动了新任务」，避免误收进度条
+    var infoAnalyzeDoneHidden = false;
+    var infoAnalyzeRunning = false;
+    // infoAnalyzeSeenRunning：本页面会话内是否亲眼见过队列 running（或剩余待处理>0）。
+    // 用于区分「本会话真实运行完成的任务」与「页面打开时后端遗留的历史完成汇总」。
+    var infoAnalyzeSeenRunning = false;
 
-    function startImagePolling(jobId) {
-        stopImageTimer();
-        imageJobId = jobId || '';
-        imageStart = Date.now();
-        imageFailures = 0;
-        $('#btnBackfillImage').addClass('disabled');
-        $('#imageProgressBar').show();
-        $('#imageProgressInner').addClass('active').css('width', '5%');
-        $('#imageProgressText').text('正在下载本地图片…');
-        $('#btnCancelImageBackfill').show().removeClass('disabled');
-        pollImage();
-        imageTimer = setInterval(pollImage, 1500);
-    }
-
-    function stopImageTimer() {
-        if (imageTimer) {
-            clearInterval(imageTimer);
-            imageTimer = null;
-        }
-    }
-
-    function pollImage() {
-        // 兜底上限：单次补图最多 50 条，30 分钟仍未结束则停止轮询
-        if (Date.now() - imageStart > 30 * 60 * 1000) {
-            finishImage('补图进度查询超时，请刷新列表查看结果', false, null);
+    grid.startInfoAnalyzePolling = function () {
+        if (infoAnalyzeTimer) {
             return;
         }
+        pollInfoAnalyze();
+        infoAnalyzeTimer = setInterval(pollInfoAnalyze, INFO_ANALYZE_POLL_INTERVAL);
+    };
+
+    function pollInfoAnalyze() {
         $.ajax({
-            url: ns.api.imageProgress,
+            url: ns.api.infoAnalyzeProgress,
             type: 'get',
-            data: { jobId: imageJobId },
             dataType: 'json',
-            success: function (result) {
-                if (result.Tag !== 1 || !result.Data) {
-                    finishImage(result.Message || '补图任务已结束', false, null);
-                    return;
-                }
-                imageFailures = 0;
-                var state = result.Data;
-                imageJobId = state.JobId || imageJobId;
-                sessionStorage.setItem(IMAGE_JOB_KEY, imageJobId);
-                renderImageProgress(state);
-                if (state.Status === 'succeeded') {
-                    finishImage(state.Message, true, state);
-                } else if (state.Status === 'failed' || state.Status === 'canceled') {
-                    finishImage(state.Message, false, state);
+            success: function (obj) {
+                infoAnalyzeFailures = 0;
+                if (obj.Tag === 1 && obj.Data) {
+                    renderInfoAnalyzeProgress(obj.Data);
+                } else {
+                    renderInfoAnalyzeError(obj.Message || '资源文件分析进度查询失败');
                 }
             },
             error: function () {
-                imageFailures++;
-                if (imageFailures >= 5) {
-                    finishImage('补图进度查询失败，请刷新页面查看结果', false, null);
+                infoAnalyzeFailures++;
+                if (infoAnalyzeFailures >= 2) {
+                    renderInfoAnalyzeError('资源文件分析进度查询失败（网络/接口异常）');
                 }
             }
         });
     }
 
-    function renderImageProgress(state) {
-        var total = state.Total || 0;
+    function renderInfoAnalyzeProgress(state) {
+        var running = state.Status === 'running';
         var done = state.Done || 0;
-        var percent = total > 0 ? Math.min(100, Math.round(done * 100 / total)) : 5;
-        var text = '已处理 ' + done + '/' + total +
-            ' 条，回写 ' + (state.Updated || 0) +
-            '，跳过 ' + (state.Skipped || 0) +
-            '，剔除失效图片 ' + (state.FailedImages || 0) + ' 张';
-        $('#imageProgressInner').css('width', percent + '%');
-        $('#imageProgressText').text(text);
-    }
+        var succeeded = state.Succeeded || 0;
+        var skipped = state.Skipped || 0;
+        var failed = state.Failed || 0;
+        var total = state.Total || 0;
+        var remaining = Math.max(0, total - done);
 
-    // 补图结束刷新列表：本地图片列需要重新取数才能看到结果
-    function finishImage(message, succeeded, state) {
-        stopImageTimer();
-        sessionStorage.removeItem(IMAGE_JOB_KEY);
-        imageJobId = '';
-        $('#btnCancelImageBackfill').hide();
-        $('#imageProgressInner').removeClass('active');
-        if (succeeded) {
-            $('#imageProgressInner').css('width', '100%');
-        }
-        if (message) {
-            $('#imageProgressText').text(message);
-            layer.msg(message, { icon: succeeded ? 1 : 0, time: 6000, shift: 5 });
-        }
-        setTimeout(function () {
-            if (!grid.isImageRunning()) {
-                $('#imageProgressBar').hide();
+        // 处理中或仍有剩余资源待分析：实时进度条（封顶 95%）
+        if (running || remaining > 0) {
+            infoAnalyzeRunning = true;
+            infoAnalyzeDoneHidden = false;
+            infoAnalyzeSeenRunning = true;
+            var percent = total > 0
+                ? Math.min(95, Math.round(done * 100 / total))
+                : 0;
+            showInfoAnalyze();
+            $('#infoAnalyzeProgressInner').addClass('active').css('width', percent + '%');
+            var text = '资源文件分析：正在解析文件信息… 已分析 ' + done + ' 条，有效 ' + succeeded
+                + ' 条，剩余 ' + remaining + ' 条';
+            if (state.Message) {
+                text += '（' + state.Message + '）';
             }
-        }, succeeded ? 4000 : 8000);
-        grid.search();
-    }
-
-    grid.cancelImageBackfill = function () {
-        if (!imageJobId) {
+            $('#infoAnalyzeProgressText').text(text);
             return;
         }
-        ys.confirm('确认取消补图任务吗？已回写的本地图片会保留。', function () {
-            ys.ajax({
-                url: ns.api.cancelImageBackfill,
-                type: 'post',
-                data: { jobId: imageJobId },
-                success: function (obj) {
-                    if (obj.Tag === 1) {
-                        ys.msgSuccess(obj.Message);
-                    } else {
-                        ys.msgError(obj.Message);
-                    }
+
+        // 本周期已完成过资源文件分析：显示 100% 完成汇总并刷新表格，5 秒后进度条自动消失
+        if (done > 0) {
+            infoAnalyzeRunning = false;
+            if (!infoAnalyzeSeenRunning) {
+                // 页面打开时后端即处于完成态：属于历史遗留汇总，不显示进度条，
+                // 仅刷新表格一次展示最新三字段，并记忆以免后续轮询重复刷新。
+                if (infoAnalyzeDoneHidden) {
+                    return;
                 }
-            });
-        });
-    };
+                infoAnalyzeDoneHidden = true;
+                hideInfoAnalyzeProgress();
+                grid.search();
+                return;
+            }
+            if (infoAnalyzeDoneHidden) {
+                return;   // 已隐藏过：保持隐藏，不再重复展示/刷新表格/重启定时器
+            }
+            infoAnalyzeDoneHidden = true;
+            showInfoAnalyze();
+            $('#infoAnalyzeProgressInner').removeClass('active').css('width', '100%');
+            $('#infoAnalyzeProgressText').text(state.Message || '资源文件分析完成');
+            grid.search();   // 分析完成后刷新表格，展示最新三字段
+            setTimeout(function () {
+                if (infoAnalyzeRunning) {
+                    return;   // 隐藏期内进入了新周期运行中：保持进度条显示
+                }
+                hideInfoAnalyzeProgress();
+            }, 5000);
+            return;
+        }
+
+        // 从未发生过分析：空闲时不显示进度条，避免页面出现空面板
+        infoAnalyzeRunning = false;
+        infoAnalyzeDoneHidden = false;
+        hideInfoAnalyzeProgress();
+    }
+
+    function renderInfoAnalyzeError(message) {
+        showInfoAnalyze();
+        $('#infoAnalyzeProgressInner').removeClass('active progress-bar-danger').addClass('progress-bar-danger').css('width', '100%');
+        $('#infoAnalyzeProgressText').text(message);
+    }
+
+    function showInfoAnalyze() {
+        $('#infoAnalyzeProgressBar').show();
+        ns.syncProgressPanel();
+        $('#infoAnalyzeProgressInner').removeClass('progress-bar-danger');
+    }
+
+    function hideInfoAnalyzeProgress() {
+        $('#infoAnalyzeProgressBar').hide();
+        ns.syncProgressPanel();
+        $('#infoAnalyzeProgressInner').removeClass('active progress-bar-danger').css('width', '0%');
+    }
 
     /* ===== 转存并分享（夸克网盘） ===== */
     var TRANSFER_JOB_KEY = 'panSourceTransferJobId';
@@ -583,6 +673,7 @@
         transferFailures = 0;
         $('#btnTransfer').addClass('disabled');
         $('#transferProgressBar').show();
+        ns.syncProgressPanel();
         $('#transferProgressInner').addClass('active').css('width', '5%');
         $('#transferProgressText').text('正在转存并分享…');
         $('#btnCancelTransfer').show().removeClass('disabled');
@@ -662,9 +753,11 @@
             $('#transferProgressText').text(message + detail);
             layer.msg(message, { icon: succeeded ? 1 : 0, time: 6000, shift: 5 });
         }
+        // 任务完成后延迟隐藏进度条：成功后 5 秒、失败/取消 8 秒；期间若又启动新任务则保持显示
         setTimeout(function () {
             if (!grid.isTransferRunning()) {
                 $('#transferProgressBar').hide();
+                ns.syncProgressPanel();
             }
         }, succeeded ? 5000 : 8000);
         // 不刷新表格，但选中行仍然有效，这里恢复「转存 / 删除 / 标记」等按钮可用状态
@@ -716,6 +809,4 @@
     window.deleteSelectedRows = grid.removeSelected;
     window.transferToLocal = grid.transfer;
     window.cancelTransfer = grid.cancelTransfer;
-    window.backfillImage = grid.backfillImage;
-    window.cancelImageBackfill = grid.cancelImageBackfill;
 })(window, jQuery);

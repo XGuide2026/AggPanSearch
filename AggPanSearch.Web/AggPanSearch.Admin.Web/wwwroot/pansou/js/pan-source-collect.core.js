@@ -102,6 +102,9 @@
         if (ys.isNullOrEmpty(value)) {
             return '';
         }
+        if (String(value) === '-1') {
+            return '<span class="badge badge-default" style="background-color:#95a5a6;">未检测</span>';
+        }
         return String(value) === '1'
             ? '<span class="badge badge-primary" style="background-color:#27ae60;">有效</span>'
             : '<span class="badge badge-default" style="background-color:#95a5a6;">无效</span>';
@@ -131,8 +134,27 @@
         return '';
     };
 
+    // 进度悬浮面板联动：任一子进度条可见时才显示面板，全部隐藏时隐藏面板，
+    // 避免页面加载完成后看到一个空白的悬浮面板。
+    // 注意不能用 :visible 判断：它要求祖先也可见，父面板 display:none 时会误判
+    ns.syncProgressPanel = function () {
+        var anyVisible = false;
+        $('#collectProgressBar,#transferProgressBar,#autoImageProgressBar,#infoAnalyzeProgressBar').each(function () {
+            if ($(this).css('display') !== 'none') {
+                anyVisible = true;
+                return false;
+            }
+        });
+        if (anyVisible) {
+            $('#collectProgressPanel').show();
+        } else {
+            $('#collectProgressPanel').hide();
+        }
+    };
+
     // 页面入口：DOM 就绪后由视图调用一次
     ns.init = function () {
+        ns.syncProgressPanel();
         ns.grid.init();
         ns.sites.initMode();
         ns.sites.load();

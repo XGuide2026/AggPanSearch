@@ -23,7 +23,8 @@ namespace AggPanSearch.Model.Param.PanManage
         public string resource_name { get; set; }
 
         /// <summary>
-        /// 链接是否有效：1 有效 0 无效，null 表示不限
+        /// 链接是否有效：1 有效 0 无效 -1 未检测，null 表示不限；
+        /// 前端筛选下拉「全部」固定为 -1（会被 queryParams 置空），「未检测」用 -2 映射数据库的 -1
         /// </summary>
         public int? is_link_valid { get; set; }
 
@@ -36,5 +37,10 @@ namespace AggPanSearch.Model.Param.PanManage
         /// 结束时间（含当天 23:59:59）
         /// </summary>
         public DateTime? endTime { get; set; }
+
+        /// <summary>
+        /// 文件大小排序：'' 默认（按采集时间倒序）| 'asc' 从小到大 | 'desc' 从大到小
+        /// </summary>
+        public string file_size_sort { get; set; }
     }
 }

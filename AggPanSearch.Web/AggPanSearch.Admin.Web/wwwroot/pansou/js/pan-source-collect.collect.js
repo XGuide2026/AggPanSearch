@@ -12,6 +12,8 @@
     var pollTimer = null;
     var pollStart = 0;
     var pollFailures = 0;
+    // 进度条宽度平滑：只允许每轮小幅回落，防止下一页 Found 整页跳增导致宽度跳水
+    var widthSmooth = 0;
 
     // 打开「采集参数」页面：采集方式用 tab 切换，地址与页数在该页面内填写并提交
     collect.open = function (id) {
@@ -88,12 +90,14 @@
         ns.state.jobId = jobId || '';
         pollStart = Date.now();
         pollFailures = 0;
+        widthSmooth = 0;
         ns.sites.toggleCollectButtons(true);
         $('#collectProgressBar').show();
+        ns.syncProgressPanel();
         $('#collectProgressInner').addClass('active').css('width', '5%');
         $('#btnCancelCollect').show().removeClass('disabled');
         poll();
-        pollTimer = setInterval(poll, 1500);
+        pollTimer = setInterval(poll, 1000);
     }
 
     function stopTimer() {
@@ -138,15 +142,20 @@
     }
 
     function render(state) {
-        var done = state.PagesDone || 0;
-        var total = state.PagesTotal || 0;
-        // 模板分页无法预知总页数，按已处理页数给一个渐进进度，避免进度条长时间停在同一位置
-        var percent = total > 0
-            ? Math.min(100, Math.round(done * 100 / total))
-            : Math.min(90, 5 + done * 5);
-        var pageText = total > 0 ? ('已完成 ' + done + '/' + total + ' 页') : ('已处理 ' + done + ' 页');
-        var text = (state.SiteName ? '【' + state.SiteName + '】' : '') + pageText +
-            '，发现 ' + (state.Found || 0) + ' 条，入库 ' + (state.Inserted || 0) + ' 条' +
+        var inserted = state.Inserted || 0;
+        // 发现条数优先取已确定的总条数（列表页解析时先确定），单条模式可用实际 Found 兜底
+        var found = state.TotalFound || state.Found || 0;
+        // 宽度 = 已入库条数 / 已确定的总条数：入库一条涨一格，进度条从低到高爬升
+        var target = found > 0 ? found : Math.max(state.Found || 0, inserted);
+        var percent = target > 0 ? Math.min(100, Math.round(inserted * 100 / target)) : 0;
+        // 平滑：每轮最多回落 2%，防止后续扫描发现更多条目导致进度条跳水
+        if (percent < widthSmooth) {
+            percent = Math.max(percent, widthSmooth - 2);
+        }
+        widthSmooth = percent;
+
+        var text = (state.SiteName ? '【' + state.SiteName + '】' : '') + '发现 ' + found + ' 条' +
+            '，入库 ' + inserted + ' 条' +
             '，重复 ' + (state.Duplicated || 0) + ' 条';
         if (state.Skipped) {
             text += '，无效 ' + state.Skipped + ' 条';
@@ -171,10 +180,12 @@
         if (refresh) {
             ns.grid.search();
         }
+        // 任务完成后延迟隐藏进度条：成功后 5 秒、失败/取消 8 秒；期间若又启动新任务则保持显示
         setTimeout(function () {
             // 期间若又启动了新任务，则保持进度条显示
             if (!ns.state.running) {
                 $('#collectProgressBar').hide();
+                ns.syncProgressPanel();
             }
         }, refresh ? 5000 : 8000);
     }

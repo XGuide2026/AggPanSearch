@@ -23,12 +23,35 @@ namespace AggPanSearch.Service.PanManage
         {
             var expression = ListFilter(param);
             var list = await this.BaseRepository().FindList(expression);
+
+            // 按文件大小排序（单位 M）：NULL（未分析）始终排最后；未指定时保持按采集时间倒序
+            if (param != null && param.file_size_sort == "asc")
+            {
+                return list.OrderBy(t => t.FileSize == null).ThenBy(t => t.FileSize).ThenByDescending(t => t.BaseCreateTime).ToList();
+            }
+            if (param != null && param.file_size_sort == "desc")
+            {
+                return list.OrderBy(t => t.FileSize == null).ThenByDescending(t => t.FileSize).ThenByDescending(t => t.BaseCreateTime).ToList();
+            }
             return list.OrderByDescending(t => t.BaseCreateTime).ThenByDescending(t => t.Id).ToList();
         }
 
         public async Task<List<PanSourceCollectEntity>> GetPageList(PanSourceCollectListParam param, Pagination pagination)
         {
             var expression = ListFilter(param);
+
+            // 文件大小排序需覆盖默认的采集时间倒序，否则 SQL 层分页排序不生效
+            if (param != null && param.file_size_sort == "asc")
+            {
+                pagination.Sort = "FileSize";
+                pagination.SortType = "asc";
+            }
+            else if (param != null && param.file_size_sort == "desc")
+            {
+                pagination.Sort = "FileSize";
+                pagination.SortType = "desc";
+            }
+
             var list = await this.BaseRepository().FindList(expression, pagination);
             return list.ToList();
         }
@@ -59,23 +82,6 @@ namespace AggPanSearch.Service.PanManage
                 result.AddRange(list);
             }
             return result;
-        }
-
-        /// <summary>
-        /// 查询缺少本地图片的采集记录（ImageUrl 为空且 CollectImageUrl 非空），
-        /// 按采集时间倒序取前 limit 条，供后台补图任务使用。
-        /// </summary>
-        public async Task<List<PanSourceCollectEntity>> GetImagePendingList(int limit)
-        {
-            var expression = LinqExtensions.True<PanSourceCollectEntity>();
-            expression = expression.And(t => t.ImageUrl == null || t.ImageUrl == "");
-            expression = expression.And(t => t.CollectImageUrl != null && t.CollectImageUrl != "");
-            List<PanSourceCollectEntity> list = (await this.BaseRepository().FindList(expression)).ToList();
-            return list
-                .OrderByDescending(t => t.BaseCreateTime)
-                .ThenByDescending(t => t.Id)
-                .Take(limit > 0 ? limit : 50)
-                .ToList();
         }
 
         #endregion
@@ -170,6 +176,47 @@ namespace AggPanSearch.Service.PanManage
             await this.BaseRepository().Update(entity);
         }
 
+        /// <summary>
+        /// 只更新「资源信息分析」三列（文件个数 / 文件大小 / 资源有效期），可选附带链接有效性（IsLinkValid）：
+        /// 构造只带 Id 与相关字段的实体做局部更新，避免整行覆盖用户同时编辑的其他字段。
+        /// </summary>
+        public async Task UpdateAnalyzeInfo(long id, int? fileCount, int? fileSize, string shareValidityPeriod, int? linkValid = null)
+        {
+            if (id <= 0)
+            {
+                return;
+            }
+            PanSourceCollectEntity entity = new PanSourceCollectEntity
+            {
+                Id = id,
+                FileCount = fileCount,
+                FileSize = fileSize,
+                ShareValidityPeriod = shareValidityPeriod ?? string.Empty,
+                // linkValid 为 null 时不更新该列，保持向后兼容
+                IsLinkValid = linkValid,
+            };
+            await entity.Modify();
+            await this.BaseRepository().Update(entity);
+        }
+
+        /// <summary>
+        /// 只更新链接有效性一列（IsLinkValid），供资源分析失败 / 异常分支回写 0，不清空已解析字段。
+        /// </summary>
+        public async Task UpdateLinkValid(long id, int valid)
+        {
+            if (id <= 0)
+            {
+                return;
+            }
+            PanSourceCollectEntity entity = new PanSourceCollectEntity
+            {
+                Id = id,
+                IsLinkValid = valid,
+            };
+            await entity.Modify();
+            await this.BaseRepository().Update(entity);
+        }
+
         public async Task DeleteForm(string ids)
         {
             long[] idArr = TextHelper.SplitToArray<long>(ids, ',');
@@ -204,10 +251,19 @@ namespace AggPanSearch.Service.PanManage
                     string resourceName = param.resource_name.Trim();
                     expression = expression.And(t => t.ResourceName.Contains(resourceName));
                 }
-                if (param.is_link_valid != null && param.is_link_valid.Value >= 0)
+                if (param.is_link_valid != null)
                 {
                     int valid = param.is_link_valid.Value;
-                    expression = expression.And(t => t.IsLinkValid == valid);
+                    if (valid == -2)
+                    {
+                        // 前端「未检测」筛选用 -2，映射数据库值 -1（严格匹配，不含 NULL 旧数据）
+                        expression = expression.And(t => t.IsLinkValid == -1);
+                    }
+                    else if (valid >= 0)
+                    {
+                        expression = expression.And(t => t.IsLinkValid == valid);
+                    }
+                    // 其余负值（含「全部」-1）不限定链接状态
                 }
                 if (param.startTime != null)
                 {
