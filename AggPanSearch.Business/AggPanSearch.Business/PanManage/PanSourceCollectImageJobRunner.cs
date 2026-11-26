@@ -264,6 +264,49 @@ namespace AggPanSearch.Business.PanManage
     }
 
     /// <summary>
+    /// 描 述：自动补图队列的实时进度状态（进程内静态，供前端轮询展示）。
+    /// 采集入库后由 <see cref="PanSourceCollectImageJobRunner.Enqueue"/> 入队，
+    /// 队列工作线程逐批处理后把统计累加到这里，页面通过接口读取并展示进度。
+    /// </summary>
+    public sealed class PanSourceCollectAutoQueueState
+    {
+        public const string StatusIdle = "idle";
+        public const string StatusRunning = "running";
+
+        /// <summary>idle（队列空闲）/ running（队列处理中）。</summary>
+        public string Status { get; set; } = StatusIdle;
+
+        /// <summary>当前处理周期累计入队的记录数。</summary>
+        public int Total { get; set; }
+
+        /// <summary>当前处理周期已处理的记录数（含回写与跳过）。</summary>
+        public int Processed { get; set; }
+
+        /// <summary>已回写本地图片的记录数。</summary>
+        public int Updated { get; set; }
+
+        /// <summary>本地图片已齐全而跳过的记录数。</summary>
+        public int Skipped { get; set; }
+
+        /// <summary>被剔除的失效图片数量。</summary>
+        public int FailedImages { get; set; }
+
+        /// <summary>队列中剩余等待处理的记录数。</summary>
+        public int Pending { get; set; }
+
+        /// <summary>给前端的提示文案。</summary>
+        public string Message { get; set; } = string.Empty;
+
+        /// <summary>最近一次统计更新时间。</summary>
+        public DateTime UpdateTime { get; set; } = DateTime.Now;
+
+        public PanSourceCollectAutoQueueState Clone()
+        {
+            return (PanSourceCollectAutoQueueState)MemberwiseClone();
+        }
+    }
+
+    /// <summary>
     /// 描 述：图片补图任务执行器。
     /// 把记录中 collect_image_url 的远端图片下载到本机，并只回写 collect_image_url / image_url 两列；
     /// 下载失败的图片会从 collect_image_url 中剔除，因此任务结束后原图字段可能变短。
@@ -283,11 +326,25 @@ namespace AggPanSearch.Business.PanManage
         private static readonly ConcurrentQueue<long> PendingIds = new ConcurrentQueue<long>();
         private static int queueWorkerRunning;
 
+        /// <summary>自动补图队列状态（锁保护，前端轮询读取）。</summary>
+        private static readonly object AutoQueueStateLock = new object();
+        private static PanSourceCollectAutoQueueState autoQueueState = new PanSourceCollectAutoQueueState();
+
         private readonly PanSourceCollectService panSourceCollectService = new PanSourceCollectService();
+
+        /// <summary>获取自动补图队列的实时进度状态（返回副本，调用方可自由读取）。</summary>
+        public static PanSourceCollectAutoQueueState GetAutoQueueState()
+        {
+            lock (AutoQueueStateLock)
+            {
+                return autoQueueState.Clone();
+            }
+        }
 
         /// <summary>采集入库后把新增记录投递到自动补图队列（不等待下载，也不占用手动补图任务）。</summary>
         public static void Enqueue(IEnumerable<long>? ids)
         {
+            int added = 0;
             if (ids != null)
             {
                 foreach (long id in ids)
@@ -295,12 +352,45 @@ namespace AggPanSearch.Business.PanManage
                     if (id > 0)
                     {
                         PendingIds.Enqueue(id);
+                        added++;
                     }
                 }
             }
+            if (added > 0)
+            {
+                UpdateAutoQueueState(state => state.Pending += added);
+            }
             if (Interlocked.CompareExchange(ref queueWorkerRunning, 1, 0) == 0)
             {
+                // 从空闲唤醒：重置本周期的累计统计
+                ResetAutoQueueState();
                 _ = Task.Run(DrainQueueAsync, CancellationToken.None);
+            }
+        }
+
+        /// <summary>重置自动补图队列统计并标记为运行中（队列从空闲唤醒时调用）。</summary>
+        private static void ResetAutoQueueState()
+        {
+            lock (AutoQueueStateLock)
+            {
+                autoQueueState.Status = PanSourceCollectAutoQueueState.StatusRunning;
+                autoQueueState.Total = 0;
+                autoQueueState.Processed = 0;
+                autoQueueState.Updated = 0;
+                autoQueueState.Skipped = 0;
+                autoQueueState.FailedImages = 0;
+                autoQueueState.Message = "自动补图已启动，正在下载本地图片…";
+                autoQueueState.UpdateTime = DateTime.Now;
+            }
+        }
+
+        /// <summary>在锁内更新自动补图队列状态，并刷新更新时间。</summary>
+        private static void UpdateAutoQueueState(Action<PanSourceCollectAutoQueueState> update)
+        {
+            lock (AutoQueueStateLock)
+            {
+                update(autoQueueState);
+                autoQueueState.UpdateTime = DateTime.Now;
             }
         }
 
@@ -340,6 +430,11 @@ namespace AggPanSearch.Business.PanManage
                     {
                         break;
                     }
+                    UpdateAutoQueueState(state =>
+                    {
+                        state.Pending = Math.Max(0, state.Pending - batch.Count);
+                        state.Total += batch.Count;
+                    });
                     try
                     {
                         List<PanSourceCollectEntity> records =
@@ -347,24 +442,64 @@ namespace AggPanSearch.Business.PanManage
                         records = FilterRecords(records);
                         if (records.Count > 0)
                         {
-                            await runner.ProcessAsync(
-                                records, CancellationToken.None, new ImageProcessResult(), null).ConfigureAwait(false);
+                            UpdateAutoQueueState(state =>
+                            {
+                                state.Message = $"正在下载本地图片：本批 {records.Count} 条…";
+                                state.UpdateTime = DateTime.Now;
+                            });
                         }
+                        ImageProcessResult result = new ImageProcessResult();
+                        if (records.Count > 0)
+                        {
+                            await runner.ProcessAsync(
+                                records, CancellationToken.None, result, null).ConfigureAwait(false);
+                        }
+                        UpdateAutoQueueState(state =>
+                        {
+                            state.Processed += result.Done;
+                            state.Updated += result.Updated;
+                            state.Skipped += result.Skipped;
+                            state.FailedImages += result.FailedImages;
+                            state.Message = records.Count > 0
+                                ? $"本批处理完成：回写 {result.Updated} 条，跳过 {result.Skipped} 条，剔除失效图 {result.FailedImages} 张"
+                                : "本批没有需要补图的记录";
+                            state.UpdateTime = DateTime.Now;
+                        });
                     }
                     catch (Exception ex)
                     {
                         // 自动补图失败不影响采集与后续队列
                         LogHelper.Error(ex);
+                        UpdateAutoQueueState(state =>
+                        {
+                            state.Message = "本批处理异常，继续处理后续记录";
+                            state.UpdateTime = DateTime.Now;
+                        });
                     }
                 }
             }
             finally
             {
                 Interlocked.Exchange(ref queueWorkerRunning, 0);
-                // 退出瞬间可能有新任务入队，重新检查一次避免漏处理
+                // 退出瞬间可能有新任务入队：重新占用标志并续跑下一轮（不再走 Enqueue，
+                // 避免从空闲唤醒路径再次 Reset 清空本周期已累计的统计与完成汇总）
                 if (!PendingIds.IsEmpty)
                 {
-                    Enqueue(null);
+                    if (Interlocked.CompareExchange(ref queueWorkerRunning, 1, 0) == 0)
+                    {
+                        _ = Task.Run(DrainQueueAsync, CancellationToken.None);
+                    }
+                }
+                else
+                {
+                    UpdateAutoQueueState(state =>
+                    {
+                        state.Status = PanSourceCollectAutoQueueState.StatusIdle;
+                        state.Message = state.Processed > 0
+                            ? $"自动补图完成：处理 {state.Processed} 条，回写 {state.Updated} 条，跳过 {state.Skipped} 条，剔除失效图片 {state.FailedImages} 张"
+                            : "自动补图队列已清空";
+                        state.UpdateTime = DateTime.Now;
+                    });
                 }
             }
         }

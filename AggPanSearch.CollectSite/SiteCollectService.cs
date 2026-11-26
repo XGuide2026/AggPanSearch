@@ -10,8 +10,6 @@ public sealed class SiteCollectService
     /// <summary>单次采集最多跟进的详情页数量，避免一次抓取过多页面。</summary>
     private const int MaxDetailPages = 30;
 
-    private const int DetailConcurrency = 4;
-
     /// <summary>单次采集最多入库的资源条数。</summary>
     private const int MaxItems = 500;
 
@@ -386,16 +384,13 @@ public sealed class SiteCollectService
 
         List<CollectedItem>[] detailResults = new List<CollectedItem>[targets.Count];
         int fetchedPages = 0;
-        using SemaphoreSlim semaphore = new SemaphoreSlim(DetailConcurrency);
-        Task[] tasks = new Task[targets.Count];
 
+        // 详情页逐条串行采集：处理完一条再抓下一条，配合方法末尾 500ms 间隔降低源站请求频率。
         for (int i = 0; i < targets.Count; i++)
         {
-            int index = i;
-            tasks[index] = FetchDetailAsync(index);
+            await FetchDetailAsync(i).ConfigureAwait(false);
         }
 
-        await Task.WhenAll(tasks).ConfigureAwait(false);
         result.FetchedPages += fetchedPages;
 
         foreach (List<CollectedItem>? list in detailResults)
@@ -411,13 +406,12 @@ public sealed class SiteCollectService
         {
             CollectedItem placeholder = targets[index];
             detailResults[index] = new List<CollectedItem>();
-            await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 // 详情页带所属列表页作 Referer，遇到 403/429 时沿用换 UA 重试策略。
                 PageFetchResult detail = await FetchWithRetryAsync(placeholder.DetailUrl, listPageUrl, cancellationToken)
                     .ConfigureAwait(false);
-                Interlocked.Increment(ref fetchedPages);
+                fetchedPages++;
 
                 string detailUrl = detail.FinalUrl.Length > 0 ? detail.FinalUrl : placeholder.DetailUrl;
                 if (!detail.Success || !SiteCollectHtmlUtil.TryCreateHttpUri(detailUrl, out Uri detailUri))
@@ -465,7 +459,15 @@ public sealed class SiteCollectService
             }
             finally
             {
-                semaphore.Release();
+                try
+                {
+                    // 每处理完一条详情页暂停 500ms 再处理下一条，成功与失败路径均生效
+                    await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // 取消时立即退出，不等待延时
+                }
             }
         }
     }

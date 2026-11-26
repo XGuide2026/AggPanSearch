@@ -528,3 +528,25 @@
    采集资源页与本地资源页共用，这里不再重复定义。
    卡片 HTML 由 aggpansearch/js/aggpansearch-card-list.js 的 ys.cardList 负责渲染。 */
 
+/* 13. 进度悬浮区：四个进度条统一固定在视口顶部中间，脱离标准文档流、始终可见 */
+.collect-progress-panel {
+    position: fixed;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    z-index: 1050;           /* 高于常规内容层级，低于弹窗 layer */
+    width: min(640px, 92vw);
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 8px 12px;
+    background: #FFFFFF;
+    border: 1px solid #E5E8ED;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
+}
+
+/* 移入悬浮面板后：覆盖 col-sm-12 栅格的横向 padding，叠放间距收窄 */
+.collect-progress-panel .collect-progress-bar {
+    padding: 4px 0 8px 0;
+}
+

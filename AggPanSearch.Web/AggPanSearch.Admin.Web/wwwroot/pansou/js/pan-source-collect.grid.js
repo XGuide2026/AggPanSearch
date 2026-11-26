@@ -183,6 +183,8 @@
         // 页面刷新后若仍有转存 / 补图任务在跑，恢复进度显示
         grid.resumeTransfer();
         grid.resumeImage();
+        // 自动补图队列：采集入库后由后台队列自动下载本地图片，持续轮询展示进度
+        grid.startAutoImagePolling();
     }
 
     // 工具栏按钮状态：单张卡片的修改 / 删除在卡片底部，工具栏负责批量操作：删除、转存、补图
@@ -296,6 +298,104 @@
             startImagePolling(jobId);
         }
     };
+
+    // ======================== 自动补图队列进度 ========================
+    // 采集入库后由后台队列自动下载本地图片，无需手动触发；这里实时展示队列进度，
+    // 让“采集完成但还没看到本地图片”期间用户能看到下载在跑、还剩多少。
+    var AUTO_IMAGE_POLL_INTERVAL = 2000;
+    var autoImageTimer = null;
+    var autoImageShownMarker = '';   // 最近一次已展示的完成周期标记，避免反复提示
+    var autoImageFailures = 0;       // 连续查询失败的次数，用于避免错误提示闪烁/静默
+
+    grid.startAutoImagePolling = function () {
+        if (autoImageTimer) {
+            return;
+        }
+        pollAutoImage();
+        autoImageTimer = setInterval(pollAutoImage, AUTO_IMAGE_POLL_INTERVAL);
+    };
+
+    function pollAutoImage() {
+        $.ajax({
+            url: ns.api.autoImageProgress,
+            type: 'get',
+            dataType: 'json',
+            success: function (obj) {
+                autoImageFailures = 0;
+                if (obj.Tag === 1 && obj.Data) {
+                    renderAutoImageProgress(obj.Data);
+                } else {
+                    renderAutoImageError(obj.Message || '自动补图进度查询失败');
+                }
+            },
+            error: function () {
+                autoImageFailures++;
+                if (autoImageFailures >= 2) {
+                    renderAutoImageError('自动补图进度查询失败（网络/接口异常）');
+                }
+            }
+        });
+    }
+
+    function renderAutoImageProgress(state) {
+        var running = state.Status === 'running';
+        var pending = state.Pending || 0;
+        var processed = state.Processed || 0;
+        var updated = state.Updated || 0;
+        var marker = processed + '_' + updated + '_' + state.Status;
+
+        // 处理中或队列仍有等待记录：实时进度条（封顶 95%）
+        if (running || pending > 0) {
+            var percent = state.Total > 0
+                ? Math.min(95, Math.round(processed * 100 / state.Total))
+                : 5;
+            showAutoImage();
+            $('#autoImageProgressInner').addClass('active').css('width', percent + '%');
+            var text = '自动补图：正在下载本地图片… 已处理 ' + processed + ' 条，回写 ' + updated
+                + ' 张，队列剩余 ' + pending + ' 条';
+            if (state.Message) {
+                text += '（' + state.Message + '）';
+            }
+            $('#autoImageProgressText').text(text);
+            return;
+        }
+
+        // 空闲且本周期刚完成过：展示完成汇总 12 秒，同一周期只提示一次
+        if (processed > 0 && autoImageShownMarker !== marker) {
+            autoImageShownMarker = marker;
+            showAutoImage();
+            $('#autoImageProgressInner').removeClass('active').css('width', '100%');
+            $('#autoImageProgressText').text(state.Message || '自动补图完成，本地图片已下载');
+            setTimeout(function () {
+                // 12 秒后重新拉取一次最新状态，汇总自然转入常驻空闲提示
+                pollAutoImage();
+            }, 12000);
+            return;
+        }
+
+        // 空闲：进度区常驻显示提示，让“自动补图”功能始终可见
+        showAutoImage();
+        $('#autoImageProgressInner').removeClass('active').css('width', '0%');
+        $('#autoImageProgressText').text(processed > 0
+            ? '自动补图队列空闲（最近批次：' + (state.Message || '已完成') + '）'
+            : '自动补图队列空闲，新采集的资源会自动下载本地图片');
+    }
+
+    function renderAutoImageError(message) {
+        showAutoImage();
+        $('#autoImageProgressInner').removeClass('active progress-bar-danger').addClass('progress-bar-danger').css('width', '100%');
+        $('#autoImageProgressText').text(message);
+    }
+
+    function showAutoImage() {
+        $('#autoImageProgressBar').show();
+        $('#autoImageProgressInner').removeClass('progress-bar-danger');
+    }
+
+    function hideAutoImageProgress() {
+        $('#autoImageProgressBar').hide();
+        $('#autoImageProgressInner').removeClass('active progress-bar-danger').css('width', '0%');
+    }
 
     // 有选中行只补选中记录，未选中则补最近缺少本地图片的前 50 条
     grid.backfillImage = function () {

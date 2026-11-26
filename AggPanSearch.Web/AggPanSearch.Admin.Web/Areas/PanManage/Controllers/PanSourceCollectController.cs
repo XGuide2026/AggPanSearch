@@ -267,6 +267,15 @@ namespace AggPanSearch.Admin.Web.Areas.PanManage.Controllers
             return Json(obj);
         }
 
+        /// <summary>查询自动补图队列进度（采集入库后自动下载本地图片的实时状态，页面加载即开始轮询）。</summary>
+        [HttpGet]
+        [AuthorizeFilter("pan:pansourcecollect:view")]
+        public ActionResult GetAutoBackfillProgressJson()
+        {
+            TData<PanSourceCollectAutoQueueState> obj = panSourceCollectBLL.GetAutoBackfillProgress();
+            return Json(obj);
+        }
+
         /// <summary>取消正在运行的补图任务（已回写的本地图片保留）。</summary>
         [HttpPost]
         [AuthorizeFilter("pan:pansourcecollect:add")]

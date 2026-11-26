@@ -345,6 +345,17 @@ namespace AggPanSearch.Business.PanManage
             return obj;
         }
 
+        /// <summary>查询自动补图队列的实时进度（采集入库后后台自动下载本地图片的状态）。</summary>
+        public TData<PanSourceCollectAutoQueueState> GetAutoBackfillProgress()
+        {
+            TData<PanSourceCollectAutoQueueState> obj = new TData<PanSourceCollectAutoQueueState>();
+            PanSourceCollectAutoQueueState state = PanSourceCollectImageJobRunner.GetAutoQueueState();
+            obj.Data = state;
+            obj.Tag = 1;
+            obj.Message = state == null ? string.Empty : state.Message;
+            return obj;
+        }
+
         /// <summary>取消正在运行的补图任务（已回写的本地图片保留）。</summary>
         public TData CancelBackfillImage(string jobId)
         {

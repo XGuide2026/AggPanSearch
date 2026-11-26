@@ -13,6 +13,40 @@
 }
 
 <div class="container-div">
+    @* 进度悬浮区：四个进度条统一固定在视口顶部中间，脱离文档流，始终可见 *@
+    <div id="collectProgressPanel" class="collect-progress-panel">
+        @* 采集进度：提交任务后显示，结束时自动隐藏 *@
+        <div id="collectProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
+            <div class="progress" style="margin-bottom:6px;height:16px;">
+                <div id="collectProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;"></div>
+            </div>
+            <span id="collectProgressText" class="collect-progress-text"></span>
+            <a id="btnCancelCollect" class="btn btn-warning btn-xs collect-progress-cancel" style="display:none;" onclick="cancelCollect()"><i class="fa fa-stop"></i> 取消采集</a>
+        </div>
+        @* 转存进度：把选中的夸克资源转存到网盘「采集资源」目录并生成永久分享链接 *@
+        <div id="transferProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
+            <div class="progress" style="margin-bottom:6px;height:16px;">
+                <div id="transferProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;"></div>
+            </div>
+            <span id="transferProgressText" class="collect-progress-text"></span>
+            <a id="btnCancelTransfer" class="btn btn-warning btn-xs collect-progress-cancel" style="display:none;" onclick="cancelTransfer()"><i class="fa fa-stop"></i> 取消转存</a>
+        </div>
+        @* 补图进度：把原图片下载到本机并回写本地图片，失败的原图会被剔除 *@
+        <div id="imageProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
+            <div class="progress" style="margin-bottom:6px;height:16px;">
+                <div id="imageProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;"></div>
+            </div>
+            <span id="imageProgressText" class="collect-progress-text"></span>
+            <a id="btnCancelImageBackfill" class="btn btn-warning btn-xs collect-progress-cancel" style="display:none;" onclick="cancelImageBackfill()"><i class="fa fa-stop"></i> 取消补图</a>
+        </div>
+        @* 自动补图进度：采集入库后由后台队列自动下载本地图片，页面实时展示处理进度 *@
+        <div id="autoImageProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
+            <div class="progress" style="margin-bottom:6px;height:16px;">
+                <div id="autoImageProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;"></div>
+            </div>
+            <span id="autoImageProgressText" class="collect-progress-text"></span>
+        </div>
+    </div>
     <div class="collect-layout">
         @* 左栏：站点配置（站点名称 + 站点链接，采集地址在采集弹窗中手输） *@
         <div class="collect-side">
@@ -65,34 +99,10 @@
                         <span>全选本页</span>
                     </label>
                     <a id="btnAdd" class="btn btn-success" onclick="showSaveForm(true)"><i class="fa fa-plus"></i> 新增</a>
-                    @* 批量删除勾选卡片；单张卡片的修改 / 删除在卡片底部 *@
+                    @* 批量删除勾选卡片；单张卡片的修改 / 删除在卡片底部
+                       “下载图片到本地”已移除手动入口：采集入库后由后台自动补图，下载失败的失效原图会被剔除 *@
                     <a id="btnDelete" class="btn btn-danger disabled" onclick="deleteSelectedRows()"><i class="fa fa-remove"></i> 删除</a>
-                    <a id="btnBackfillImage" class="btn btn-default" onclick="backfillImage()"><i class="fa fa-picture-o"></i> 下载图片到本地</a>
                     <a id="btnTransfer" class="btn btn-primary disabled" onclick="transferToLocal()"><i class="fa fa-cloud-upload"></i> 转存并分享</a>
-                </div>
-                @* 采集进度：提交任务后显示，结束时自动隐藏 *@
-                <div id="collectProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
-                    <div class="progress" style="margin-bottom:6px;height:16px;">
-                        <div id="collectProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;"></div>
-                    </div>
-                    <span id="collectProgressText" class="collect-progress-text"></span>
-                    <a id="btnCancelCollect" class="btn btn-warning btn-xs collect-progress-cancel" style="display:none;" onclick="cancelCollect()"><i class="fa fa-stop"></i> 取消采集</a>
-                </div>
-                @* 转存进度：把选中的夸克资源转存到网盘「采集资源」目录并生成永久分享链接 *@
-                <div id="transferProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
-                    <div class="progress" style="margin-bottom:6px;height:16px;">
-                        <div id="transferProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;"></div>
-                    </div>
-                    <span id="transferProgressText" class="collect-progress-text"></span>
-                    <a id="btnCancelTransfer" class="btn btn-warning btn-xs collect-progress-cancel" style="display:none;" onclick="cancelTransfer()"><i class="fa fa-stop"></i> 取消转存</a>
-                </div>
-                @* 补图进度：把原图片下载到本机并回写本地图片，失败的原图会被剔除 *@
-                <div id="imageProgressBar" class="collect-progress-bar col-sm-12" style="display:none;">
-                    <div class="progress" style="margin-bottom:6px;height:16px;">
-                        <div id="imageProgressInner" class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%;"></div>
-                    </div>
-                    <span id="imageProgressText" class="collect-progress-text"></span>
-                    <a id="btnCancelImageBackfill" class="btn btn-warning btn-xs collect-progress-cancel" style="display:none;" onclick="cancelImageBackfill()"><i class="fa fa-stop"></i> 取消补图</a>
                 </div>
                 @* 保留 #gridTable：分页、勾选、请求仍由 bootstrap-table 负责，
                    卡片化由 grid.js 的单卡片列渲染 + aggpansearch-card-list.css 的网格布局完成。
@@ -122,6 +132,7 @@
             backfillImage: '@Url.Content("~/PanManage/PanSourceCollect/BackfillImageJson")',
             imageProgress: '@Url.Content("~/PanManage/PanSourceCollect/GetImageProgressJson")',
             cancelImageBackfill: '@Url.Content("~/PanManage/PanSourceCollect/CancelBackfillImageJson")',
+            autoImageProgress: '@Url.Content("~/PanManage/PanSourceCollect/GetAutoBackfillProgressJson")',
             transfer: '@Url.Content("~/PanManage/PanSourceCollect/TransferToLocalJson")',
             transferProgress: '@Url.Content("~/PanManage/PanSourceCollect/GetTransferProgressJson")',
             cancelTransfer: '@Url.Content("~/PanManage/PanSourceCollect/CancelTransferJson")',
