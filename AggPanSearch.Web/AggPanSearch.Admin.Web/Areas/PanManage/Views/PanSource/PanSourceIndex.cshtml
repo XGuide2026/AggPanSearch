@@ -8,43 +8,206 @@
     @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/aggpansearch/css/aggpansearch-card-list.min.css"))
     @* 通用图片查看器样式：卡片封面点击查看大图 *@
     @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/aggpansearch/css/aggpansearch-image-viewer.min.css"))
+    @* 资源分类侧栏：置于 collect-card-table 内部左列，样式沿用后台主题的
+       panel + list-group + badge 组件（激活态由主题 style.min.css 的
+       a.list-group-item.active 定义为青色 #1ab394，与后台风格保持一致） *@
+    <style>
+        /* 两列 flex 布局：左列 200px 分类侧栏 + 右列卡片表格，padding 与旁路 collect-card-table 底衬一致 */
+        .collect-card-table.collect-cat-flex {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px 14px 6px;
+        }
+
+        .collect-cat-flex > .source-cat-side {
+            flex: 0 0 200px;
+            min-width: 0;
+            margin-bottom: 0;
+        }
+
+        .collect-cat-flex > .collect-cat-grid {
+            flex: 1 1 auto;
+            min-width: 0;
+            margin-left: 12px;
+        }
+
+        /* 侧栏标题：白底 + 左侧 4px 青色装饰线，与主色 #1ab394 呼应 */
+        .source-cat-side .panel-heading {
+            position: relative;
+            padding: 14px 15px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 1px solid #eef1f5;
+            background: #fff;
+        }
+
+        .source-cat-side .panel-heading::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 16px;
+            border-radius: 2px;
+            background: #1ab394;
+        }
+
+        .source-cat-side .panel-heading .fa {
+            margin-right: 6px;
+            color: #1ab394;
+        }
+
+        /* 竖排列表：去掉 list-group 默认边框，改成圆角胶囊项 */
+        .source-cat-side .source-cat-list {
+            margin: 0;
+            padding: 10px;
+        }
+
+        .source-cat-side .source-cat-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            overflow: hidden;
+            text-decoration: none;
+            color: #333;
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin-bottom: 2px;
+            border: 0 !important;
+            transition: background-color .15s ease, color .15s ease;
+        }
+
+        .source-cat-side .source-cat-item:hover {
+            background: #e8f8f5;
+            color: #1ab394;
+        }
+
+        /* 选中项反白：青蓝渐变底 + 白字，数量标签转白色半透明 */
+        .source-cat-side .source-cat-item.active,
+        .source-cat-side .source-cat-item.active:hover {
+            background: linear-gradient(135deg, #1ab394, #149d82);
+            color: #fff;
+        }
+
+        .source-cat-item .source-cat-name {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            margin-right: 8px;
+            font-size: 13px;
+            line-height: 20px;
+        }
+
+        /* 圆角数量标签：默认灰底，hover 转青，选中转白色半透明 */
+        .source-cat-item .source-cat-count {
+            flex: 0 0 auto;
+            min-width: 20px;
+            padding: 0 7px;
+            line-height: 18px;
+            text-align: center;
+            font-size: 12px;
+            border-radius: 10px;
+            background: #e5e8ed;
+            color: #666;
+            transition: background-color .15s ease, color .15s ease;
+        }
+
+        .source-cat-item:hover .source-cat-count {
+            background: rgba(26, 179, 148, .15);
+            color: #1ab394;
+        }
+
+        .source-cat-item.active .source-cat-count,
+        .source-cat-item.active:hover .source-cat-count {
+            background: rgba(255, 255, 255, .25);
+            color: #fff;
+        }
+
+        /* 窄屏：侧栏整宽置于表格上方，分类项横向排列成标签网格，避免挤压卡片 */
+        @@media (max-width: 992px) {
+            .collect-card-table.collect-cat-flex {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .collect-cat-flex > .source-cat-side {
+                flex: 1 1 auto;
+                width: 100%;
+            }
+
+            .collect-cat-flex > .collect-cat-grid {
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .source-cat-side .source-cat-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                padding: 8px;
+                background: #fff;
+            }
+
+            .source-cat-side .source-cat-item {
+                display: inline-flex;
+                width: auto;
+                border-radius: 4px;
+                margin-bottom: 0;
+                padding: 5px 10px;
+            }
+
+            .source-cat-item .source-cat-name {
+                flex: 0 1 auto;
+                margin-right: 6px;
+            }
+        }
+    </style>
 }
 
 <div class="container-div">
-    <div class="row">
-        <div id="searchDiv" class="col-sm-12 search-collapse">
-            <div class="select-list">
-                <ul>
-                    <li>
-                        <label>资源分类：</label>
-                        <div id="source_category_id" col="source_category_id" class="select-wrap"></div>
-                    </li>
-                    <li>
-                        <label>关键词：</label>
-                        <input id="keyword" col="keyword" type="text" placeholder="资源名称/地址/介绍" />
-                    </li>
-                    <li>
-                        <a id="btnSearch" class="btn btn-primary btn-sm" onclick="searchGrid()"><i class="fa fa-search"></i>&nbsp;搜索</a>
-                    </li>
-                </ul>
-            </div>
+    @* 筛选区 + 工具栏：整行置于分类侧栏与表格组合上方 *@
+    <div id="searchDiv" class="search-collapse">
+        <div class="select-list">
+            <ul>
+                <li>
+                    <label>关键词：</label>
+                    <input id="keyword" col="keyword" type="text" placeholder="资源名称/地址/介绍" />
+                </li>
+                <li>
+                    <a id="btnSearch" class="btn btn-primary btn-sm" onclick="searchGrid()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                </li>
+            </ul>
         </div>
-        <div class="btn-group-sm hidden-xs collect-toolbar" id="toolbar">
-            @* 卡片列表无表头，用这里的复选框代替表格表头的全选；勾选范围为当前页 *@
-            <label class="collect-check-all" title="勾选 / 取消勾选当前页全部资源">
-                <input type="checkbox" id="chkSelectAllPage" />
-                <span>全选本页</span>
-            </label>
-            <a id="btnAdd" class="btn btn-success" onclick="showSaveForm(true)"><i class="fa fa-plus"></i> 新增</a>
-            @* 工具栏的删除作用于勾选项；单张卡片的修改 / 删除在卡片底部 *@
-            <a id="btnDelete" class="btn btn-danger disabled" onclick="deleteForm()"><i class="fa fa-remove"></i> 删除</a>
-            @* 资源图片生成：打开独立弹窗，按图片生成模式生成图片并在弹窗内统一管理、保存（仅支持单选） *@
-            <a id="btnScreenshot" class="btn btn-default disabled" onclick="startScreenshot()"><i class="fa fa-camera"></i> 图片生成</a>
-        </div>
-        @* 保留 #gridTable：分页、勾选、请求仍由 bootstrap-table 负责，
-           卡片化由 renderCard 的单卡片列 + aggpansearch-card-list.css 的瀑布流布局完成。
-           去掉 data-mobile-responsive，避免窄屏时 bootstrap-table 把行重排成内置卡片，与自定义卡片冲突。 *@
-        <div class="col-sm-12 select-table collect-card-table">
+    </div>
+    <div class="btn-group-sm hidden-xs collect-toolbar" id="toolbar">
+        @* 卡片列表无表头，用这里的复选框代替表格表头的全选；勾选范围为当前页 *@
+        <label class="collect-check-all" title="勾选 / 取消勾选当前页全部资源">
+            <input type="checkbox" id="chkSelectAllPage" />
+            <span>全选本页</span>
+        </label>
+        <a id="btnAdd" class="btn btn-success" onclick="showSaveForm(true)"><i class="fa fa-plus"></i> 新增</a>
+        @* 工具栏的删除作用于勾选项；单张卡片的修改 / 删除在卡片底部 *@
+        <a id="btnDelete" class="btn btn-danger disabled" onclick="deleteForm()"><i class="fa fa-remove"></i> 删除</a>
+        @* 资源图片生成：打开独立弹窗，按图片生成模式生成图片并在弹窗内统一管理、保存（仅支持单选） *@
+        <a id="btnScreenshot" class="btn btn-default disabled" onclick="startScreenshot()"><i class="fa fa-camera"></i> 图片生成</a>
+    </div>
+    @* 右列容器：资源分类侧栏与图文卡片表格并排，整体沿用 collect-card-table 的卡片外壳
+       （保留 #gridTable：分页、勾选、请求仍由 bootstrap-table 负责，卡片化由 renderCard 的单卡片列 +
+        aggpansearch-card-list.css 的瀑布流布局完成）；
+       去掉 data-mobile-responsive，避免窄屏时 bootstrap-table 把行重排成内置卡片，与自定义卡片冲突。 *@
+    <div class="select-table collect-card-table collect-cat-flex">
+        @* 左列：资源分类导航（后台主题 panel + list-group 组件，每项右侧 badge 显示资源总数） *@
+        <aside class="panel panel-default source-cat-side">
+            <div class="panel-heading"><i class="fa fa-th-large"></i> 资源分类</div>
+            <nav id="sourceCatList" class="list-group source-cat-list"></nav>
+        </aside>
+        @* 右列：图文卡片表格 *@
+        <div class="collect-cat-grid">
             <table id="gridTable"></table>
         </div>
     </div>
@@ -55,38 +218,91 @@
     @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/aggpansearch/js/aggpansearch-image-viewer.min.js"))
     @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/aggpansearch/js/aggpansearch-card-list.min.js"))
     <script type="text/javascript">
-        // source_category_id 外键：分类资源 Id → 名称，搜索下拉与卡片分类标签共用同一份数据
+        // source_category_id 外键：分类资源 Id → 名称，卡片分类标签与左侧侧栏共用同一份数据
         var sourceCategoryMap = {};
-        // 分类资源列表：搜索下拉的选项数据源，与上面的字典来自同一次请求
-        var sourceCategoryList = [];
+        // 当前选中的资源分类 Id：'' 表示全部，具体分类 Id 用于筛选右侧卡片
+        var currentSourceCategoryId = '';
 
         // 网盘类型文案（与 PanSourceForm 的 is_type 选项保持一致）
         var panTypeMap = { '0': '夸克', '1': '阿里', '2': '百度', '3': 'UC', '4': '迅雷' };
 
         $(function () {
-            loadSourceCategories();
-            initGrid();
+            // 先拉取分类导航，渲染侧栏并为 buildTags 建好映射，成功后再初始化卡片表格
+            // （原筛选下拉已删除，不再有同步阻塞依赖，异步渲染完成后才 initGrid 保证首屏识别分类名）
+            loadSourceCategories(initGrid);
         });
 
-        function loadSourceCategories() {
+        // 渲染左列「资源分类」导航：全部资源 + 各分类（含资源总数），并维护 sourceCategoryMap 供卡片标签使用。
+        // done 为渲染完成后的回调（通常用于首屏 initGrid）。
+        function loadSourceCategories(done) {
             $.ajax({
-                url: '@Url.Content("~/PanManage/PanSourceCategory/GetListJson")',
+                url: '@Url.Content("~/PanManage/PanSourceCategory/GetCategoryNavJson")',
                 type: 'get',
-                async: false,
                 success: function (obj) {
-                    $.each(obj.Data || [], function (i, item) {
-                        sourceCategoryList.push({ Id: item.Id, Name: item.Name });
-                        sourceCategoryMap[item.Id] = item.Name;
+                    var list = obj.Data || [];
+                    var totalCount = 0;
+                    $.each(list, function (i, item) {
+                        // 卡片分类标签的映射（键转成字符串，与 buildTags 的取值方式一致）
+                        sourceCategoryMap[String(item.Id)] = item.Name;
+                        totalCount += Number(item.Count) || 0;
                     });
+                    renderSourceCatList(list, totalCount);
+                },
+                error: function () {
+                    // 接口失败时降级为仅显示「全部资源」，不阻塞右侧列表
+                    renderSourceCatList([], 0);
+                    ys.msgError('资源分类加载失败，仅显示全部资源');
+                },
+                complete: function () {
+                    if ($.isFunction(done)) {
+                        done();
+                    }
                 }
             });
-            // ysComboBox 传 url 时会用请求结果覆盖 data，这里直接用已取到的列表初始化，避免重复请求。
-            // 「全部」由 ysComboBox 自动追加在最前，因此把「未分类」(Id=0) 放在列表首位，最终顺序为 全部 / 未分类 / 各分类。
-            $("#source_category_id").ysComboBox({
-                data: [{ Id: 0, Name: '未分类' }].concat(sourceCategoryList),
-                key: "Id",
-                value: "Name",
-                search: false
+        }
+
+        // 渲染分类侧栏：第一项固定「全部资源」（数量为各分类之和），随后按接口顺序排列各分类
+        function renderSourceCatList(list, totalCount) {
+            var $nav = $('#sourceCatList').empty();
+            var items = [];
+            items.push({
+                id: '',
+                name: '全部资源',
+                count: totalCount,
+                active: currentSourceCategoryId === ''
+            });
+            $.each(list, function (i, item) {
+                items.push({
+                    id: String(item.Id),
+                    name: item.Name,
+                    count: Number(item.Count) || 0,
+                    active: String(item.Id) === currentSourceCategoryId
+                });
+            });
+
+            if (items.length === 0) {
+                return;
+            }
+
+            var html = '';
+            $.each(items, function (i, item) {
+                html += '<a class="source-cat-item' + (item.active ? ' active' : '') + '" data-id="' + item.id + '" href="javascript:;" title="' + item.name + '">' +
+                    '<span class="source-cat-name">' + $('<span>').text(item.name).html() + '</span>' +
+                    '<span class="source-cat-count">' + item.count + '</span>' +
+                    '</a>';
+            });
+            $nav.html(html);
+
+            // 点击分类：高亮当前项并刷新右侧卡片列表
+            $nav.on('click', '.source-cat-item', function () {
+                var id = $(this).attr('data-id') || '';
+                if (id === currentSourceCategoryId) {
+                    return;
+                }
+                currentSourceCategoryId = id;
+                $('#sourceCatList .source-cat-item').removeClass('active');
+                $(this).addClass('active');
+                searchGrid();
             });
         }
 
@@ -222,11 +438,10 @@
                 queryParams: function (params) {
                     var pagination = $('#gridTable').ysTable('getPagination', params);
                     var queryString = $('#searchDiv').getWebControls(pagination);
-                    // ysComboBox 的「全部」选项取值为 -1，这里按未选择处理；
-                    // 「未分类」取值为 0，需原样提交，由服务端按 source_category_id 为空或 0 过滤
-                    if (queryString.source_category_id == '-1') {
-                        queryString.source_category_id = '';
-                    }
+                    // 资源分类筛选由左侧侧栏驱动：'' 全部 / '0' 未分类 / 具体分类 Id。
+                    // 不能用 currentSourceCategoryId || ''（数值 0 会被吞成空串），
+                    // 显式判断空串：空串不传（服务端不过滤），'0' 表示筛选未分类。
+                    queryString.source_category_id = currentSourceCategoryId === '' ? '' : currentSourceCategoryId;
                     return queryString;
                 }
             });

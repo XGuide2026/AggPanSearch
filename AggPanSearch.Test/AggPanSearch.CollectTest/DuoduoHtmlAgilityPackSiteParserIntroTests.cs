@@ -1,23 +1,30 @@
 using System.Reflection;
 using AggPanSearch.CollectSite.Parsers;
+using HtmlAgilityPack;
 using NUnit.Framework;
 
 namespace AggPanSearch.CollectTest
 {
     /// <summary>
-    /// 多多资源库详情页简介规则：只读正文容器（id=viewer / tzt-article_content），
+    /// 多多资源库（HtmlAgilityPack 版）详情页简介规则：只读正文容器（id=viewer / tzt-article_content），
     /// 不使用 meta description；容器内「资源链接」后面紧跟链接地址时才截断，
     /// 避免简介里的「如果资源链接失效了…」被误伤成只剩一个「如果」。
     /// </summary>
     [TestFixture]
-    public class DuoduoResourceSiteParserIntroTests
+    public class DuoduoHtmlAgilityPackSiteParserIntroTests
     {
         private static string ExtractIntro(string html)
         {
-            MethodInfo method = typeof(DuoduoResourceSiteParser).GetMethod(
+            HtmlDocument doc = new HtmlDocument
+            {
+                OptionFixNestedTags = true,
+                OptionAutoCloseOnEnd = true,
+            };
+            doc.LoadHtml(html);
+            MethodInfo method = typeof(DuoduoHtmlAgilityPackSiteParser).GetMethod(
                 "ExtractDetailIntro",
                 BindingFlags.NonPublic | BindingFlags.Static)!;
-            return (string)method.Invoke(null, new object[] { html })!;
+            return (string)method.Invoke(null, new object[] { doc })!;
         }
 
         private static string BuildPage(string body)

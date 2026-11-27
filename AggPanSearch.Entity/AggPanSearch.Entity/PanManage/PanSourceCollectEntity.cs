@@ -58,5 +58,11 @@ namespace AggPanSearch.Entity.PanManage
         /// <summary>资源有效期：网盘分享页原文（如 永久有效）</summary>
         [Description("资源有效期")]
         public string ShareValidityPeriod { get; set; }
+
+        /// <summary>是否已转存：本地资源表 pan_source 的 OriginalUrl（转存原链接）命中本表 ResourceUrl 时标记 true。
+        /// 仅用于列表展示，[NotMapped] 不写入数据库</summary>
+        [NotMapped]
+        [Description("是否已转存")]
+        public bool IsSave { get; set; }
     }
 }

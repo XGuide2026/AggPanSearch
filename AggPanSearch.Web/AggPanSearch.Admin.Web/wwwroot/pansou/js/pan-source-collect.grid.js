@@ -144,7 +144,7 @@
         return '<div class="collect-card" data-id="' + cl.escHtml(id) + '">' +
             cl.renderCover(cl.parseImages(row.CollectImageUrl)) +
             '<div class="collect-card-body">' +
-            cl.renderTitle(name, '（未命名资源）') +
+            cl.renderTitle(name, '（未命名资源）', { saved: !!row.IsSave }) +
             // 资源信息行：文件个数 / 文件大小 / 资源有效期，显示在标签区上方
             renderFileInfo(row) +
             cl.renderTags(cardTags) +
@@ -207,6 +207,16 @@
             search: false
         });
 
+        // 转存本地：1 已转存 / 0 未转存，「全部」由框架自动以 value=-1 提供，queryParams 里统一置空。
+        // 已转存判定依据后端 pan_source 表存在原链接匹配的未软删除记录（与卡片上的「已转存」标记同一来源）。
+        $('#isSave').ysComboBox({
+            data: [
+                { Key: '1', Value: '已转存' },
+                { Key: '0', Value: '未转存' }
+            ],
+            search: false
+        });
+
         // 采集时间：使用框架的 laydate 日期控件（_Index 布局已引入 laydate 5），
         // 取值格式固定为 yyyy-MM-dd，服务端按天区间（含当天）解析
         if (window.laydate) {
@@ -224,6 +234,8 @@
             $('#sourceCategory').ysComboBox({ data: categoryOptions, key: 'Id', value: 'Name', search: false });
             initTable();
         });
+        // 并行加载转存确认弹窗的目录名（配置表 quark_transfer_dir，失败不影响转存流程）
+        loadTransferDir();
     };
 
     function initTable() {
@@ -256,6 +268,9 @@
                 }
                 if (queryString.is_link_valid == '-1') {
                     queryString.is_link_valid = '';
+                }
+                if (queryString.is_save == '-1') {
+                    queryString.is_save = '';
                 }
                 if (queryString.source_category_id == '-1') {
                     queryString.source_category_id = '';
@@ -629,6 +644,21 @@
     var transferJobId = '';
     var transferStart = 0;
     var transferFailures = 0;
+    // 转存确认弹窗显示的目标目录名：页面加载时从配置表（quark_transfer_dir）读取，失败时兜底「采集资源」
+    var transferDirName = '采集资源';
+
+    function loadTransferDir() {
+        $.ajax({
+            url: ns.api.transferDir,
+            type: 'get',
+            dataType: 'json',
+            success: function (result) {
+                if (result.Tag === 1 && result.Data) {
+                    transferDirName = result.Data;
+                }
+            }
+        });
+    }
 
     // 任务运行中以「取消按钮可见」为准，避免刷新页面后状态错乱
     grid.isTransferRunning = function () {
@@ -648,7 +678,19 @@
             ys.msgWarning('请先选择要转存的资源');
             return;
         }
-        ys.confirm('确认把选中的 ' + rows.length + ' 条资源转存到夸克网盘「默认转存目录/资源分类」文件夹，并生成永久无提取码的分享链接吗？非夸克链接会自动跳过。', function () {
+        // 选中的资源中存在「未分类」（SourceCategoryId 为空或 0）时阻止转存，
+        // 提示用户先在编辑弹窗中为资源设置分类
+        var unclassified = 0;
+        for (var i = 0; i < rows.length; i++) {
+            if (ys.isNullOrEmpty(rows[i].SourceCategoryId) || String(rows[i].SourceCategoryId) === '0') {
+                unclassified++;
+            }
+        }
+        if (unclassified > 0) {
+            ys.msgError('选中的资源中存在 ' + unclassified + ' 条未分类资源，请先设置分类后再转存');
+            return;
+        }
+        ys.confirm('1、你选中的 ' + rows.length + ' 条资源转存到夸克网盘「' + transferDirName + '」文件夹。<br/>2、生成的永久无提取码的分享链接<br/>3、非夸克链接会自动跳过。', function () {
             ys.ajax({
                 url: ns.api.transfer,
                 type: 'post',

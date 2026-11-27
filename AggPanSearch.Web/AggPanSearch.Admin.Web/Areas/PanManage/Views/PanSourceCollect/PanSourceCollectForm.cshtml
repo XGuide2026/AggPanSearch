@@ -7,77 +7,6 @@
     @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/lib/imageupload/1.0/css/imgup.min.css"))
     @BundlerHelper.Render(HostingEnvironment.ContentRootPath, Url.Content("~/lib/imageupload/1.0/js/imgup.min.js"))
     <style type="text/css">
-        .image-preview-box {
-            display: none;
-            margin-top: 8px;
-        }
-
-        .image-preview-box img {
-            width: 64px;
-            height: 64px;
-            object-fit: cover;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            margin: 0 6px 6px 0;
-        }
-
-        /* 单张预览容器：正常时显示图片，加载失败时显示「无法显示」占位样式 */
-        .image-preview-item {
-            position: relative;
-            display: inline-block;
-            width: 64px;
-            height: 64px;
-            margin: 0 6px 6px 0;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            background: #fafafa;
-            overflow: hidden;
-            vertical-align: top;
-        }
-
-        .image-preview-item img {
-            display: block;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            border: 0;
-            border-radius: 0;
-            object-fit: cover;
-        }
-
-        .image-preview-item.is-broken {
-            border-style: dashed;
-            border-color: #d9534f;
-            background: #fff6f6;
-        }
-
-        .image-preview-item.is-broken img {
-            display: none;
-        }
-
-        .image-preview-item .image-preview-failed {
-            display: none;
-            width: 100%;
-            height: 100%;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #d9534f;
-            font-size: 10px;
-            line-height: 1.2;
-            text-align: center;
-        }
-
-        .image-preview-item.is-broken .image-preview-failed {
-            display: flex;
-        }
-
-        .image-preview-item .image-preview-failed i {
-            margin-bottom: 2px;
-            font-size: 18px;
-            line-height: 18px;
-        }
-
         /* 多图片链接输入框：一行一个链接，高度固定为 5 行文本（5 * 20px 行高 + 12px 上下内边距 + 2px 边框） */
         .link-lines {
             height: 114px;
@@ -137,10 +66,15 @@
             <div class="col-sm-8">
                 <textarea id="collect_image_url" col="CollectImageUrl" class="form-control link-lines" rows="5" maxlength="1000"
                           placeholder="采集到的远端图片，一行一个链接，最多 5 张"></textarea>
-                <div id="collectImagePreview" class="image-preview-box"></div>
                 <span class="help-block m-b-none" style="font-size:12px;color:#999;">
                     原图片由采集任务写入；一行一个链接，最多 5 张，保存时会校验地址格式。
                 </span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">资源图片</label>
+            <div class="col-sm-8">
+                <div id="image_url_upload" class="img-box"></div>
             </div>
         </div>
     </form>
@@ -162,9 +96,52 @@
             class: 'form-control'
         });
 
-        // 手工修改图片链接时同步刷新预览
-        $('#collect_image_url').on('input change', function () {
-            renderCollectPreview();
+        // 资源图片：本地上传多图（最多 5 张），详情模式只读（不显示添加/删除按钮）
+        $("#image_url_upload").imageUpload({
+            uploadImage: 'uploadCollectPic',
+            limit: 5,
+            context: ctx,
+            canAdd: isDetail ? 0 : 1
+        });
+        $("#image_url_upload_file").attr("multiple", "multiple");
+
+        // 图片 src 绝对化：基于本弹窗文档解析，确保列表页(parent)可加载同一地址
+        function absolutizePicSrc(src) {
+            if (/^(https?:)?\/\//i.test(src) || /^data:/i.test(src)) { return src; }
+            var a = document.createElement('a');
+            a.href = src;
+            return a.href;
+        }
+
+        // 原生兜底提示：列表页未提供轮播方法时内联固定提示
+        function showCarouselFallbackTip(message) {
+            var tip = document.createElement('div');
+            tip.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;max-width:70%;padding:18px 24px;border-radius:6px;background:rgba(192,57,43,.95);color:#fff;font-size:14px;line-height:22px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.25);';
+            tip.textContent = message;
+            document.body.appendChild(tip);
+            setTimeout(function () { if (tip.parentNode) { tip.parentNode.removeChild(tip); } }, 6000);
+        }
+
+        // 点击缩略图卡片查看完整大图（排除删除按钮）；本弹窗为 iframe，轮播统一交由采集资源列表页(parent)打开
+        $('#image_url_upload').on('click', '.up-section', function (e) {
+            if ($(e.target).closest('.close-upimg').length) { return; }
+            var data = [], start = 0;
+            $('#image_url_upload .up-section').each(function () {
+                var src = $(this).find('.up-img').attr('src');
+                if (!src) { return; }
+                data.push({ src: absolutizePicSrc(src), alt: '' });
+                if (this === e.currentTarget) { start = data.length - 1; }
+            });
+            if (data.length === 0) { return; }
+            var parentWin = null;
+            try { parentWin = window.parent; } catch (e) { }
+            if (parentWin && typeof parentWin.showImageCarousel === 'function') {
+                parentWin.showImageCarousel({ title: '资源图片', start: start, data: data });
+            }
+            else {
+                if (window.console) { console.error('[资源图片] 采集资源列表页未提供 showImageCarousel 方法，无法打开轮播'); }
+                showCarouselFallbackTip('资源列表页暂未提供轮播功能，请刷新页面后重试');
+            }
         });
 
         getForm();
@@ -227,7 +204,10 @@
                     $('#form').setWebControls(obj.Data);
                     // 库里多图以英文分号分隔，回填时转成一行一个链接
                     $('#collect_image_url').val(toLines(obj.Data.CollectImageUrl));
-                    renderCollectPreview();
+                    // 本地图片回填到上传组件
+                    if (obj.Data.ImageUrl) {
+                        $("#image_url_upload").imageUpload("setImageUrl", obj.Data.ImageUrl);
+                    }
                     if (isDetail) {
                         applyDetailMode();
                     }
@@ -259,37 +239,33 @@
         return splitImages(value).join('\n');
     }
 
-    // 原图片预览：远端地址直接使用
-    function renderCollectPreview() {
-        renderImageBox($('#collectImagePreview'), splitImages($('#collect_image_url').val()), false);
+    // 资源图片本地上传：格式与本地资源「资源图片」一致（多图英文分号分隔）
+    function uploadCollectPic(file, callback) {
+        var formdata = new FormData();
+        formdata.append("fileList", file);
+        ys.ajaxUploadFile({
+            url: '@Url.Content("~/File/UploadFile")?fileModule=@((int)AggPanSearch.Enum.UploadFileType.News)',
+            data: formdata,
+            success: function (obj) {
+                if (obj.Tag == 1) {
+                    if (callback) {
+                        callback(ctx + ys.trimStart(obj.Data, '/'));
+                    }
+                }
+                else {
+                    ys.msgError(obj.Message);
+                }
+            }
+        })
     }
 
-    function renderImageBox(box, images, withContext) {
-        box.empty();
-        if (images.length === 0) {
-            box.hide();
-            return;
+    // 读取上传组件中的图片地址（去掉 ctx 前缀存相对路径，与实体 ImageUrl 约定一致）
+    function getCollectPicUrl() {
+        var url = $("#image_url_upload").imageUpload("getImageUrl") || '';
+        if (url && url.indexOf(ctx) === 0) {
+            url = url.substring(ctx.length);
         }
-        $.each(images, function (index, url) {
-            var src = withContext && !/^https?:\/\//i.test(url) ? ctx + ys.trimStart(url, '/') : url;
-            // 图片加载失败（地址失效/无权限/不是图片）时显示占位样式，而不是浏览器默认的破图标
-            var item = $('<span />').addClass('image-preview-item').attr('title', url);
-            var failed = $('<span />').addClass('image-preview-failed')
-                .append($('<i />').addClass('fa fa-picture-o'))
-                .append($('<span />').text('无法显示'));
-            var img = $('<img />')
-                .attr({ title: url, alt: '图片预览' })
-                .on('load', function () {
-                    item.removeClass('is-broken');
-                })
-                .on('error', function () {
-                    item.addClass('is-broken');
-                });
-            item.append(img).append(failed);
-            box.append(item);
-            img.attr('src', src);
-        });
-        box.show();
+        return url;
     }
 
     // 详情模式：表单整体只读（分类下拉是 select2，需同步禁用）
@@ -309,6 +285,7 @@
         }
         var postData = $('#form').getWebControls({ Id: id });
         postData.CollectImageUrl = splitImages($('#collect_image_url').val()).join(';');
+        postData.ImageUrl = getCollectPicUrl();
         ys.ajax({
             url: '@Url.Content("~/PanManage/PanSourceCollect/SaveFormJson")',
             type: 'post',

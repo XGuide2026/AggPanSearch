@@ -187,11 +187,19 @@
         }
         var groupMap = {};   // type字符串 -> []items
         var typeOrder = [];  // 有序的分类key
+        var seenConfKey = {};  // 前端去重兜底：小写 ConfKey → 只渲染第一条
         for (var i = 0; i < allData.length; i++) {
             var item = allData[i];
             // 搜索设置 / AI设置 已迁移到独立页面，这里直接跳过，避免两处都能改
             if (isSearchConf(item) || isAiConf(item)) {
                 continue;
+            }
+            if (item && item.ConfKey) {
+                var cacheKey = String(item.ConfKey).toLowerCase();
+                if (seenConfKey[cacheKey]) {
+                    continue;  // 同名参数只渲染一条，防止历史重复数据导致重复表单
+                }
+                seenConfKey[cacheKey] = true;
             }
             // 分类优先取数据库 conf_type（二维码设置=10、引流设置=11、广告设置=12）
             // conf_type 为空或不是上述分类时，按 conf_key 前缀兜底归类，兼容旧数据

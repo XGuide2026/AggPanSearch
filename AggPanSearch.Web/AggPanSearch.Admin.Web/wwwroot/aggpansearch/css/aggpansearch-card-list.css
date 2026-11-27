@@ -268,6 +268,24 @@
     -webkit-line-clamp: 2;
 }
 
+/* 已转存徽标：绿色高亮胶囊，与两行省略标题共存（IsSave=true 时由 renderTitle 注入） */
+.collect-card-title-saved {
+    display: inline-block;
+    flex: 0 0 auto;
+    align-self: flex-start;
+    margin: 2px 0 0 6px;
+    padding: 0 7px;
+    height: 16px;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 16px;
+    color: #1e8449;
+    background: rgba(39, 174, 96, .13);
+    border-radius: 8px;
+    white-space: nowrap;
+    vertical-align: top;
+}
+
 .collect-card-tags {
     display: flex;
     flex-wrap: wrap;

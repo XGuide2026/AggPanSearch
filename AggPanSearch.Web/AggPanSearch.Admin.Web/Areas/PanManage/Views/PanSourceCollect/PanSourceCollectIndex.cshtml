@@ -79,6 +79,10 @@
                                 <label>链接状态：</label>
                                 <span id="isLinkValid" col="is_link_valid" class="select-wrap"></span>
                             </li>
+                            <li>
+                                <label>转存本地：</label>
+                                <span id="isSave" col="is_save" class="select-wrap"></span>
+                            </li>
                             <li class="select-time">
                                 <label>采集时间：</label>
                                 <input id="startTime" col="startTime" type="text" class="time-input" placeholder="开始时间" />
@@ -144,6 +148,7 @@
             autoImageProgress: '@Url.Content("~/PanManage/PanSourceCollect/GetAutoBackfillProgressJson")',
             infoAnalyzeProgress: '@Url.Content("~/PanManage/PanSourceCollect/GetInfoAnalyzeProgressJson")',
             transfer: '@Url.Content("~/PanManage/PanSourceCollect/TransferToLocalJson")',
+            transferDir: '@Url.Content("~/PanManage/PanSourceCollect/GetTransferDirJson")',
             transferProgress: '@Url.Content("~/PanManage/PanSourceCollect/GetTransferProgressJson")',
             cancelTransfer: '@Url.Content("~/PanManage/PanSourceCollect/CancelTransferJson")',
             deleteForm: '@Url.Content("~/PanManage/PanSourceCollect/DeleteFormJson")',
@@ -151,6 +156,51 @@
             paramForm: '@Url.Content("~/PanManage/PanSourceCollect/PanSourceCollectParamForm")',
             categoryForm: '@Url.Content("~/PanManage/PanSourceCollect/PanSourceCollectCategoryForm")'
         };
+
+        // ==================== 图片轮播（供 iframe 弹窗调用）====================
+        // iframe 内 layer 弹层渲染失效，轮播统一由本列表页打开，复用本页通用图片查看器 ys.imageViewer。
+        // iframe 调用约定：{ title, start, data: [{src: 绝对化URL, alt}] }
+        window.showImageCarousel = function (photos) {
+            if (!photos || !photos.data || photos.data.length === 0) {
+                if (window.console) { console.warn('[资源图片] 无可预览图片，跳过轮播'); }
+                return;
+            }
+            var list = [];
+            for (var i = 0; i < photos.data.length; i++) {
+                var item = photos.data[i];
+                if (!item || !item.src) { continue; }
+                list.push(item.src);
+            }
+            if (!list.length) {
+                if (window.console) { console.warn('[资源图片] 图片地址全部为空，已跳过轮播'); }
+                return;
+            }
+            var start = Math.max(0, Math.min(parseInt(photos.start, 10) || 0, list.length - 1));
+
+            // 查看器缺失时的内联兜底提示
+            function showFallbackTip(message) {
+                var tip = document.createElement('div');
+                tip.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;max-width:70%;padding:18px 24px;border-radius:6px;background:rgba(192,57,43,.95);color:#fff;font-size:14px;line-height:22px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.25);';
+                tip.textContent = message;
+                document.body.appendChild(tip);
+                setTimeout(function () { if (tip.parentNode) { tip.parentNode.removeChild(tip); } }, 3000);
+            }
+
+            try {
+                if (typeof ys === 'undefined' || !ys.imageViewer || typeof ys.imageViewer.open !== 'function') {
+                    if (window.console) { console.error('[资源图片] 图片查看器未加载，无法打开轮播'); }
+                    showFallbackTip('图片查看器未就绪，请刷新页面后重试');
+                    return;
+                }
+                ys.imageViewer.open({ images: list, index: start, title: photos.title || '资源图片' });
+                if (window.console) { console.log('[资源图片] 图片查看器已打开'); }
+            }
+            catch (e) {
+                if (window.console) { console.error('[资源图片] 轮播打开异常', e); }
+                ys.msgError('轮播打开失败：' + ((e && e.message) || '未知异常'));
+            }
+        };
+
         $(function () {
             PanSourceCollect.init();
         });

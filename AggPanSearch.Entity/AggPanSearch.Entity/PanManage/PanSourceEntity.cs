@@ -16,10 +16,8 @@ namespace AggPanSearch.Entity.PanManage
     {
         /// <summary>提取码</summary>
         public string Code { get; set; }
-        /// <summary>内容</summary>
-        public string Content { get; set; }
-        /// <summary>目前用于副标题 搜索</summary>
-        public string Description { get; set; }
+        /// <summary>转存原链接（转存前的原始分享链接，用于去重）</summary>
+        public string OriginalUrl { get; set; }
         /// <summary>夸克标识</summary>
         public string Fid { get; set; }
         /// <summary>是否删除 0=正常 1=软删除</summary>

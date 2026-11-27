@@ -124,7 +124,6 @@ namespace AggPanSearch.Admin.Web.Areas.UserFrontend.Models
         public string Code { get; set; } = "";
         public string Times { get; set; } = "";
         public string Src { get; set; } = "";
-        public string Description { get; set; } = "";        // 副标题/描述（description）
         public int PageViews { get; set; }                   // 浏览量（page_views）
         public string ImageUrl { get; set; } = "";           // 资源预览图，为空时前台显示占位图
         public string VodContent { get; set; } = "";         // 资源介绍（vod_content）

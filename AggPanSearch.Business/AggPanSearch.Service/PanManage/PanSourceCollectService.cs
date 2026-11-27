@@ -21,24 +21,37 @@ namespace AggPanSearch.Service.PanManage
 
         public async Task<List<PanSourceCollectEntity>> GetList(PanSourceCollectListParam param)
         {
+            // 子查询与主查询必须基于同一个 dbContext 实例翻译，故此处复用同一个 repository
+            var repository = this.BaseRepository();
             var expression = ListFilter(param);
-            var list = await this.BaseRepository().FindList(expression);
+            expression = AppendSaveFilter(expression, param, repository);
+            var list = await repository.FindList(expression);
 
+            List<PanSourceCollectEntity> result;
             // 按文件大小排序（单位 M）：NULL（未分析）始终排最后；未指定时保持按采集时间倒序
             if (param != null && param.file_size_sort == "asc")
             {
-                return list.OrderBy(t => t.FileSize == null).ThenBy(t => t.FileSize).ThenByDescending(t => t.BaseCreateTime).ToList();
+                result = list.OrderBy(t => t.FileSize == null).ThenBy(t => t.FileSize).ThenByDescending(t => t.BaseCreateTime).ToList();
             }
-            if (param != null && param.file_size_sort == "desc")
+            else if (param != null && param.file_size_sort == "desc")
             {
-                return list.OrderBy(t => t.FileSize == null).ThenByDescending(t => t.FileSize).ThenByDescending(t => t.BaseCreateTime).ToList();
+                result = list.OrderBy(t => t.FileSize == null).ThenByDescending(t => t.FileSize).ThenByDescending(t => t.BaseCreateTime).ToList();
             }
-            return list.OrderByDescending(t => t.BaseCreateTime).ThenByDescending(t => t.Id).ToList();
+            else
+            {
+                result = list.OrderByDescending(t => t.BaseCreateTime).ThenByDescending(t => t.Id).ToList();
+            }
+
+            await MarkSaveFlags(result);
+            return result;
         }
 
         public async Task<List<PanSourceCollectEntity>> GetPageList(PanSourceCollectListParam param, Pagination pagination)
         {
+            // 子查询与主查询必须基于同一个 dbContext 实例翻译，故此处复用同一个 repository
+            var repository = this.BaseRepository();
             var expression = ListFilter(param);
+            expression = AppendSaveFilter(expression, param, repository);
 
             // 文件大小排序需覆盖默认的采集时间倒序，否则 SQL 层分页排序不生效
             if (param != null && param.file_size_sort == "asc")
@@ -52,8 +65,10 @@ namespace AggPanSearch.Service.PanManage
                 pagination.SortType = "desc";
             }
 
-            var list = await this.BaseRepository().FindList(expression, pagination);
-            return list.ToList();
+            var list = await repository.FindList(expression, pagination);
+            List<PanSourceCollectEntity> result = list.ToList();
+            await MarkSaveFlags(result);
+            return result;
         }
 
         public async Task<PanSourceCollectEntity> GetEntity(long id)
@@ -277,6 +292,89 @@ namespace AggPanSearch.Service.PanManage
                 }
             }
             return expression;
+        }
+
+        /// <summary>
+        /// 追加「转存本地」筛选：1 已转存 / 0 未转存。
+        /// 已转存判定与 MarkSaveFlags 完全一致：pan_source 中存在 OriginalUrl 相同且未软删除的记录。
+        /// 用 EF 相关子查询（EXISTS）在 SQL 层直接过滤，保证分页场景下筛选正确；
+        /// ResourceUrl 为空的记录永远不会匹配 Any，因此自然归为「未转存」。
+        /// 注意：子查询必须与主查询基于同一个 dbContext 实例翻译，故传入当前正在使用的 repository。
+        /// </summary>
+        private Expression<Func<PanSourceCollectEntity, bool>> AppendSaveFilter(
+            Expression<Func<PanSourceCollectEntity, bool>> expression,
+            PanSourceCollectListParam param,
+            Repository repository)
+        {
+            if (param == null || param.is_save == null || (param.is_save.Value != 1 && param.is_save.Value != 0))
+            {
+                return expression;
+            }
+
+            if (param.is_save.Value == 1)
+            {
+                expression = expression.And(t => repository.db.dbContext.Set<PanSourceEntity>()
+                    .Any(p => p.OriginalUrl == t.ResourceUrl && (p.IsDelete == null || p.IsDelete != 1)));
+            }
+            else
+            {
+                expression = expression.And(t => !repository.db.dbContext.Set<PanSourceEntity>()
+                    .Any(p => p.OriginalUrl == t.ResourceUrl && (p.IsDelete == null || p.IsDelete != 1)));
+            }
+            return expression;
+        }
+
+        /// <summary>
+        /// 批量回填 IsSave：收集列表内全部 ResourceUrl（去空、去重），分批 IN 查询本地资源表 pan_source 的
+        /// OriginalUrl（转存原链接，排除软删除）命中集合，命中的采集记录标记 IsSave = true。
+        /// 转存时 pan_source.OriginalUrl 写入的正是采集资源 ResourceUrl 原文，因此可精确判定「已转存」。
+        /// 一次批量查询避免 N+1 逐条 EXISTS。
+        /// </summary>
+        private async Task MarkSaveFlags(List<PanSourceCollectEntity> list)
+        {
+            if (list == null || list.Count == 0)
+            {
+                return;
+            }
+
+            List<string> urls = list
+                .Where(t => !string.IsNullOrWhiteSpace(t.ResourceUrl))
+                .Select(t => t.ResourceUrl.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (urls.Count == 0)
+            {
+                return;
+            }
+
+            HashSet<string> savedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            const int batchSize = 200;
+            for (int i = 0; i < urls.Count; i += batchSize)
+            {
+                List<string> batch = urls.Skip(i).Take(batchSize).ToList();
+                var expression = LinqExtensions.True<PanSourceEntity>();
+                expression = expression.And(t => batch.Contains(t.OriginalUrl) && (t.IsDelete == null || t.IsDelete != 1));
+                List<PanSourceEntity> existed = (await this.BaseRepository().FindList(expression)).ToList();
+                foreach (PanSourceEntity entity in existed)
+                {
+                    if (!string.IsNullOrWhiteSpace(entity.OriginalUrl))
+                    {
+                        savedUrls.Add(entity.OriginalUrl.Trim());
+                    }
+                }
+            }
+            if (savedUrls.Count == 0)
+            {
+                return;
+            }
+
+            foreach (PanSourceCollectEntity entity in list)
+            {
+                if (!string.IsNullOrWhiteSpace(entity.ResourceUrl) && savedUrls.Contains(entity.ResourceUrl.Trim()))
+                {
+                    entity.IsSave = true;
+                }
+            }
         }
 
         #endregion

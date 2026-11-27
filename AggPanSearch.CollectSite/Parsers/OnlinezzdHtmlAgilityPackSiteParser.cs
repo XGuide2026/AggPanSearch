@@ -6,12 +6,10 @@ using HtmlAgilityPack;
 namespace AggPanSearch.CollectSite.Parsers;
 
 /// <summary>
-/// 在线zzd站（https://www.onlinezzd.com/，Z-Blog PHP + TztCard 主题）的 HtmlAgilityPack 版解析器，
-/// 与正则版 <see cref="OnlinezzdSiteParser"/> 并存，用 DOM 结构取卡片、正文容器与图片。
+/// 在线zzd站（https://www.onlinezzd.com/，Z-Blog PHP + TztCard 主题）的 HtmlAgilityPack 解析器，
+/// 用 DOM 结构取卡片、正文容器与图片（网页内容解析不使用正则）。
 /// <para>与多多资源库 HAP 版同模板，仅分类 URL 格式不同：本站为 /category-{id}.html（如 /category-4.html），
 /// 多多资源库为 /category/{id}/。</para>
-/// <para>Priority 为 5，小于正则版的 10，注册后即由本解析器接管该站点；</para>
-/// <para>需要回滚成正则版时，把 Priority 改回 20 即可（无需改动注册表）。</para>
 /// </summary>
 public sealed class OnlinezzdHtmlAgilityPackSiteParser : ISiteCollectParser
 {
@@ -19,7 +17,7 @@ public sealed class OnlinezzdHtmlAgilityPackSiteParser : ISiteCollectParser
     private const int MaxListItems = 200;
     private const int IntroMaxLength = 500;
 
-    /// <summary>超大页面不建 DOM（避免内存与耗时失控），超过时交回正则版解析，保证行为一致。</summary>
+    /// <summary>超大页面不建 DOM（避免内存与耗时失控），超过时交给通用解析器兜底。</summary>
     private const int MaxHtmlLength = 4 * 1024 * 1024;
 
     public string Name => "onlinezzd-hap";
@@ -86,7 +84,7 @@ public sealed class OnlinezzdHtmlAgilityPackSiteParser : ISiteCollectParser
 
         if (html.Length > MaxHtmlLength)
         {
-            return new OnlinezzdSiteParser().ParseAsync(html, pageUri, cancellationToken);
+            return new GenericNetdiskSiteParser().ParseAsync(html, pageUri, cancellationToken);
         }
 
         HtmlDocument doc = Load(html);

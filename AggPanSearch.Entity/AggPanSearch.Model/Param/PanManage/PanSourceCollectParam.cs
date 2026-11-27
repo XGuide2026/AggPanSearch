@@ -42,5 +42,11 @@ namespace AggPanSearch.Model.Param.PanManage
         /// 文件大小排序：'' 默认（按采集时间倒序）| 'asc' 从小到大 | 'desc' 从大到小
         /// </summary>
         public string file_size_sort { get; set; }
+
+        /// <summary>
+        /// 是否已转存到本地网盘：1 已转存 0 未转存，null 表示不限；
+        /// 前端筛选下拉「全部」固定为 -1（会被 queryParams 置空），后端仅当 1 / 0 时过滤
+        /// </summary>
+        public int? is_save { get; set; }
     }
 }

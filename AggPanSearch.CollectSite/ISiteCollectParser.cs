@@ -41,12 +41,9 @@ public sealed class SiteCollectParserRegistry
 
     public SiteCollectParserRegistry()
     {
-        // 已适配的站点解析器在这里注册；未注册的站点自动走通用解析器
-        Register(new Parsers.DuoduoResourceSiteParser());
-        Register(new Parsers.OnlinezzdSiteParser());
-
-        // HtmlAgilityPack 版：Priority 5 小于正则版的 10，注册后优先接管对应站点；
-        // 需要回滚时把对应 HAP 解析器的 Priority 改回 20。
+        // 已适配的站点解析器在这里注册；未注册的站点自动走通用解析器。
+        // 全部解析器都基于 HtmlAgilityPack 解析网页内容（不含正则）；
+        // 正则版解析器（DuoduoResourceSiteParser/OnlinezzdSiteParser）已被 HAP 版替代并移除。
         Register(new Parsers.DuoduoHtmlAgilityPackSiteParser());
         Register(new Parsers.OnlinezzdHtmlAgilityPackSiteParser());
 

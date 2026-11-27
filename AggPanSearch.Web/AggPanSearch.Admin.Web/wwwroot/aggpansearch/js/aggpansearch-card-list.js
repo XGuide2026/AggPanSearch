@@ -91,10 +91,12 @@
     }
 
     // 标题固定两行，超出省略；空标题用占位文案，避免卡片出现空白标题区
-    function renderTitle(text, placeholder) {
+    // options.saved 为 true 时在标题后追加绿色高亮「已转存」徽标（本地资源页不传，行为不变）
+    function renderTitle(text, placeholder, options) {
         var value = $.trim(text == null ? '' : String(text));
         var display = value === '' ? (placeholder || '（未命名）') : value;
-        return '<div class="collect-card-title" title="' + escHtml(value) + '">' + escHtml(display) + '</div>';
+        var badge = (options && options.saved) ? '<span class="collect-card-title-saved">已转存</span>' : '';
+        return '<div class="collect-card-title" title="' + escHtml(value) + '">' + escHtml(display) + badge + '</div>';
     }
 
     // 副标题：单行省略，完整内容放 title 属性

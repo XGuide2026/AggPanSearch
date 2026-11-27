@@ -1,5 +1,5 @@
-using System.Text.RegularExpressions;
 using AggPanSearch.CollectSite.NetDisk;
+using HtmlAgilityPack;
 
 namespace AggPanSearch.CollectSite;
 
@@ -7,6 +7,7 @@ namespace AggPanSearch.CollectSite;
 /// 通用兜底解析器：不针对具体站点，直接从页面中提取网盘链接，
 /// 标题取 h1/title，分类取面包屑或 article:section，简介取 meta description，图片取 og:image。
 /// 用于尚未适配专用解析器的资源站。
+/// <para>全部 HTML 结构提取均用 HtmlAgilityPack DOM/XPath 实现，不使用正则解析网页。</para>
 /// </summary>
 public sealed class GenericNetdiskSiteParser : ISiteCollectParser
 {
@@ -16,31 +17,12 @@ public sealed class GenericNetdiskSiteParser : ISiteCollectParser
 
     public bool CanHandle(Uri pageUri) => true;
 
-    private static readonly Regex TitlePattern = RegexCache.Get(
-        @"<title[^>]*>(?<t>.*?)</title>", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-    private static readonly Regex H1Pattern = RegexCache.Get(
-        @"<h1[^>]*>(?<t>.*?)</h1>", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-    private static readonly Regex MetaDescriptionPattern = RegexCache.Get(
-        @"<meta[^>]+name=[""']description[""'][^>]*content=[""'](?<c>[^""']*)[""']",
-        RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-    private static readonly Regex MetaSectionPattern = RegexCache.Get(
-        @"<meta[^>]+property=[""']article:section[""'][^>]*content=[""'](?<c>[^""']*)[""']",
-        RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-    private static readonly Regex BreadcrumbPattern = RegexCache.Get(
-        @"<(?:div|nav|ol|ul|span|p)\b[^>]+class=[""'][^""']*(?:breadcrumb|bread-crumb|crumb|position|location|nav-path|site-map)[^""']*[""'][^>]*>(?<b>.*?)</(?:div|nav|ol|ul|span|p)>",
-        RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-    private static readonly Regex AnchorPattern = RegexCache.Get(
-        @"<a\b(?<attrs>[^>]{0,2000})>(?<text>.*?)</a>",
-        RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-    private static readonly Regex HrefPattern = RegexCache.GetIgnoreCase(@"\bhref=[""'](?<h>[^""']+)[""']");
-
-    private static readonly Regex RelNextPattern = RegexCache.GetIgnoreCase(@"\brel=[""']next[""']");
+    // 面包屑容器：原正则匹配 div/nav/ol/ul/span/p 且 class 含 breadcrumb 系关键词
+    private const string BreadcrumbXPath =
+        "//*[self::div or self::nav or self::ol or self::ul or self::span or self::p]" +
+        "[contains(@class,'breadcrumb') or contains(@class,'bread-crumb') or contains(@class,'crumb')" +
+        " or contains(@class,'position') or contains(@class,'location')" +
+        " or contains(@class,'nav-path') or contains(@class,'site-map')]";
 
     public Task<SiteCollectParseResult> ParseAsync(string html, Uri pageUri, CancellationToken cancellationToken = default)
     {
@@ -51,9 +33,11 @@ public sealed class GenericNetdiskSiteParser : ISiteCollectParser
             result.Message = "页面内容为空";
             return Task.FromResult(result);
         }
-        result.Nav = ParseNav(html, pageUri);
 
-        string plainText = SiteCollectHtmlUtil.ToPlainText(html);
+        HtmlDocument doc = SiteCollectHtmlUtil.LoadDocument(html);
+        result.Nav = ParseNavFromDoc(doc, pageUri);
+
+        string plainText = SiteCollectHtmlUtil.GetPlainText(doc);
         List<Candidate> links = NetDiskDetector.ExtractNetDiskLinks(plainText);
         if (links.Count == 0)
         {
@@ -62,10 +46,10 @@ public sealed class GenericNetdiskSiteParser : ISiteCollectParser
             return Task.FromResult(result);
         }
 
-        string name = ExtractTitle(html);
-        string intro = ExtractDescription(html, plainText);
-        string category = ExtractCategory(html, pageUri);
-        List<string> images = ExtractImages(html, pageUri);
+        string name = ExtractTitle(doc);
+        string intro = ExtractDescription(doc, plainText);
+        string category = ExtractCategory(doc, pageUri);
+        List<string> images = ExtractImages(doc, pageUri);
 
         foreach (Candidate link in links)
         {
@@ -90,23 +74,33 @@ public sealed class GenericNetdiskSiteParser : ISiteCollectParser
     /// <summary>通用「下一页」提取：rel="next" 或链接文本为「下一页 / 下页」。</summary>
     public SiteCollectNavResult ParseNav(string html, Uri pageUri)
     {
-        SiteCollectNavResult nav = new SiteCollectNavResult();
         if (string.IsNullOrWhiteSpace(html))
+        {
+            return new SiteCollectNavResult();
+        }
+        return ParseNavFromDoc(SiteCollectHtmlUtil.LoadDocument(html), pageUri);
+    }
+
+    private static SiteCollectNavResult ParseNavFromDoc(HtmlDocument doc, Uri pageUri)
+    {
+        SiteCollectNavResult nav = new SiteCollectNavResult();
+        HtmlNodeCollection? anchors = doc.DocumentNode.SelectNodes("//a");
+        if (anchors == null)
         {
             return nav;
         }
 
-        foreach (Match anchor in AnchorPattern.Matches(html))
+        foreach (HtmlNode anchor in anchors)
         {
-            string attrs = anchor.Groups["attrs"].Value;
-            string text = SiteCollectHtmlUtil.CleanText(
-                SiteCollectHtmlUtil.TagPatternForText(anchor.Groups["text"].Value));
-            if (text != "下一页" && text != "下页" && !RelNextPattern.IsMatch(attrs))
+            string text = SiteCollectHtmlUtil.CleanText(anchor.InnerText);
+            string rel = anchor.GetAttributeValue("rel", string.Empty);
+            if (text != "下一页" && text != "下页" &&
+                !string.Equals(rel, "next", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            string url = SiteCollectHtmlUtil.ResolveUrl(pageUri, HrefPattern.Match(attrs).Groups["h"].Value);
+            string url = SiteCollectHtmlUtil.ResolveUrl(pageUri, anchor.GetAttributeValue("href", string.Empty));
             if (url.Length == 0 || !Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
             {
                 continue;
@@ -130,66 +124,56 @@ public sealed class GenericNetdiskSiteParser : ISiteCollectParser
         return nav;
     }
 
-    private static string ExtractTitle(string html)
+    private static string ExtractTitle(HtmlDocument doc)
     {
-        Match h1 = H1Pattern.Match(html);
-        if (h1.Success)
+        string h1 = ReadFirstText(doc, "//h1");
+        if (h1.Length > 0)
         {
-            string text = SiteCollectHtmlUtil.CleanText(SiteCollectHtmlUtil.TagPatternForText(h1.Groups["t"].Value));
-            if (text.Length > 0)
-            {
-                return text;
-            }
+            return h1;
         }
-        Match title = TitlePattern.Match(html);
-        if (title.Success)
+
+        string title = ReadFirstText(doc, "//title");
+        if (title.Length > 0)
         {
-            string text = SiteCollectHtmlUtil.CleanText(SiteCollectHtmlUtil.TagPatternForText(title.Groups["t"].Value));
             // 去掉常见的「_站点名」「- 站点名」后缀
-            int index = text.IndexOf('_');
+            int index = title.IndexOf('_');
             if (index > 1)
             {
-                text = text.Substring(0, index).Trim();
+                title = title.Substring(0, index).Trim();
             }
-            return text;
         }
-        return string.Empty;
+        return title;
     }
 
-    private static string ExtractDescription(string html, string plainText)
+    private static string ExtractDescription(HtmlDocument doc, string plainText)
     {
-        Match meta = MetaDescriptionPattern.Match(html);
-        if (meta.Success)
+        string meta = FindMetaContent(doc, "name", "description");
+        if (meta.Length > 0)
         {
-            string text = SiteCollectHtmlUtil.CleanText(meta.Groups["c"].Value);
-            if (text.Length > 0)
-            {
-                return SiteCollectHtmlUtil.Truncate(text, 500);
-            }
+            return SiteCollectHtmlUtil.Truncate(meta, 500);
         }
         return SiteCollectHtmlUtil.Truncate(plainText, 300);
     }
 
-    private static string ExtractCategory(string html, Uri pageUri)
+    private static string ExtractCategory(HtmlDocument doc, Uri pageUri)
     {
-        Match meta = MetaSectionPattern.Match(html);
-        if (meta.Success)
+        string section = FindMetaContent(doc, "property", "article:section");
+        if (section.Length > 0)
         {
-            string section = SiteCollectHtmlUtil.CleanCategoryText(meta.Groups["c"].Value);
-            if (section.Length > 0)
+            string cleaned = SiteCollectHtmlUtil.CleanCategoryText(section);
+            if (cleaned.Length > 0)
             {
-                return section;
+                return cleaned;
             }
         }
 
-        Match breadcrumb = BreadcrumbPattern.Match(html);
-        if (breadcrumb.Success)
+        string breadcrumb = ReadFirstText(doc, BreadcrumbXPath);
+        if (breadcrumb.Length > 0)
         {
-            string text = SiteCollectHtmlUtil.CleanCategoryText(
-                SiteCollectHtmlUtil.TagPatternForText(breadcrumb.Groups["b"].Value));
-            if (text.Length > 0)
+            string cleaned = SiteCollectHtmlUtil.CleanCategoryText(breadcrumb);
+            if (cleaned.Length > 0)
             {
-                return text;
+                return cleaned;
             }
         }
 
@@ -210,19 +194,50 @@ public sealed class GenericNetdiskSiteParser : ISiteCollectParser
     /// 详情页多图：og:image 优先（同样过滤主题 logo），其次按页面顺序提取全部可用图片，
     /// 去重后最多 5 张。
     /// </summary>
-    private static List<string> ExtractImages(string html, Uri pageUri)
+    private static List<string> ExtractImages(HtmlDocument doc, Uri pageUri)
     {
         List<string> images = new List<string>();
-        string ogImage = SiteCollectHtmlUtil.ExtractOgImage(html, pageUri);
+        string ogImage = SiteCollectHtmlUtil.ExtractOgImage(doc, pageUri);
         if (ogImage.Length > 0)
         {
             images.Add(ogImage);
         }
-        images.AddRange(SiteCollectHtmlUtil.ExtractImages(html, pageUri));
+        images.AddRange(SiteCollectHtmlUtil.ExtractImages(doc, pageUri));
         return images
             .Where(SiteCollectHtmlUtil.IsUsableImageUrl)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(SiteCollectHtmlUtil.MaxImageCount)
             .ToList();
+    }
+
+    /// <summary>取 XPath 命中的第一个非空纯文本（h1/title/面包屑共用）。</summary>
+    private static string ReadFirstText(HtmlDocument doc, string xpath)
+    {
+        HtmlNode? node = doc.DocumentNode.SelectSingleNode(xpath);
+        return node == null ? string.Empty : SiteCollectHtmlUtil.CleanText(node.InnerText);
+    }
+
+    /// <summary>在 meta 节点中按「属性名=关键词」取 content 值（属性值忽略大小写，等价原忽略大小写正则）。</summary>
+    private static string FindMetaContent(HtmlDocument doc, string attrName, string keyword)
+    {
+        HtmlNodeCollection? metas = doc.DocumentNode.SelectNodes("//meta");
+        if (metas == null)
+        {
+            return string.Empty;
+        }
+        foreach (HtmlNode meta in metas)
+        {
+            string name = meta.GetAttributeValue(attrName, string.Empty);
+            if (!string.Equals(name, keyword, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            string content = SiteCollectHtmlUtil.CleanText(meta.GetAttributeValue("content", string.Empty));
+            if (content.Length > 0)
+            {
+                return content;
+            }
+        }
+        return string.Empty;
     }
 }

@@ -133,7 +133,32 @@ namespace AggPanSearch.Service.PanManage
         }
 
         /// <summary>
-        /// 按原始分享链接（存于 Content 字段）判断本地资源是否已转存过，已软删除的记录不参与判重。
+        /// 统计「未分类」资源数量（SourceCategoryId 为空或 0），排除软删除与禁用资源，
+        /// 与后台 ListFilter 中 source_category_id == 0 的筛选判定保持一致。
+        /// </summary>
+        public async Task<int> GetUncategorizedCount()
+        {
+            try
+            {
+                string sql = "SELECT COUNT(*) AS cnt FROM pan_source "
+                           + "WHERE (SourceCategoryId IS NULL OR SourceCategoryId = 0) "
+                           + "AND (IsDelete IS NULL OR IsDelete <> 1) "
+                           + "AND (Status IS NULL OR Status <> 0)";
+                var table = await this.BaseRepository().FindTable(sql);
+                if (table != null && table.Rows.Count > 0)
+                {
+                    return Convert.ToInt32(table.Rows[0]["cnt"]);
+                }
+            }
+            catch
+            {
+                // pan_source 表不存在或数据库不可用时返回 0
+            }
+            return 0;
+        }
+
+        /// <summary>
+        /// 按原始分享链接（存于 OriginalUrl 字段）判断本地资源是否已转存过，已软删除的记录不参与判重。
         /// </summary>
         public async Task<bool> ExistsByOriginalUrl(string originalUrl)
         {
@@ -143,12 +168,12 @@ namespace AggPanSearch.Service.PanManage
             }
             string url = originalUrl.Trim();
             var list = await this.BaseRepository().FindList<PanSourceEntity>(
-                t => t.Content == url && (t.IsDelete == null || t.IsDelete != 1));
+                t => t.OriginalUrl == url && (t.IsDelete == null || t.IsDelete != 1));
             return list.Any();
         }
 
         /// <summary>
-        /// 按原始分享链接（存于 Content 字段）取本地资源记录，已软删除的记录不参与。
+        /// 按原始分享链接（存于 OriginalUrl 字段）取本地资源记录，已软删除的记录不参与。
         /// </summary>
         public async Task<PanSourceEntity> GetByOriginalUrl(string originalUrl)
         {
@@ -158,7 +183,7 @@ namespace AggPanSearch.Service.PanManage
             }
             string url = originalUrl.Trim();
             var list = await this.BaseRepository().FindList<PanSourceEntity>(
-                t => t.Content == url && (t.IsDelete == null || t.IsDelete != 1));
+                t => t.OriginalUrl == url && (t.IsDelete == null || t.IsDelete != 1));
             return list.FirstOrDefault();
         }
 

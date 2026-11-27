@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using AggPanSearch.CollectSite.NetDisk;
+using HtmlAgilityPack;
 
 namespace AggPanSearch.CollectSite;
 
@@ -40,12 +41,6 @@ public static class SiteCollectCategoryFetcher
 
     /// <summary>分类名称长度上限（过滤版权、长句导航）。</summary>
     private const int MaxNameLength = 20;
-
-    private static readonly Regex AnchorPattern = RegexCache.Get(
-        @"<a\b(?<attrs>[^>]{0,2000})>(?<text>.*?)</a>",
-        RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-    private static readonly Regex HrefPattern = RegexCache.GetIgnoreCase(@"\bhref=[""'](?<h>[^""']+)[""']");
 
     /// <summary>路径/查询中常见的分类关键词。</summary>
     private static readonly Regex CategoryKeywordPattern = RegexCache.GetIgnoreCase(
@@ -145,25 +140,24 @@ public static class SiteCollectCategoryFetcher
     /// <summary>通用兜底：扫描页面所有链接，文本像分类名且地址带分类关键词的收为候选。</summary>
     private static void CollectFromAnchors(string html, Uri baseUri, Dictionary<string, SiteCategoryCandidate> candidates)
     {
-        string content = SiteCollectHtmlUtil.RemoveNoise(html);
-        foreach (Match match in AnchorPattern.Matches(content))
+        HtmlDocument doc = SiteCollectHtmlUtil.LoadDocument(html);
+        HtmlNodeCollection? anchors = doc.DocumentNode.SelectNodes("//a");
+        if (anchors == null)
+        {
+            return;
+        }
+        foreach (HtmlNode anchor in anchors)
         {
             if (candidates.Count >= MaxCandidates)
             {
                 return;
             }
-            string attrs = match.Groups["attrs"].Value;
-            Match href = HrefPattern.Match(attrs);
-            if (!href.Success)
-            {
-                continue;
-            }
-            string text = SiteCollectHtmlUtil.CleanText(SiteCollectHtmlUtil.TagPatternForText(match.Groups["text"].Value));
+            string text = SiteCollectHtmlUtil.CleanText(anchor.InnerText);
             if (!IsLikelyCategoryName(text))
             {
                 continue;
             }
-            string url = SiteCollectHtmlUtil.ResolveUrl(baseUri, href.Groups["h"].Value);
+            string url = SiteCollectHtmlUtil.ResolveUrl(baseUri, anchor.GetAttributeValue("href", string.Empty));
             if (url.Length == 0 || !Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
             {
                 continue;

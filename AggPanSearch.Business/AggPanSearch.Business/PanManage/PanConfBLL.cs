@@ -25,7 +25,13 @@ namespace AggPanSearch.Business.PanManage
         {
             TData<List<PanConfEntity>> obj = new TData<List<PanConfEntity>>();
             await EnsureDefaultConfAsync();
-            obj.Data = await panConfService.GetList(param);
+            List<PanConfEntity> data = await panConfService.GetList(param);
+            // 按 ConfKey（忽略大小写）去重：同一参数只保留一条有效记录，
+            // 避免「参数配置」页手动新增同名参数后，设置页按 conf_type 分组渲染出重复表单。
+            obj.Data = data
+                .GroupBy(t => t.ConfKey, StringComparer.OrdinalIgnoreCase)
+                .Select(g => PickKeepItem(g))
+                .ToList();
             obj.Total = obj.Data.Count;
             obj.Tag = 1;
             return obj;
@@ -34,6 +40,7 @@ namespace AggPanSearch.Business.PanManage
         /// <summary>
         /// 首次打开基础设置页时自动补齐必要配置项（已存在则跳过），
         /// 避免「网盘Cookie设置」Tab 内没有表单项可填。
+        /// 补齐后自动清理历史重复记录，保证设置页只展示一条。
         /// </summary>
         private async Task EnsureDefaultConfAsync()
         {
@@ -61,6 +68,42 @@ namespace AggPanSearch.Business.PanManage
                     ConfSort = 0,
                 });
             }
+            await CleanDuplicateConfAsync();
+        }
+
+        /// <summary>
+        /// 清理 pan_conf 中 ConfKey（忽略大小写）重复的历史记录：
+        /// 每组保留「系统参数优先、Id 最小」的一条，其余删除。
+        /// 该方法为 GetList 必经步骤，打开一次设置页即可自动修复存量脏数据。
+        /// </summary>
+        private async Task CleanDuplicateConfAsync()
+        {
+            List<PanConfEntity> all = await panConfService.GetList(new PanConfListParam());
+            var groups = all
+                .GroupBy(t => t.ConfKey, StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count() > 1);
+            foreach (var group in groups)
+            {
+                PanConfEntity keep = PickKeepItem(group);
+                string delIds = string.Join(",", group
+                    .Where(t => t.Id != keep.Id && t.Id.HasValue)
+                    .Select(t => t.Id.Value.ToString()));
+                if (!string.IsNullOrEmpty(delIds))
+                {
+                    await panConfService.DeleteForm(delIds);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 去重保留策略：优先保留系统参数（ConfSystem == 1），其次保留 Id 最小者。
+        /// </summary>
+        private static PanConfEntity PickKeepItem(IEnumerable<PanConfEntity> items)
+        {
+            return items
+                .OrderByDescending(t => t.ConfSystem == 1)
+                .ThenBy(t => t.Id)
+                .First();
         }
 
         public async Task<TData<List<PanConfEntity>>> GetPageList(PanConfListParam param, Pagination pagination)
@@ -97,6 +140,16 @@ namespace AggPanSearch.Business.PanManage
         public async Task<TData<string>> SaveForm(PanConfEntity entity)
         {
             TData<string> obj = new TData<string>();
+            // 新增（Id 为空）时校验 ConfKey 唯一（忽略大小写），防止「参数配置」页手动新增同名参数导致重复
+            if (entity != null && entity.Id.IsNullOrZero() && !string.IsNullOrEmpty(entity.ConfKey))
+            {
+                List<PanConfEntity> existing = await panConfService.GetList(new PanConfListParam());
+                if (existing.Any(t => string.Equals(t.ConfKey, entity.ConfKey, StringComparison.OrdinalIgnoreCase)))
+                {
+                    obj.Message = "参数名已存在";
+                    return obj;
+                }
+            }
             await panConfService.SaveForm(entity);
             obj.Data = entity.Id.ParseToString();
             obj.Tag = 1;

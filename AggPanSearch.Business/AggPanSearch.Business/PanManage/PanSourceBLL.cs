@@ -64,6 +64,14 @@ namespace AggPanSearch.Business.PanManage
             return await panSourceService.GetCategoryCounts();
         }
 
+        /// <summary>
+        /// 「未分类」资源数量（SourceCategoryId 为空或 0，排除软删除与禁用）。
+        /// </summary>
+        public async Task<int> GetUncategorizedCount()
+        {
+            return await panSourceService.GetUncategorizedCount();
+        }
+
         public async Task<TData<PanSourceEntity>> GetEntity(long id)
         {
             TData<PanSourceEntity> obj = new TData<PanSourceEntity>();

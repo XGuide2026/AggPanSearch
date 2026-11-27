@@ -491,9 +491,7 @@ public static class HtmlPageFetcher
         {
             return string.Empty;
         }
-        string text = Regex.Replace(html, "<(script|style)[^>]*>.*?</\\1>", " ", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-        text = Regex.Replace(text, "<[^>]+>", " ");
-        text = Regex.Replace(text, "\\s+", " ").Trim();
+        string text = SiteCollectHtmlUtil.ToPlainText(html);
         return SiteCollectHtmlUtil.Truncate(text, DiagnosticMaxLength);
     }
 

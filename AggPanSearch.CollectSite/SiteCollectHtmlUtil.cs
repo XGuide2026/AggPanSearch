@@ -1,51 +1,89 @@
 using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
 using AggPanSearch.CollectSite.NetDisk;
+using HtmlAgilityPack;
 
 namespace AggPanSearch.CollectSite;
 
 /// <summary>
-/// 网页采集用的轻量 HTML 文本工具（不引入第三方 HTML 解析库，与 TgParser 的正则风格保持一致）。
+/// 网页采集用的轻量 HTML 文本工具。
+/// 所有「解析网页内容（HTML 结构）」的操作一律用 HtmlAgilityPack DOM 实现，不用正则；
+/// 保留的正则只处理纯文本/URL（实体解码后的空白压缩、面包屑前缀清理等）。
 /// </summary>
 public static class SiteCollectHtmlUtil
 {
-    private static readonly Regex CommentPattern = RegexCache.Get(@"<!--.*?-->", RegexOptions.Singleline);
-
-    private static readonly Regex ScriptStylePattern = RegexCache.Get(
-        @"<(script|style)\b[^>]*>.*?</\1\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-    // 有界标签正则：单标签内属性最多 2 万字符，避免超长 style 属性导致回溯
-    private static readonly Regex TagPattern = RegexCache.Get(@"<[^>]{0,20000}>");
-
     private static readonly Regex BlankPattern = RegexCache.Get(@"[\s\u00a0]+");
 
-    /// <summary>去掉注释、script、style 等与正文无关的大块内容。</summary>
-    public static string RemoveNoise(string? html)
-    {
-        if (string.IsNullOrEmpty(html))
-        {
-            return string.Empty;
-        }
-        string result = CommentPattern.Replace(html, " ");
-        result = ScriptStylePattern.Replace(result, " ");
-        return result;
-    }
-
-    /// <summary>小片段转文本：去噪声、去标签（保留空白），用于 h1/title/面包屑等短文本。</summary>
-    public static string TagPatternForText(string? html)
-    {
-        return string.IsNullOrEmpty(html) ? string.Empty : TagPattern.Replace(RemoveNoise(html), " ");
-    }
-
-    /// <summary>HTML 转纯文本：去噪声、去标签、解码实体、压缩空白。</summary>
+    /// <summary>
+    /// HTML 转纯文本：去噪声节点、解码实体、压缩空白。
+    /// <para>实现说明：HAP 的 <see cref="HtmlNode.InnerText"/> 会把相邻块级元素文字直接粘连，
+    /// 因此递归收集文本时在每个 Element 边界补空格，等价于原「标签替换为空格」的口径，
+    /// 保证网盘链接/提取码与文字之间保留分隔（链接识别依赖此输出）。</para>
+    /// </summary>
     public static string ToPlainText(string? html)
     {
         if (string.IsNullOrEmpty(html))
         {
             return string.Empty;
         }
-        string text = TagPattern.Replace(RemoveNoise(html), " ");
-        return CleanText(text);
+        return GetPlainText(LoadDocument(html));
+    }
+
+    /// <summary>从已装载的 DOM 提取纯文本（供解析器在单次 Load 内复用，避免重复构建 DOM）。</summary>
+    internal static string GetPlainText(HtmlDocument doc)
+    {
+        StringBuilder sb = new StringBuilder(doc.Text.Length / 4 + 256);
+        AppendTextValue(doc.DocumentNode, sb);
+        return CleanText(sb.ToString());
+    }
+
+    /// <summary>递归收集节点文本：文本节点直接追加，Element 节点边界补空格，注释/脚本等噪声节点跳过。</summary>
+    private static void AppendTextValue(HtmlNode node, StringBuilder sb)
+    {
+        foreach (HtmlNode child in node.ChildNodes)
+        {
+            if (child.NodeType == HtmlNodeType.Text)
+            {
+                sb.Append(child.InnerText);
+                continue;
+            }
+            if (child.NodeType != HtmlNodeType.Element)
+            {
+                continue;
+            }
+            sb.Append(' ');
+            AppendTextValue(child, sb);
+            sb.Append(' ');
+        }
+    }
+
+    /// <summary>装载 HTML DOM（开启容错修复），并移除 script/style/noscript 与正文无关的节点。</summary>
+    internal static HtmlDocument LoadDocument(string html)
+    {
+        HtmlDocument doc = new HtmlDocument
+        {
+            // 采集站常见未闭合标签，开启容错修复，避免整块内容被吞进上一个节点
+            OptionFixNestedTags = true,
+            OptionAutoCloseOnEnd = true,
+        };
+        doc.LoadHtml(html);
+        RemoveNoiseNodes(doc);
+        return doc;
+    }
+
+    /// <summary>移除 script/style/noscript，避免脚本文字混进正文与链接识别。</summary>
+    internal static void RemoveNoiseNodes(HtmlDocument doc)
+    {
+        HtmlNodeCollection? noise = doc.DocumentNode.SelectNodes("//script|//style|//noscript");
+        if (noise == null)
+        {
+            return;
+        }
+        foreach (HtmlNode node in noise.ToList())
+        {
+            node.Remove();
+        }
     }
 
     /// <summary>解码 HTML 实体并压缩空白。</summary>
@@ -106,23 +144,8 @@ public static class SiteCollectHtmlUtil
     /// <summary>单条资源最多保留的图片数量。</summary>
     public const int MaxImageCount = 5;
 
-    // 有界标签正则：单个 img 标签内最多 2 万字符，避免超长属性导致回溯
-    private static readonly Regex ImgTagPattern = RegexCache.Get(@"<img\b[^>]{0,20000}>", RegexOptions.IgnoreCase);
-
-    private static readonly Regex MetaTagPattern = RegexCache.Get(@"<meta\b[^>]{0,2000}>", RegexOptions.IgnoreCase);
-
     // src 与常见懒加载属性；懒加载地址优先于占位的 src
-    private static readonly Regex ImgSourceAttrPattern = RegexCache.Get(
-        @"\b(?<n>data-original|data-src|data-lazy-src|data-echo|src)\s*=\s*(?:""(?<v>[^""]{0,2000})""|'(?<v>[^']{0,2000})'|(?<v>[^\s>]{1,2000}))",
-        RegexOptions.IgnoreCase);
-
-    private static readonly Regex ContentAttrPattern = RegexCache.Get(
-        @"\bcontent\s*=\s*(?:""(?<v>[^""]{0,2000})""|'(?<v>[^']{0,2000})')",
-        RegexOptions.IgnoreCase);
-
-    // 显式声明宽高的图片：<= 60px 基本是图标/占位图
-    private static readonly Regex ImageSizeAttrPattern = RegexCache.Get(
-        @"\b(?:width|height)\s*=\s*[""']?(?<v>\d{1,5})", RegexOptions.IgnoreCase);
+    private static readonly string[] LazyImageAttributes = { "data-original", "data-src", "data-lazy-src", "data-echo" };
 
     private static readonly string[] ImageNoiseTokens =
     {
@@ -176,28 +199,38 @@ public static class SiteCollectHtmlUtil
 
     /// <summary>
     /// 按页面顺序提取图片地址：过滤小图标/主题 logo、去重，最多取 <see cref="MaxImageCount"/> 张。
-    /// 只扫描前 40 个 img 标签，保证复杂度线性。
+    /// 只扫描前 40 个 img 节点，保证复杂度线性。
     /// </summary>
     public static List<string> ExtractImages(string? html, Uri baseUri)
     {
-        List<string> images = new List<string>();
         if (string.IsNullOrEmpty(html))
+        {
+            return new List<string>();
+        }
+        return ExtractImages(LoadDocument(html), baseUri);
+    }
+
+    /// <summary>从已装载的 DOM 提取图片（供解析器在单次 Load 内复用，避免重复构建 DOM）。</summary>
+    internal static List<string> ExtractImages(HtmlDocument doc, Uri baseUri)
+    {
+        List<string> images = new List<string>();
+        HtmlNodeCollection? imgs = doc.DocumentNode.SelectNodes("//img");
+        if (imgs == null)
         {
             return images;
         }
-        string content = RemoveNoise(html);
         int scanned = 0;
-        foreach (Match tag in ImgTagPattern.Matches(content))
+        foreach (HtmlNode img in imgs)
         {
             if (scanned++ >= 40 || images.Count >= MaxImageCount)
             {
                 break;
             }
-            if (IsSmallImageTag(tag.Value))
+            if (IsSmallImageTag(img))
             {
                 continue;
             }
-            string url = ResolveImageSource(tag.Value, baseUri);
+            string url = ResolveImageSource(img, baseUri);
             if (url.Length == 0 || images.Contains(url, StringComparer.OrdinalIgnoreCase))
             {
                 continue;
@@ -208,28 +241,25 @@ public static class SiteCollectHtmlUtil
     }
 
     /// <summary>
-    /// 从 img 标签中取图片地址：懒加载属性（data-original 等）优先，src 作为兜底。
+    /// 从 img 节点中取图片地址：懒加载属性（data-original 等）优先，src 作为兜底。
     /// </summary>
-    private static string ResolveImageSource(string tag, Uri baseUri)
+    private static string ResolveImageSource(HtmlNode img, Uri baseUri)
     {
-        string fallback = string.Empty;
-        foreach (Match match in ImgSourceAttrPattern.Matches(tag))
+        foreach (string attrName in LazyImageAttributes)
         {
-            string url = NormalizeImageUrl(baseUri, match.Groups["v"].Value);
-            if (url.Length == 0 || !IsUsableImageUrl(url))
+            string value = img.GetAttributeValue(attrName, string.Empty);
+            if (value.Length == 0)
             {
                 continue;
             }
-            if (!match.Groups["n"].Value.Equals("src", StringComparison.OrdinalIgnoreCase))
+            string url = NormalizeImageUrl(baseUri, value);
+            if (url.Length > 0 && IsUsableImageUrl(url))
             {
                 return url;
             }
-            if (fallback.Length == 0)
-            {
-                fallback = url;
-            }
         }
-        return fallback;
+        string fallback = NormalizeImageUrl(baseUri, img.GetAttributeValue("src", string.Empty));
+        return IsUsableImageUrl(fallback) ? fallback : string.Empty;
     }
 
     /// <summary>取页面 og:image / twitter:image（过滤噪声图后返回首个可用地址）。</summary>
@@ -239,25 +269,30 @@ public static class SiteCollectHtmlUtil
         {
             return string.Empty;
         }
-        string content = RemoveNoise(html);
+        return ExtractOgImage(LoadDocument(html), baseUri);
+    }
+
+    /// <summary>从已装载的 DOM 取 og:image / twitter:image（供解析器在单次 Load 内复用）。</summary>
+    internal static string ExtractOgImage(HtmlDocument doc, Uri baseUri)
+    {
+        HtmlNodeCollection? metas = doc.DocumentNode.SelectNodes("//meta");
+        if (metas == null)
+        {
+            return string.Empty;
+        }
         int scanned = 0;
-        foreach (Match tag in MetaTagPattern.Matches(content))
+        foreach (HtmlNode meta in metas)
         {
             if (scanned++ >= 60)
             {
                 break;
             }
-            string lower = tag.Value.ToLowerInvariant();
+            string lower = meta.OuterHtml.ToLowerInvariant();
             if (!lower.Contains("og:image") && !lower.Contains("twitter:image"))
             {
                 continue;
             }
-            Match contentAttr = ContentAttrPattern.Match(tag.Value);
-            if (!contentAttr.Success)
-            {
-                continue;
-            }
-            string url = NormalizeImageUrl(baseUri, contentAttr.Groups["v"].Value);
+            string url = NormalizeImageUrl(baseUri, meta.GetAttributeValue("content", string.Empty));
             if (url.Length > 0 && IsUsableImageUrl(url))
             {
                 return url;
@@ -314,16 +349,20 @@ public static class SiteCollectHtmlUtil
             .ToList();
     }
 
-    private static bool IsSmallImageTag(string tag)
+    /// <summary>显式声明宽高的图片：&lt;= 60px 基本是图标/占位图，跳过。</summary>
+    private static bool IsSmallImageTag(HtmlNode img)
     {
-        foreach (Match match in ImageSizeAttrPattern.Matches(tag))
+        if (TryParseSize(img, "width") || TryParseSize(img, "height"))
         {
-            if (int.TryParse(match.Groups["v"].Value, out int size) && size > 0 && size <= 60)
-            {
-                return true;
-            }
+            return true;
         }
         return false;
+    }
+
+    private static bool TryParseSize(HtmlNode img, string attrName)
+    {
+        string value = img.GetAttributeValue(attrName, string.Empty);
+        return int.TryParse(value, out int size) && size > 0 && size <= 60;
     }
 
     #endregion
@@ -338,7 +377,7 @@ public static class SiteCollectHtmlUtil
         {
             return string.Empty;
         }
-        // 去掉常见前缀
+        // 去掉常见前缀（纯文本处理，非解析 HTML 结构）
         value = RegexCache.Get(@"^(当前位置|您的位置|当前路径|所在位置|位置|首页|主页)\s*[:：]?\s*").Replace(value, string.Empty);
         // 分隔符归一化后取最后一段（最具体的分类）
         value = value.Replace("»", ">").Replace("›", ">").Replace("／", ">").Replace("/", ">");

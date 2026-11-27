@@ -23,6 +23,7 @@ namespace AggPanSearch.Admin.Web.Areas.PanManage.Controllers
         private PanSourceCollectBLL panSourceCollectBLL = new PanSourceCollectBLL();
         private PanSourceCollectSiteBLL panSourceCollectSiteBLL = new PanSourceCollectSiteBLL();
         private PanSourceCollectCategoryBLL panSourceCollectCategoryBLL = new PanSourceCollectCategoryBLL();
+        private PanConfBLL panConfBLL = new PanConfBLL();
 
         #region 视图功能
 
@@ -207,6 +208,27 @@ namespace AggPanSearch.Admin.Web.Areas.PanManage.Controllers
         public async Task<ActionResult> TransferToLocalJson(string ids)
         {
             TData<string> obj = await panSourceCollectBLL.StartTransfer(ids);
+            return Json(obj);
+        }
+
+        /// <summary>
+        /// 读取「夸克默认转存目录」配置值（quark_transfer_dir），供转存确认弹窗动态展示；
+        /// 未配置或为空时回退为「采集资源」，与后台 QuarkPanTransferRunner.GetTargetFolderNameAsync 保持一致。
+        /// </summary>
+        [HttpGet]
+        [AuthorizeFilter("pan:pansourcecollect:view")]
+        public async Task<ActionResult> GetTransferDirJson()
+        {
+            TData<string> obj = new TData<string>();
+            var conf = await panConfBLL.GetConfValues(new List<string> { "quark_transfer_dir" });
+            string name = string.Empty;
+            if (conf != null && conf.Data != null)
+            {
+                conf.Data.TryGetValue("quark_transfer_dir", out name);
+            }
+            name = (name ?? string.Empty).Trim();
+            obj.Data = name.Length == 0 ? "采集资源" : name;
+            obj.Tag = 1;
             return Json(obj);
         }
 
