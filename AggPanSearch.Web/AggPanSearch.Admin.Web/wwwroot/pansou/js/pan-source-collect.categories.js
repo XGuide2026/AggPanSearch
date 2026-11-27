@@ -218,7 +218,7 @@
                 render();
             },
             error: function () {
-                showTip('分类资源加载失败，「对应分类资源」下拉暂不可用', 'error');
+                showTip('分类资源加载失败，「我的网盘分类」下拉暂不可用', 'error');
             }
         });
     }

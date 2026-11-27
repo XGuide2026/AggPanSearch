@@ -173,7 +173,7 @@
             return;
         }
 
-        var html = '<div class="wrapper animated fadeInRight" style="padding:18px 20px 0 20px;">' +
+        var html = '<div class="animated fadeInRight" style="padding:18px 20px 0 20px;">' +
             '<div class="form-horizontal">' +
             formField('站点名称', 'siteName', site ? site.SiteName : '', '如 多多资源库', true) +
             formField('站点链接', 'siteUrl', site ? site.SiteUrl : '', '如 https://www.duoduoziyuanku.com/', true) +

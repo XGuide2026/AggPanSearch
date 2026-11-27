@@ -43,10 +43,15 @@ public sealed class SiteCollectParserRegistry
     {
         // 已适配的站点解析器在这里注册；未注册的站点自动走通用解析器
         Register(new Parsers.DuoduoResourceSiteParser());
+        Register(new Parsers.OnlinezzdSiteParser());
 
-        // HtmlAgilityPack 版：Priority 5 小于正则版的 10，注册后优先接管该站点；
-        // 需要回滚时把 DuoduoHtmlAgilityPackSiteParser.Priority 改回 20。
+        // HtmlAgilityPack 版：Priority 5 小于正则版的 10，注册后优先接管对应站点；
+        // 需要回滚时把对应 HAP 解析器的 Priority 改回 20。
         Register(new Parsers.DuoduoHtmlAgilityPackSiteParser());
+        Register(new Parsers.OnlinezzdHtmlAgilityPackSiteParser());
+
+        // 盘它分享：列表页卡片即含完整字段（链接/提取码/简介/图片），无需跳详情页。
+        Register(new Parsers.PantaShareSiteParser());
     }
 
     public void Register(ISiteCollectParser parser)

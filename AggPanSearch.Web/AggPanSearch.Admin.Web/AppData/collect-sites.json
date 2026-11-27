@@ -61,5 +61,167 @@
     ],
     "CreateTime": "2026-11-10 02:13:52",
     "UpdateTime": "2026-11-11 16:45:12"
+  },
+  {
+    "Id": "33ff872870f549bd847c17a0caea17bf",
+    "SiteName": "onlinezzd",
+    "SiteUrl": "https://www.onlinezzd.com",
+    "Categories": [
+      {
+        "Name": "其他资源",
+        "Url": "https://www.onlinezzd.com/category-10.html",
+        "SourceCategoryId": 2,
+        "SourceCategoryName": "特殊资源"
+      },
+      {
+        "Name": "副业项目",
+        "Url": "https://www.onlinezzd.com/category-2.html",
+        "SourceCategoryId": 17,
+        "SourceCategoryName": "赚钱副业"
+      },
+      {
+        "Name": "图片资源",
+        "Url": "https://www.onlinezzd.com/category-7.html",
+        "SourceCategoryId": 4,
+        "SourceCategoryName": "图库壁纸"
+      },
+      {
+        "Name": "学习资料",
+        "Url": "https://www.onlinezzd.com/category-6.html",
+        "SourceCategoryId": 13,
+        "SourceCategoryName": "教育资料"
+      },
+      {
+        "Name": "学科资料",
+        "Url": "https://www.onlinezzd.com/category-8.html",
+        "SourceCategoryId": 13,
+        "SourceCategoryName": "教育资料"
+      },
+      {
+        "Name": "影视资源",
+        "Url": "https://www.onlinezzd.com/category-4.html",
+        "SourceCategoryId": 16,
+        "SourceCategoryName": "影视剧集"
+      },
+      {
+        "Name": "电子书",
+        "Url": "https://www.onlinezzd.com/category-9.html",
+        "SourceCategoryId": 15,
+        "SourceCategoryName": "电子书"
+      },
+      {
+        "Name": "软件工具",
+        "Url": "https://www.onlinezzd.com/category-5.html",
+        "SourceCategoryId": 14,
+        "SourceCategoryName": "软件工具"
+      },
+      {
+        "Name": "音乐资源",
+        "Url": "https://www.onlinezzd.com/category-3.html",
+        "SourceCategoryId": 1,
+        "SourceCategoryName": "音乐歌曲"
+      }
+    ],
+    "CreateTime": "2026-11-27 17:37:54",
+    "UpdateTime": "2026-11-27 18:27:17"
+  },
+  {
+    "Id": "fc03e6ee513a4e16a6c2fff4aaeb90e2",
+    "SiteName": "盘它分享",
+    "SiteUrl": "https://www.pantashare.com",
+    "Categories": [
+      {
+        "Name": "AI学习类",
+        "Url": "https://www.pantashare.com/category/AI%E5%AD%A6%E4%B9%A0%E7%B1%BB/",
+        "SourceCategoryId": 6,
+        "SourceCategoryName": "AI学习类"
+      },
+      {
+        "Name": "两性相关",
+        "Url": "https://www.pantashare.com/category/%E4%B8%A4%E6%80%A7%E7%9B%B8%E5%85%B3/",
+        "SourceCategoryId": 12,
+        "SourceCategoryName": "两性相关"
+      },
+      {
+        "Name": "剪辑摄影",
+        "Url": "https://www.pantashare.com/category/%E5%89%AA%E8%BE%91%E6%91%84%E5%BD%B1/",
+        "SourceCategoryId": 5,
+        "SourceCategoryName": "剪辑摄影"
+      },
+      {
+        "Name": "副业自媒体",
+        "Url": "https://www.pantashare.com/category/%E5%89%AF%E4%B8%9A%E8%87%AA%E5%AA%92%E4%BD%93/",
+        "SourceCategoryId": 17,
+        "SourceCategoryName": "赚钱副业"
+      },
+      {
+        "Name": "古籍文献",
+        "Url": "https://www.pantashare.com/category/%E5%8F%A4%E7%B1%8D%E6%96%87%E7%8C%AE/",
+        "SourceCategoryId": 9,
+        "SourceCategoryName": "古籍文献"
+      },
+      {
+        "Name": "壁纸图库",
+        "Url": "https://www.pantashare.com/category/%E5%A3%81%E7%BA%B8%E5%9B%BE%E5%BA%93/",
+        "SourceCategoryId": 4,
+        "SourceCategoryName": "图库壁纸"
+      },
+      {
+        "Name": "影视剧集",
+        "Url": "https://www.pantashare.com/category/%E5%BD%B1%E8%A7%86%E5%89%A7%E9%9B%86/",
+        "SourceCategoryId": 16,
+        "SourceCategoryName": "影视剧集"
+      },
+      {
+        "Name": "教育资料",
+        "Url": "https://www.pantashare.com/category/%E6%95%99%E8%82%B2%E8%B5%84%E6%96%99/",
+        "SourceCategoryId": 13,
+        "SourceCategoryName": "教育资料"
+      },
+      {
+        "Name": "特殊资源",
+        "Url": "https://www.pantashare.com/category/%E7%89%B9%E6%AE%8A%E8%B5%84%E6%BA%90/",
+        "SourceCategoryId": 2,
+        "SourceCategoryName": "特殊资源"
+      },
+      {
+        "Name": "生活技能",
+        "Url": "https://www.pantashare.com/category/%E7%94%9F%E6%B4%BB%E6%8A%80%E8%83%BD/",
+        "SourceCategoryId": 11,
+        "SourceCategoryName": "学习教程"
+      },
+      {
+        "Name": "电子书类",
+        "Url": "https://www.pantashare.com/category/%E7%94%B5%E5%AD%90%E4%B9%A6%E7%B1%BB/",
+        "SourceCategoryId": 0,
+        "SourceCategoryName": ""
+      },
+      {
+        "Name": "英语资料",
+        "Url": "https://www.pantashare.com/category/%E8%8B%B1%E8%AF%AD%E8%B5%84%E6%96%99/",
+        "SourceCategoryId": 0,
+        "SourceCategoryName": ""
+      },
+      {
+        "Name": "软件工具",
+        "Url": "https://www.pantashare.com/category/%E8%BD%AF%E4%BB%B6%E5%B7%A5%E5%85%B7/",
+        "SourceCategoryId": 0,
+        "SourceCategoryName": ""
+      },
+      {
+        "Name": "音乐歌曲",
+        "Url": "https://www.pantashare.com/category/%E9%9F%B3%E4%B9%90%E6%AD%8C%E6%9B%B2/",
+        "SourceCategoryId": 1,
+        "SourceCategoryName": "音乐歌曲"
+      },
+      {
+        "Name": "风水玄学",
+        "Url": "https://www.pantashare.com/category/%E9%A3%8E%E6%B0%B4%E7%8E%84%E5%AD%A6/",
+        "SourceCategoryId": 3,
+        "SourceCategoryName": "风水玄学"
+      }
+    ],
+    "CreateTime": "2026-11-27 19:28:14",
+    "UpdateTime": "2026-11-27 19:29:41"
   }
 ]
