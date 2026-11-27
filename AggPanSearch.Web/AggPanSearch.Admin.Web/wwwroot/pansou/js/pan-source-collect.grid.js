@@ -66,23 +66,6 @@
             : { text: '链接无效', type: 'warn' };
     }
 
-    // 图片地址是否可用：可能只有空白项，拆分后为空数组即视为无图
-    function hasImage(value) {
-        return ys.cardList.parseImages(value).length > 0;
-    }
-
-    // 本地图片状态：卡片不展示本地图片，只给出「是否已下载到本地」的结论
-    // 「无原图」表示采集时就没抓到图，无法下载；「未下载」表示有原图但还没下载到本机
-    function localImageTag(row) {
-        if (hasImage(row ? row.ImageUrl : '')) {
-            return { text: '已下载', type: 'ok' };
-        }
-        if (hasImage(row ? row.CollectImageUrl : '')) {
-            return { text: '未下载', type: 'warn' };
-        }
-        return { text: '无原图', type: 'mute' };
-    }
-
     // 文件大小：数据库存 M 整数（采集分析按 1024 进制换算），这里还原为可读文本
     // 空 / 0 / 未分析（null）时返回空串不展示；>=1T 显示 x.xT，>=1G 显示 x.xG，>=1M 显示 xM，不足 1M 显示 xK
     function formatFileSize(fileSize) {
@@ -140,7 +123,7 @@
         var sourceText = source === '' ? '来源未知' : source;
         var timeText = ns.renderTime(row.BaseCreateTime);
 
-        var cardTags = [categoryTag(row.SourceCategoryId), validTag(row.IsLinkValid), localImageTag(row)];
+        var cardTags = [categoryTag(row.SourceCategoryId), validTag(row.IsLinkValid)];
         return '<div class="collect-card" data-id="' + cl.escHtml(id) + '">' +
             cl.renderCover(cl.parseImages(row.CollectImageUrl)) +
             '<div class="collect-card-body">' +

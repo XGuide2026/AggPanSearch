@@ -476,6 +476,11 @@ namespace AggPanSearch.Business.PanManage.Quark
                 IsTime = 0,
                 PageViews = 0,
                 Sort = 0,
+                // 转存保留采集资源的分类归属：pan_source.SourceCategoryId 是 int 列，
+                // 0 / 负数 / 超出 int 范围的分类ID（雪花ID）一律视为未分类写 NULL，与后台判定保持一致
+                SourceCategoryId = record.SourceCategoryId is long cid && cid > 0 && cid <= int.MaxValue
+                    ? (int?)cid
+                    : null,
                 // 「资源信息分析」三字段随采集记录拷贝到本地资源，便于前台/后台直接展示
                 FileCount = record.FileCount,
                 FileSize = record.FileSize,

@@ -179,13 +179,10 @@ namespace AggPanSearch.Admin.Web.Areas.UserFrontend.Models
     /// <summary>首页模型。</summary>
     public class IndexPageModel
     {
-        public List<ResourceItem> NewList { get; set; } = new List<ResourceItem>();
         // 资源分类（与"资源分类"页同一数据源 pan_source_category）
         public List<CategoryItem> Categories { get; set; } = new List<CategoryItem>();
         // 分类资源列表（与"资源分类"页右侧列表同一数据源 pan_source）
         public List<ResourceItem> CategoryList { get; set; } = new List<ResourceItem>();
-        public List<RankBlock> HotList { get; set; } = new List<RankBlock>();
-        public List<string> RankList { get; set; } = new List<string>();
     }
 
     /// <summary>资源分类页模型，左侧分类 + 右侧资源列表。</summary>

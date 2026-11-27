@@ -569,16 +569,13 @@ namespace AggPanSearch.Admin.Web.Areas.UserFrontend.Services
 
         public IndexPageModel GetIndexData()
         {
-            // 直接复用"资源分类"页的取数逻辑：分类列表 + 最新资源来自同一份查询结果，
-            // 首页不再单独查数据库，保证两处数据一致（都是 pan_source_category / pan_source）
+            // 首页只取真实数据：分类来自 pan_source_category，分类资源列表来自 pan_source，
+            // 两处与"资源分类"页同源；表为空时不填充任何示例数据，页面显示"暂无数据"。
             var category = GetCategory(1, 6, 0);
             return new IndexPageModel
             {
-                NewList = _allItems.Take(8).ToList(),
                 Categories = category.Categories,
-                CategoryList = category.Items,
-                HotList = BuildHotList(),
-                RankList = new List<string> { "电影", "电视剧", "动漫", "综艺", "短剧" }
+                CategoryList = category.Items
             };
         }
 
@@ -792,17 +789,9 @@ namespace AggPanSearch.Admin.Web.Areas.UserFrontend.Services
             }
             catch
             {
-                // pan_source 表不存在或数据库不可用时回退示例数据，保证页面可渲染
+                // pan_source 表不存在或数据库不可用时保持空列表，页面显示"暂无数据"，不兜底示例数据
             }
 
-            if (model.Items.Count == 0 && model.TotalResult == 0)
-            {
-                var fallback = categoryId > 0
-                    ? _allItems.Where(i => i.SourceCategoryId.GetValueOrDefault() == categoryId).ToList()
-                    : _allItems;
-                model.TotalResult = fallback.Count;
-                model.Items = fallback.Skip((pageNo - 1) * pageSize).Take(pageSize).ToList();
-            }
             return model;
         }
 
